@@ -1620,6 +1620,8 @@ PixelShader PS_L_Array[2] = {
     compile ps_2_0 PS_L_Array_Shader_1(), 
 };
 
+//start shadow projection
+
 struct VSCreateShadowMap_Array_Shader_0_Input
 {
     float4 position : POSITION;
@@ -1758,6 +1760,8 @@ PixelShader PSCreateShadowMap_Array[2] = {
     compile ps_2_0 PSCreateShadowMap_Array_Shader_1(), 
 };
 
+// expressions?
+
 float _CreateShadowMap_Expression21()
 {
     float1 expr0;
@@ -1824,6 +1828,8 @@ float Default_Expression28()  //high vertex shader
     expr0.x = min(NumJointsPerVertex.x, (1));
     return expr0;
 }
+
+//start techniques
 
 technique Default
 {

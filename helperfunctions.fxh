@@ -1,4 +1,4 @@
-float helper_shadowpcf (
+float helper_shadowpcf (    //CROSS SHAPE SAMPLED
     int ShadowPCFlevel,         //replace with needed blur radius
     sampler2D ShadowMapSampler, //replace with the sampler you used in pixel shader
     float OneOverMapSize,       //replace with "Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w"
@@ -17,41 +17,50 @@ float helper_shadowpcf (
 
         countSAMPLES +=2 ;
     }
-    ShadowDensity = saturate (ShadowDensity / countSAMPLES) ;
+    ShadowDensity = saturate (ShadowDensity / countSAMPLES) ;  //TOTAL SAMPLE 4*LEVEL+2
     //float sunlight = 1-ShadowDensity;
     //return sunlight*sunlight ;  //sunlight brightness
     return 1- ShadowDensity;
 }
 
-float helper_BRDF_microfacet (
+float3 helper_BRDF_microfacet (
     float3 L,
     float3 V,
     float3 N,
     float  roughness_alpha, //rough"alpha" in microfacet model
-    float  metalmap,
+    float  metalness,
+    float3 albedopaint,
+    float3 albedometal,
     float2 FresnelF0toSide )
 {
     if ( dot(L,N)<0 ) {return 0;} else {
-    float resultbrightness;
+    float totallight;
     float3 H = normalize(L+V); //halfway vector, also the nrm of microfacet mirror
-    return resultbrightness;}
+    return totallight;}
 }
 
-float helper_BRDF_reflectangle (
+float3 helper_BRDF_reflectangle ( //assume: light is white, but albedo still influence color
     float3 L,
     float3 R,
     float3 N,
-    float  roughness_limitdegLR, //angle limit of this pixel
-    float  metalmap,
-    float2 FresnelV )
+    float  roughness_limitangleLR, //angle limit of this pixel
+    float  metalness,
+    float3 albedopaint,
+    float3 albedometal,
+    float FresnelV )
 {
-    if ( dot(L,N)<0 ) {return 0;} else {
-    float resultbrightness;
+    float cosLN = dot(L,N) ;
+    if ( cosLN<0 ) {return 0;} else {
     float cosLR = dot(L,R);
-    float arcangleLR = degrees(acos(cosLR));
-    float specblur_peakbrightness = 1/ pow( (roughness_limitdegLR/90) ,2); 
-    //assume when roughness make angle limit =90, peak brightness is 100% baseline
-    return resultbrightness;}
+    float angleLR = degrees(acos(cosLR));
+    float specblur_peakbrightness = 1/ pow( (roughness_limitangleLR /90) ,2); 
+    //assume: when roughness make angle limit =90, peak brightness is 1.0 baseline
+    float specblur_gradient = specblur_peakbrightness *(1- saturate(angleLR / roughness_limitangleLR) );
+    float3 spec_ifmetal = specblur_gradient * albedometal ;
+    float3 spec_ifpaint = float3(1,1,1)* specblur_gradient * FresnelV ;
+    float3 paint_specplusdiff = spec_ifpaint + albedopaint * cosLN; //LAMBERTIAN
+    float3 totallight = lerp( paint_specplusdiff , spec_ifmetal , metalness) ;
+    return totallight*0.25 ;}
 }
 
 float4 helper_cliffcolor (
@@ -66,8 +75,8 @@ float4 helper_cliffcolor (
     {resultcolor = tex2D(ORIGINALsampler, originaluv);}
     else
     {
-        float4 Xside = tex2D(WRAPsampler, worldposition.yz/80);
-        float4 Yside = tex2D(WRAPsampler, worldposition.xz/80);
+        float4 Xside = tex2D(WRAPsampler, worldposition.yz*0.0125);
+        float4 Yside = tex2D(WRAPsampler, worldposition.xz*0.0125);
         resultcolor = (worldnrm.x > worldnrm.y) ? Xside : Yside ;
     }
     return resultcolor;
@@ -131,7 +140,7 @@ float helper_OCTAshadowpcf (
 
         countSAMPLES +=8 ;
     }
-    ShadowDensity = saturate (ShadowDensity / countSAMPLES) ;
+    ShadowDensity = saturate (ShadowDensity / countSAMPLES) ;  //TOTAL SAMPLE 8*LEVEL+1
     //float sunlight = 1-ShadowDensity;
     //return sunlight*sunlight ;  //sunlight brightness
     return 1- ShadowDensity;
