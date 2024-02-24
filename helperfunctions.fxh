@@ -4,8 +4,9 @@ float helper_shadowpcf (    //CROSS SHAPE SAMPLED
     float OneOverMapSize,       //replace with "Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w"
     float3 ShadowProjection )   //should be an input texcoord, XY being sampling coord, Z being distance to skylight
 {
+    ShadowPCFlevel = clamp(ShadowPCFlevel, 1,4);
     float ShadowDensity = 0; float ShadowDepth; float2 ThisShiftUV; int countSAMPLES; //merely local variabels
-    for (int countSHIFT = - ShadowPCFlevel; countSHIFT <= ShadowPCFlevel; countSHIFT ++)
+    for (float countSHIFT = 0.5- ShadowPCFlevel; countSHIFT < ShadowPCFlevel; countSHIFT ++)
     {
         ThisShiftUV = ShadowProjection.xy + float2 (OneOverMapSize * countSHIFT , 0); //LEFT TO RIGHT
         ShadowDepth = tex2D(ShadowMapSampler, ThisShiftUV);
@@ -34,8 +35,51 @@ float3 helper_BRDF_microfacet (
     float2 FresnelF0toSide )
 {
     if ( dot(L,N)<0 ) {return 0;} else {
-    float totallight;
+    float3 totallight;
     float3 H = normalize(L+V); //halfway vector, also the nrm of microfacet mirror
+    return totallight;}
+}
+
+float3 helper_BRDF_simple (  //with fixed roughness, microfacet model, blinn specular
+    float3 L,
+    float3 V,
+    float3 N,
+    float  metalness,
+    float4 bothF0, //RGB metal F0, W paint F0
+    float3 albedo_diffuse) //only work on paint, cameo color
+{
+    float cosLN = dot(L,N) ;
+    if ( cosLN<0 ) {return 0;} else {
+    float3 H = normalize(L+V); //halfway vector, also the nrm of microfacet mirror
+    float  fresnel = lerp( bothF0.w , 1, pow(1-dot(H,V) , 4) ) ; //schlick approx fresnel but softer
+    float  lambertian = (1-fresnel) * cosLN * 0.3 ;  //0.3 as 1/pie
+    float  distribution = pow( dot(H,N) , 4) ; //square cos, increase power to more glossiness
+    //can also be:  pow( dot(H,N) , specexp) 
+    float3 color_ifmetal = bothF0.rgb * distribution ;
+    float3 color_ifpaint = float3(1,1,1) * distribution * fresnel + lambertian * albedo_diffuse;
+    float3 totallight = lerp(color_ifpaint, color_ifmetal, metalness);
+    return totallight;}
+}
+
+float3 helper_BRDF_simple_detailed (  //with adjustable roughness on both material
+    float3 L,
+    float3 V,
+    float3 N,
+    float  metalness,
+    float4 bothF0, //RGB metal F0, W paint F0
+    float3 albedo_diffuse,
+    float4 OtherReflectionData  )  //X=paint spec expo, Y=metal spec expo, Z=lambertian brightness, W=paint F90
+{
+    float cosLN = dot(L,N) ;
+    if ( cosLN<0 ) {return 0;} else {
+    float3 H = normalize(L+V); //halfway vector, also the nrm of microfacet mirror
+    float  fresnel = lerp( bothF0.w , 1, pow(1-dot(H,V) , 4) ) ; //schlick approx fresnel but softer
+    float  lambertian = (1-fresnel) * cosLN * 0.3 ;  //0.3 as 1/pie
+    float  distribution = pow( dot(H,N) , 4) ; //square cos, increase power to more glossiness
+    //can also be:  pow( dot(H,N) , specexp) 
+    float3 color_ifmetal = bothF0.rgb * distribution ;
+    float3 color_ifpaint = float3(1,1,1) * distribution * fresnel + lambertian * albedo_diffuse;
+    float3 totallight = lerp(color_ifpaint, color_ifmetal, metalness);
     return totallight;}
 }
 
@@ -47,7 +91,7 @@ float3 helper_BRDF_reflectangle ( //assume: light is white, but albedo still inf
     float  metalness,
     float3 albedopaint,
     float3 albedometal,
-    float FresnelV )
+    float  FresnelV )
 {
     float cosLN = dot(L,N) ;
     if ( cosLN<0 ) {return 0;} else {
@@ -58,7 +102,7 @@ float3 helper_BRDF_reflectangle ( //assume: light is white, but albedo still inf
     float specblur_gradient = specblur_peakbrightness *(1- saturate(angleLR / roughness_limitangleLR) );
     float3 spec_ifmetal = specblur_gradient * albedometal ;
     float3 spec_ifpaint = float3(1,1,1)* specblur_gradient * FresnelV ;
-    float3 paint_specplusdiff = spec_ifpaint + albedopaint * cosLN; //LAMBERTIAN
+    float3 paint_specplusdiff = spec_ifpaint + albedopaint * cosLN * 0.25; //LAMBERTIAN
     float3 totallight = lerp( paint_specplusdiff , spec_ifmetal , metalness) ;
     return totallight*0.25 ;}
 }
@@ -77,6 +121,25 @@ float4 helper_cliffcolor (
     {
         float4 Xside = tex2D(WRAPsampler, worldposition.yz*0.0125);
         float4 Yside = tex2D(WRAPsampler, worldposition.xz*0.0125);
+        resultcolor = (worldnrm.x > worldnrm.y) ? Xside : Yside ;
+    }
+    return resultcolor;
+}
+
+float4 helper_cliffcolorfold (
+    sampler ORIGINALsampler, 
+    sampler WRAPsampler,
+    float2 originaluv,
+    float3 worldnrm,
+    float worldZ ) 
+{
+    float4 resultcolor;
+    if (worldnrm.z > 0.7)
+    {resultcolor = tex2D(ORIGINALsampler, originaluv);}
+    else
+    {
+        float4 Xside = tex2D(WRAPsampler, (originaluv.y , worldZ*0.0125) );
+        float4 Yside = tex2D(WRAPsampler, (originaluv.x , worldZ*0.0125) );
         resultcolor = (worldnrm.x > worldnrm.y) ? Xside : Yside ;
     }
     return resultcolor;

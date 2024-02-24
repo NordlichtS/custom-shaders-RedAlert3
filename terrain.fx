@@ -966,7 +966,7 @@ float4 PS_TerrainTile_Array_Shader_3(PS_TerrainTile_Array_Shader_3_Input i) : CO
     */
 
     temp2.x = helper_shadowpcf(
-        2,//ShadowPCFlevel,
+        3,//ShadowPCFlevel,
         ShadowMapSampler,
         Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w, 
         i.texcoord6.xyz) ;
@@ -1270,7 +1270,7 @@ float4 PS_Cliff_Array_Shader_1(PS_Cliff_Array_Shader_1_Input i) : COLOR
     temp2.w = temp2.w * float1(0.25);
     */
     temp2.w = helper_shadowpcf(
-        3,//ShadowPCFlevel,
+        4,//ShadowPCFlevel,
         ShadowMapSampler,
         Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w, 
         i.texcoord6.xyz) ;
@@ -1549,9 +1549,11 @@ float4 PS_Road_Array_Shader_1(PS_Road_Array_Shader_1_Input i) : COLOR
     temp3.w = temp2.w * temp4.x;
     temp2.w = 1.0f / i.texcoord6.w;
     temp3.xy = temp2.ww * i.texcoord6.xy;
-    temp4.x = i.texcoord6.z * temp2.w + float1(-0.0015);
+    temp4.x = i.texcoord6.z * temp2.w + float1(-0.002); //object to sunlight distance
 
-
+    float3 ShadowProjection ; 
+    ShadowProjection.xy = temp3.xy ;  //xy= shadow map uv coord
+    ShadowProjection.z = temp4.x ;  //z= object to sunlight (depth)
     /*
     temp5 = tex2D(ShadowMapSampler, temp3.xy);
     temp3.xy = i.texcoord6.xy * temp2.ww + Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.zx;
@@ -1563,14 +1565,13 @@ float4 PS_Road_Array_Shader_1(PS_Road_Array_Shader_1_Input i) : COLOR
     temp5.y = temp6.x;
     temp5.z = temp7.x;
     temp5.w = temp8.x;
-    temp4 = -temp4.x + temp5;
-    temp4 = (temp4 >= 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 0);
+    temp4 = -temp4.x + temp5;  //means: if temp5 - temp4.x >= 0 , has sunlight. temp5(all 4 sunlight depth)>temp4.x(object depth) ,
+    temp4 = (temp4 >= 0) ? float4(1, 1, 1, 1) : float4(0, 0, 0, 0); 
     temp2.w = dot(float4(1, 1, 1, 1), temp4);
-    temp2.w = temp2.w * float1(0.25);
+    temp2.w = temp2.w * float1(0.25); //sunlight intensity
     */
-    float3 ShadowProjection = (temp3.x, temp3.y, temp4.x);
-    temp2.x = helper_shadowpcf(
-        3,//ShadowPCFlevel,
+    temp2.w = helper_shadowpcf(
+        2,//ShadowPCFlevel,
         ShadowMapSampler,
         Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w, 
         ShadowProjection) ;
@@ -1852,7 +1853,7 @@ float4 PS_Scorch_Array_Shader_1(PS_Scorch_Array_Shader_1_Input i) : COLOR
     temp0.w = temp0.w * temp2.w;
     temp0.w = temp0.w * float1(0.25);
     */
-    temp2.x = helper_shadowpcf(
+    temp0.w = helper_shadowpcf(
         2,//ShadowPCFlevel,
         ShadowMapSampler,
         Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w, 
