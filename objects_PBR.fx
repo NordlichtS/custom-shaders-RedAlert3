@@ -30,40 +30,37 @@ texture NormalMap
 texture SpecMap 
 <string UIName = "SpecMap";>; 
 
-bool spm_rise
-<string UIName = "spm_rise(MOREmetal)";> = 1; 
-
 float ambient_multiply
 <string UIName = "ambient_multiply"; 
-string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0; float UIStep = 0.01 ;> = { 0.2 };
+string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0; float UIStep = 0.01 ;> = { 0.12 };
 
 float diffuse_multiply
 <string UIName = "diffuse_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 0.8 };
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 0.5 };
 
 float spec_multiply
 <string UIName = "spec_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;> = { 1.2 };
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;> = { 1.0 };
 
 float glow_multiply
 <string UIName = "glow_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;> = { 1.5 };
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;> = { 0.0 };
 
 float pointlight_multiply
 <string UIName = "pointlight_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;> = { 1.2 };
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;> = { 1.0 };
 
 float pointlight_peak
 <string UIName = "pointlight_peak"; 
-string UIWidget = "Slider"; float UIMax = 8; float UIMin = 1; float UIStep = 0.1 ;> = { 1.25 };
+string UIWidget = "Slider"; float UIMax = 8; float UIMin = 1; float UIStep = 0.1 ;> = { 1.5 };
 
-float metalf0saturation
-<string UIName = "metalf0saturation"; 
+float fixed_saturation
+<string UIName = "fixed_saturation"; 
 string UIWidget = "Slider"; float UIMax = 32; float UIMin = 0.1; float UIStep = 0.1 ;> = { 16 };
 
 float roughness
 <string UIName = "roughness(microfacet-distribution)"; 
-string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0.12; float UIStep = 0.01;> = { 0.24 };
+string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0.12; float UIStep = 0.01;> = { 0.2 };
 
 bool AlphaTestEnable 
 <string UIName = "AlphaTestEnable";> =1;
@@ -296,9 +293,9 @@ VS_H_Array_Shader_0_Output VS_H_Array_Shader_0(VS_H_Array_Shader_0_Input i)  //n
     o.texcoord2.z = temp0.y;
     o.texcoord3.z = temp0.z;
     temp0.x = max(temp0.w, float1(0));
-    temp0.xyz = temp0.xxx * DirectionalLight[2].Color.xyz;
+    temp0.xyz = temp0.xxx ;//* DirectionalLight[2].Color.xyz;
     temp1.z = float1(0.1);
-    temp0.xyz = AmbientLightColor.xyz * temp1.zzz + temp0.xyz;
+    temp0.xyz =  temp1.zzz + temp0.xyz; //amb
     temp0.xyz = temp0.xyz * i.color.xyz;
     temp0.w = OpacityOverride.x;
     temp1 = i.color.w * float4(0, 0, 0, 1) + float4(0.5, 0.5, 0.5, 0);
@@ -338,6 +335,8 @@ VS_H_Array_Shader_0_Output VS_H_Array_Shader_0(VS_H_Array_Shader_0_Input i)  //n
     temp0.z = dot(temp1, (ShadowMapWorldToShadow._m01_m11_m21_m31));
     temp0.w = dot(temp1, (ShadowMapWorldToShadow._m02_m12_m22_m32));
     o.texcoord5.xyz = temp0.xzw * temp0.yyy + float3(0, 0, -0.002); //0.0015
+
+    o.color.xyz = AmbientLightColor.xyz ;
 
     return o;
 }
@@ -399,9 +398,9 @@ VS_H_Array_Shader_1_Output VS_H_Array_Shader_1(VS_H_Array_Shader_1_Input i)  //h
     temp2.xyz = WorldBones[0 + addr0.x].zxy * -temp2.yzx + temp3.xyz;
     temp2.w = dot(temp2.xyz, DirectionalLight[2].Direction.xyz);
     temp2.w = max(temp2.w, float1(0));
-    temp3.xyz = temp2.www * DirectionalLight[2].Color.xyz;
+    temp3.xyz = temp2.www ;//* DirectionalLight[2].Color.xyz;
     temp2.w = float1(0.1);
-    temp3.xyz = AmbientLightColor.xyz * temp2.www + temp3.xyz;
+    temp3.xyz =  temp2.www + temp3.xyz; //amb
     temp1.xyz = temp3.xyz * i.color.xyz;
     o.color = temp0 * temp1;
     temp0 = i.position.zxyy * WorldBones[0 + addr0.x].yzxy;
@@ -457,6 +456,8 @@ VS_H_Array_Shader_1_Output VS_H_Array_Shader_1(VS_H_Array_Shader_1_Input i)  //h
     temp0.y = 1.0f / temp0.x;
     o.texcoord5.w = temp0.x;
     o.texcoord5.xyz = temp1.xyz * temp0.yyy + float3(0, 0, -0.002); //0.0015
+
+    o.color.xyz = AmbientLightColor.xyz ;
 
     return o;
 }
@@ -515,25 +516,27 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
 
 //get textures
     float4 texcolor = tex2D(DiffuseTextureSampler, i.texcoord.xy);
-    float3 nrm      = tex2D(DiffuseTextureSampler, i.texcoord.xy);
+    float3 nrm      = tex2D(NormalMapSampler,      i.texcoord.xy);
     float4 spm      = tex2D(SpecMapSampler,        i.texcoord.xy);
-    if (spm_rise){
-        spm.x = 1- spm.x ;
-        spm.x = pow(spm.x , 2) ;
-        spm.x = 1- spm.x ; }
-    float spmsquare = spm.x * spm.x ;
+
+    out_color.w = i.color.w * texcolor.w;
+    if (AlphaTestEnable && texcolor.w <0.5 ) {discard ;};
+
+    //float spmsquare = spm.x * spm.x ;
     if (! HasRecolorColors) {spm.z =0 ;};
-    float spec_howsmall = spm.x / (roughness * roughness) ; //one over alpha, aka glossiness
+    float spec_howsmall = spm.x / (roughness*roughness) ; //one over alpha, aka glossiness
 
-//basic mixing
+    if (GAMMAcorrection) { texcolor.xyz *= texcolor.xyz ;};
     float3 albedo_color = lerp( texcolor.xyz, (texcolor.xyz * RecolorColor.xyz) , spm.z );  //hc mix
-    if (GAMMAcorrection) { albedo_color *= albedo_color ;};
-
-    float3 satfix = albedo_color.rgb + (float3(1,1,1) / metalf0saturation) ; //avoid zero
+    
+    float3 satfix = albedo_color.rgb + (float3(1,1,1) / fixed_saturation) ; //avoid zero
+    satfix = lerp(satfix, RecolorColor, spm.z);
     satfix.rgb /= max(satfix.b , max(satfix.r , satfix.g));
-    satfix = pow(satfix , 3) ;
-    float3 metalf0 = lerp ( float3(1,1,1) , satfix.rgb , spmsquare ) ;
-    float3 color_ifglow = satfix.rgb * glow_multiply; //glow color will replace all BRDF
+    satfix = pow(satfix , 2) ;
+    float3 metalf0 = lerp ( float3(1,1,1) , satfix.rgb , spm.x ) ; //spm square needed? idk
+
+    float3 glowcolor = satfix.rgb * glow_multiply * spm.y ; //it's additive
+    glowcolor = pow(glowcolor, 2) ; //extra gradient
 
     float3 real_diffusecolor = albedo_color.xyz * (1- spm.x) ; //diffuse lost at metal =1
 
@@ -559,13 +562,14 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
 
     float3 Lsun      = DirectionalLight[0].Direction.xyz ;
     float3 sun_color = DirectionalLight[0].Color.xyz ;
-    float  sun_tilt  = saturate( dot(N,Lsun) );
+    float  sun_tilt  = saturate(dot(N,Lsun)) ;
     float3 Hsun = normalize(V + Lsun) ;
 
 //ambient light diffuse //DO NOT USE "AmbientLightColor" this thing only exist in VS register!
     float  ground_sky_lerpw = saturate(N.z + 1)  ; // (N.z * sharpness + 1)
-    float3 ground_color = min (DirectionalLight[1].Color.xyz , DirectionalLight[2].Color.xyz) ;
-    float3 sky_color    = max (DirectionalLight[1].Color.xyz , DirectionalLight[2].Color.xyz) ;
+    //float3 ground_color = min (DirectionalLight[1].Color.xyz , DirectionalLight[2].Color.xyz) ;
+    float3 ground_color = i.color.xyz ;
+    float3 sky_color    = max (DirectionalLight[1].Color.xyz , DirectionalLight[2].Color.xyz) + i.color.xyz;
     float  skyAOcolor = lerp ( ground_color , sky_color , ground_sky_lerpw ) ;
     float3 diffuse_ambient = real_diffusecolor.xyz * skyAOcolor * ambient_multiply ; //* diffuse_multiply; 
 
@@ -576,14 +580,15 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
     float  spec_dist = saturate( dot(Hsun,N) );
     spec_dist = saturate(spec_dist * spec_howsmall - spec_howsmall +1 ); //spec light blur within radius
     if (sun_tilt <= 0) {spec_dist = 0 ;};
-    spec_dist = pow(spec_dist, 3) ; //simulate standard distribution
-    float3 spec_sunlight = spec_multiply * spmsquare * spec_dist * metalf0.xyz ; 
+    spec_dist = pow(spec_dist, 4) ; //simulate standard distribution
+    //float  FresnelS = lerp( pow(spm.x, 2) , 1 , pow((1- dot(Hsun,V)), 4) ) ; //not accurate but worth a try
+    float3 spec_sunlight = spec_multiply * spm.x * spec_dist * metalf0.xyz ; //(spm.x*spm.x)
     
 //environmental mirror reflection
     float3 fake_skybox_lerpw = saturate(R.z * spec_howsmall *0.5 +0.5) ;
     float3 fake_skybox_color = lerp(ground_color, sky_color, fake_skybox_lerpw);
-    float  Fresnel = lerp( spmsquare , 1 , pow((1- EYEtilt), 4) ) ; //f0 is metalness
-    float  spec_ambient = fake_skybox_color * Fresnel * ambient_multiply * spm.x * metalf0.xyz ; //no spec multiply
+    float  FresnelV = lerp( pow(spm.x, 2) , 1 , pow((1- EYEtilt), 4) ) ; //f0 is metalness
+    float3 spec_ambient = fake_skybox_color * FresnelV * ambient_multiply * spm.x * metalf0.xyz ; //no spec multiply
 
 //shadow
     float not_shadow_density = helper_notshadow_inside (4, i.texcoord5.xyz) ;
@@ -603,13 +608,6 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
         float3 thispl_L = normalize(thispl_relative) ;
         float thispl_tilt = dot(thispl_L , N) ;
         if (thispl_tilt <=0) {continue;};
-        /*
-        float thispl_rangebase = max((PointLight[countpl].Range_Inner_Outer.x),(PointLight[countpl].Range_Inner_Outer.y /8)) ;
-        float thispl_rangesquare = pow(thispl_rangebase, 2) ;
-        float thispl_distancesquare = dot(thispl_relative, thispl_relative) ;
-        float thispl_decaymult = saturate(thispl_rangesquare / thispl_distancesquare) ;
-        float3 thispl_COLOR = thispl_decaymult * PointLight[countpl].Color.xyz ;
-        */
 
         float rangemin = PointLight[countpl].Range_Inner_Outer.x ; 
         float rangemax = PointLight[countpl].Range_Inner_Outer.y ; 
@@ -623,8 +621,8 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
         float3 H_pl = normalize(V + thispl_L) ;
         float  pl_specdist = saturate( dot(H_pl ,N) );
         pl_specdist = saturate(pl_specdist * spec_howsmall - spec_howsmall +1); 
-        pl_specdist = pow(pl_specdist, 3) ;
-        float3 spec_pl = spec_multiply * spmsquare * pl_specdist * metalf0.xyz ; 
+        pl_specdist = pow(pl_specdist, 4) ;
+        float3 spec_pl = spec_multiply * spm.x * pl_specdist * metalf0.xyz ; //(spm.x*spm.x)
 
         float3 thispl_total = (diffuse_pl + spec_pl) * thispl_COLOR.xyz ;
         pl_total += thispl_total.rgb ;
@@ -635,9 +633,10 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
     out_color.xyz = diffuse_ambient + spec_ambient + total_sunlight_influence + pl_total ;
     float3 warfog = tex2D(ShroudTextureSampler, i.texcoord6.xy);
     out_color.xyz *= warfog ;
-    out_color.xyz = lerp( out_color.xyz , color_ifglow, spm.y );
-    out_color.xyz = lerp( (out_color.xyz * TintColor.xyz) , out_color.xyz  , (EYEtilt * EYEtilt) ); //use fresnel side light
-    out_color.w = i.color.w * texcolor.w;
+    float blackbody = saturate(spm.y * glow_multiply) ;
+    out_color.xyz *= 1- blackbody ;
+    out_color.xyz += glowcolor ;
+    out_color.xyz = lerp( (out_color.xyz * TintColor.xyz) , out_color.xyz  , (EYEtilt*EYEtilt) ); //use fresnel side light
 
     return out_color;
 }
