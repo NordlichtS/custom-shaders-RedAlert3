@@ -32,11 +32,11 @@ texture SpecMap
 
 float ambient_multiply
 <string UIName = "ambient_multiply"; 
-string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0; float UIStep = 0.01 ;> = { 0.12 };
+string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0; float UIStep = 0.01 ;> = { 0.4 };
 
 float diffuse_multiply
 <string UIName = "diffuse_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 0.5 };
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 0.8 };
 
 float spec_multiply
 <string UIName = "spec_multiply"; 
@@ -48,25 +48,28 @@ string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1
 
 float pointlight_multiply
 <string UIName = "pointlight_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;> = { 1.0 };
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;> = { 1.2 };
 
 float pointlight_peak
 <string UIName = "pointlight_peak"; 
-string UIWidget = "Slider"; float UIMax = 8; float UIMin = 1; float UIStep = 0.1 ;> = { 1.5 };
+string UIWidget = "Slider"; float UIMax = 8; float UIMin = 1; float UIStep = 0.1 ;> = { 1.2 };
 
-float fixed_saturation
-<string UIName = "fixed_saturation"; 
+float fix_saturation
+<string UIName = "fix_saturation"; 
 string UIWidget = "Slider"; float UIMax = 32; float UIMin = 0.1; float UIStep = 0.1 ;> = { 16 };
 
 float roughness
 <string UIName = "roughness(microfacet-distribution)"; 
-string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0.12; float UIStep = 0.01;> = { 0.2 };
+string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0.1; float UIStep = 0.01;> = { 0.2 };
+
+float glassf0
+<string UIName = "glassf0(fresnel-decay)"; 
+string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0.01; float UIStep = 0.01;> = { 0.2 };
 
 bool AlphaTestEnable 
 <string UIName = "AlphaTestEnable";> =1;
 
-bool AlphaBlendEnable
-<string UIName = "AlphaBlendEnable";> =1;
+// bool AlphaBlendEnable <string UIName = "AlphaBlendEnable";> =1;
 
 bool GAMMAcorrection
 <string UIName = "GAMMAcorrection";> =1;  //gamma is always 2.0
@@ -520,20 +523,25 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
     float4 spm      = tex2D(SpecMapSampler,        i.texcoord.xy);
 
     out_color.w = i.color.w * texcolor.w;
-    if (AlphaTestEnable && texcolor.w <0.5 ) {discard ;};
-
-    //float spmsquare = spm.x * spm.x ;
+    if (AlphaTestEnable && texcolor.w <0.2 ) {discard ;};
     if (! HasRecolorColors) {spm.z =0 ;};
-    float spec_howsmall = spm.x / (roughness*roughness) ; //one over alpha, aka glossiness
+
+    float insulentf0 = max(texcolor.b , max(texcolor.r , texcolor.g)) ;  //glass judge before gamma
+    insulentf0 = saturate (insulentf0 + glassf0);
 
     if (GAMMAcorrection) { texcolor.xyz *= texcolor.xyz ;};
+
+    float spec_howsmall = spm.x / (roughness*roughness) ; //one over alpha, aka glossiness
+
     float3 albedo_color = lerp( texcolor.xyz, (texcolor.xyz * RecolorColor.xyz) , spm.z );  //hc mix
     
-    float3 satfix = albedo_color.rgb + (float3(1,1,1) / fixed_saturation) ; //avoid zero
+    float3 satfix = albedo_color.rgb + (float3(1,1,1) / fix_saturation) ; //avoid zero
     satfix = lerp(satfix, RecolorColor, spm.z);
     satfix.rgb /= max(satfix.b , max(satfix.r , satfix.g));
-    satfix = pow(satfix , 2) ;
-    float3 metalf0 = lerp ( float3(1,1,1) , satfix.rgb , spm.x ) ; //spm square needed? idk
+    satfix = pow(satfix , 3) ;
+    float3 f0spectrum = lerp ( float3(1,1,1) , satfix.rgb , spm.x ) ; //spm square needed? idk
+    f0spectrum = lerp(f0spectrum, RecolorColor, spm.z); //again!
+
 
     float3 glowcolor = satfix.rgb * glow_multiply * spm.y ; //it's additive
     glowcolor = pow(glowcolor, 2) ; //extra gradient
@@ -569,7 +577,8 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
     float  ground_sky_lerpw = saturate(N.z + 1)  ; // (N.z * sharpness + 1)
     //float3 ground_color = min (DirectionalLight[1].Color.xyz , DirectionalLight[2].Color.xyz) ;
     float3 ground_color = i.color.xyz ;
-    float3 sky_color    = max (DirectionalLight[1].Color.xyz , DirectionalLight[2].Color.xyz) + i.color.xyz;
+    float3 sky_color = max (DirectionalLight[1].Color.xyz , DirectionalLight[2].Color.xyz) ;
+    sky_color = sky_color * sky_color * ambient_multiply + i.color.xyz ;
     float  skyAOcolor = lerp ( ground_color , sky_color , ground_sky_lerpw ) ;
     float3 diffuse_ambient = real_diffusecolor.xyz * skyAOcolor * ambient_multiply ; //* diffuse_multiply; 
 
@@ -581,17 +590,20 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
     spec_dist = saturate(spec_dist * spec_howsmall - spec_howsmall +1 ); //spec light blur within radius
     if (sun_tilt <= 0) {spec_dist = 0 ;};
     spec_dist = pow(spec_dist, 4) ; //simulate standard distribution
-    //float  FresnelS = lerp( pow(spm.x, 2) , 1 , pow((1- dot(Hsun,V)), 4) ) ; //not accurate but worth a try
-    float3 spec_sunlight = spec_multiply * spm.x * spec_dist * metalf0.xyz ; //(spm.x*spm.x)
+    float  FresnelS = lerp( insulentf0 , 1 , pow((1- dot(Hsun,V)), 3) ) ; //not accurate but worth a try
+    float3 spec_sunlight = spec_dist * FresnelS * spm.x * f0spectrum.xyz * spec_multiply ; //(spm.x*spm.x)
     
 //environmental mirror reflection
-    float3 fake_skybox_lerpw = saturate(R.z * spec_howsmall *0.5 +0.5) ;
+    float3 fake_skybox_lerpw = R.z * 0.5 * spm.x / roughness   ;
+    fake_skybox_lerpw = saturate (fake_skybox_lerpw +0.5);
     float3 fake_skybox_color = lerp(ground_color, sky_color, fake_skybox_lerpw);
-    float  FresnelV = lerp( pow(spm.x, 2) , 1 , pow((1- EYEtilt), 4) ) ; //f0 is metalness
-    float3 spec_ambient = fake_skybox_color * FresnelV * ambient_multiply * spm.x * metalf0.xyz ; //no spec multiply
+    float  FresnelV = lerp( insulentf0 , 1 , pow((1- EYEtilt), 3) ) ; //f0 is metalness
+    float3 spec_ambient = fake_skybox_color * FresnelV * spm.x * f0spectrum.xyz *ambient_multiply ; //no spec multiply
+    //make sure it's float3 or it will turn grey!
 
 //shadow
     float not_shadow_density = helper_notshadow_inside (4, i.texcoord5.xyz) ;
+    not_shadow_density *= not_shadow_density ; //gamma shadow
     float3 total_sunlight_influence = ( diffuse_sunlight + spec_sunlight ) * sun_color.xyz * not_shadow_density ;
 
 //point lights
@@ -622,7 +634,7 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
         float  pl_specdist = saturate( dot(H_pl ,N) );
         pl_specdist = saturate(pl_specdist * spec_howsmall - spec_howsmall +1); 
         pl_specdist = pow(pl_specdist, 4) ;
-        float3 spec_pl = spec_multiply * spm.x * pl_specdist * metalf0.xyz ; //(spm.x*spm.x)
+        float3 spec_pl = spec_multiply * spm.x * pl_specdist * f0spectrum.xyz ; 
 
         float3 thispl_total = (diffuse_pl + spec_pl) * thispl_COLOR.xyz ;
         pl_total += thispl_total.rgb ;
@@ -784,7 +796,7 @@ technique Default
     pass p0 <string ExpressionEvaluator = "Objects";>
     {
         VertexShader = VS_H_Array[VSchooser_Expression()]; 
-        PixelShader  = PS_H_Array[0];    //[PSchooser_Expression()]; 
+        PixelShader  = PS_H_Array[0];    
         ZEnable = 1;
         ZFunc = 4;
         ZWriteEnable = 1;
@@ -793,7 +805,7 @@ technique Default
         DestBlend = 6;
         AlphaFunc = 7;
         AlphaRef = 96;
-        AlphaBlendEnable = (AlphaBlendEnable) ;
+        // AlphaBlendEnable = (AlphaBlendEnable) ;
     }
 }
 
@@ -819,7 +831,8 @@ technique Default_M
     pass p0 <string ExpressionEvaluator = "Objects";>
     {
         VertexShader = VS_H_Array[VSchooser_Expression()]; 
-        PixelShader  = PS_H_Array[0];    //[PSchooser_Expression()];         ZEnable = 1;
+        PixelShader  = PS_H_Array[0];             
+        ZEnable = 1;
         ZFunc = 4;
         ZWriteEnable = 1;
         CullMode = 2;
@@ -835,7 +848,8 @@ technique Default_L
     pass p0 <string ExpressionEvaluator = "Objects";>
     {
         VertexShader = VS_H_Array[VSchooser_Expression()]; 
-        PixelShader  = PS_H_Array[0];    //[PSchooser_Expression()];         ZEnable = 1;
+        PixelShader  = PS_H_Array[0];             
+        ZEnable = 1;
         ZFunc = 4;
         ZWriteEnable = 1;
         CullMode = 2;
