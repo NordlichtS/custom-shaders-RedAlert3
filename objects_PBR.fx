@@ -48,7 +48,7 @@ string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1
 
 float pointlight_multiply
 <string UIName = "pointlight_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;> = { 1.2 };
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;> = { 1.5 };
 
 float pointlight_peak
 <string UIName = "pointlight_peak"; 
@@ -64,12 +64,15 @@ string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0.1; float UIStep = 0
 
 float glassf0
 <string UIName = "glassf0(fresnel-decay)"; 
-string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0.01; float UIStep = 0.01;> = { 0.2 };
+string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0.01; float UIStep = 0.01;> = { 0.25 };
 
 bool AlphaTestEnable 
 <string UIName = "AlphaTestEnable";> =1;
 
 // bool AlphaBlendEnable <string UIName = "AlphaBlendEnable";> =1;
+
+bool HCcorrection
+<string UIName = "HCcorrection";> =1;  //extra brightness for HC
 
 bool GAMMAcorrection
 <string UIName = "GAMMAcorrection";> =1;  //gamma is always 2.0
@@ -77,7 +80,7 @@ bool GAMMAcorrection
 bool invert_tangent
 <string UIName = "invert_tangent(dxNRMfix)";> = 0;  //dx nrm fix
 
-//other parameters
+//other parameters ===================
 
 float3 AmbientLightColor
 : register(vs_2_0, c4) : register(vs_3_0, c4) <bool unmanaged = 1;> = { 0.3, 0.3, 0.3 };
@@ -533,14 +536,13 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
 
     float spec_howsmall = spm.x / (roughness*roughness) ; //one over alpha, aka glossiness
 
-    float3 albedo_color = lerp( texcolor.xyz, (texcolor.xyz * RecolorColor.xyz) , spm.z );  //hc mix
+    float3 albedo_color = texcolor.xyz; 
+    if (HCcorrection) {albedo_color = saturate(albedo_color + texcolor.xyz*spm.z ); }; //HC enhance
     
     float3 satfix = albedo_color.rgb + (float3(1,1,1) / fix_saturation) ; //avoid zero
-    satfix = lerp(satfix, RecolorColor, spm.z);
     satfix.rgb /= max(satfix.b , max(satfix.r , satfix.g));
-    satfix = pow(satfix , 3) ;
-    float3 f0spectrum = lerp ( float3(1,1,1) , satfix.rgb , spm.x ) ; //spm square needed? idk
-    f0spectrum = lerp(f0spectrum, RecolorColor, spm.z); //again!
+    satfix = pow(satfix , 2) ;
+    float3 f0spectrum = lerp ( float3(1,1,1) , satfix.rgb , spm.x ); //for metal
 
 
     float3 glowcolor = satfix.rgb * glow_multiply * spm.y ; //it's additive
@@ -648,6 +650,7 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
     float blackbody = saturate(spm.y * glow_multiply) ;
     out_color.xyz *= 1- blackbody ;
     out_color.xyz += glowcolor ;
+    out_color.xyz = lerp( out_color.xyz, (out_color.xyz * RecolorColor), spm.z); //haha i put HC here
     out_color.xyz = lerp( (out_color.xyz * TintColor.xyz) , out_color.xyz  , (EYEtilt*EYEtilt) ); //use fresnel side light
 
     return out_color;
