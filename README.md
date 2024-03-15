@@ -12,6 +12,8 @@ They all support up to 8 point lights (per mesh) all using microfacet BRDF to sh
 
 I will upload a few preview screenshots later.
 
+Compiled game-ready patch, download it here: https://www.moddb.com/mods/psysonic-omega/downloads/pbr-shader-patch
+
 terrain:  smooth shadow, RA2 style fog of war
 
 laserhc:  laser now glow as faction color, but you need to set the laser texture to white/grey first, otherwise the colors will be mixed
