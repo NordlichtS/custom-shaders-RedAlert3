@@ -1,19 +1,15 @@
-//MAKE SURE TO SET LASER'S OWN COLOR TO WHITE
+//COLOR EMMISSIVE RGB AVERAGE CONTROLS THE LUMINANCE
 
 string DefaultParameterScopeBlock = "material"; 
 float3 AmbientLightColor <bool unmanaged = 1;> = { 0.3, 0.3, 0.3 };
-struct {
-    float3 Color;
-    float3 Direction;
+
+struct {    float3 Color;    float3 Direction;
 } DirectionalLight[3] <bool unmanaged = 1;> = { 1.625198, 1.512711, 1.097048, 0.62914, -0.34874, 0.69465, 0.5232916, 0.6654605, 0.7815244, -0.32877, 0.90329, 0.27563, 0.4420466, 0.4102767, 0.4420466, -0.80704, -0.58635, 0.06975 };
-struct {
-    float3 Color;
-    float3 Position;
-    float2 Range_Inner_Outer;
+
+struct {    float3 Color;    float3 Position;    float2 Range_Inner_Outer;
 } PointLight[8] <bool unmanaged = 1;>;
-struct {
-    float4 WorldPositionMultiplier_XYZZ;
-    float2 CurrentOffsetUV;
+
+struct {    float4 WorldPositionMultiplier_XYZZ;    float2 CurrentOffsetUV;
 } Cloud <bool unmanaged = 1;>;
 float3 NoCloudMultiplier <bool unmanaged = 1;> = { 1, 1, 1 };
 
@@ -28,6 +24,9 @@ row_major float4x4 ViewProjection <bool unmanaged = 1;>;
 float4 WorldBones[128] <bool unmanaged = 1;>;
 column_major float4x4 World : World : register(vs_2_0, c15);
 column_major float4x4 WorldViewProjection : WorldViewProjection : register(vs_2_0, c11);
+
+
+
 texture Texture1 <string UIWidget = "None";>; 
 sampler2D Texture1Sampler : register(ps_2_0, s0) <string Texture = "Texture1"; string UIWidget = "None";> =
 sampler_state
@@ -39,6 +38,7 @@ sampler_state
     AddressU = 3;
     AddressV = 1;
 };
+
 texture Texture2 <string UIWidget = "None";>; 
 sampler2D Texture2Sampler : register(ps_2_0, s1) <string Texture = "Texture2"; string UIWidget = "None";> =
 sampler_state
@@ -50,11 +50,13 @@ sampler_state
     AddressU = 3;
     AddressV = 1;
 };
+
 float3 ColorEmissive : register(ps_2_0, c11) <string UIName = "Emissive Material Color"; string UIWidget = "Color";> = { 1, 1, 1 };
-struct
-{
-    float4 ScaleUV_OffsetUV;
-} Shroud : register(vs_2_0, c17) <string UIWidget = "None"; string SasBindAddress = "Terrain.Shroud";> = { 1, 1, 0, 0 };
+
+struct{    float4 ScaleUV_OffsetUV;} 
+Shroud : register(vs_2_0, c17) <string UIWidget = "None"; string SasBindAddress = "Terrain.Shroud";> = { 1, 1, 0, 0 };
+
+
 texture ShroudTexture <string UIWidget = "None"; string SasBindAddress = "Terrain.Shroud.Texture"; string ResourceName = "ShaderPreviewShroud.dds";>; 
 sampler2D ShroudTextureSampler : register(ps_2_0, s2) <string Texture = "ShroudTexture"; string UIWidget = "None"; string SasBindAddress = "Terrain.Shroud.Texture"; string ResourceName = "ShaderPreviewShroud.dds";> =
 sampler_state
@@ -66,6 +68,8 @@ sampler_state
     AddressU = 3;
     AddressV = 3;
 };
+
+//========================================
 
 struct Default_M_PixelShader1_Input
 {
@@ -88,7 +92,8 @@ float4 Default_M_PixelShader1(Default_M_PixelShader1_Input i) : COLOR
     temp3.w = max(temp0.x, float1(0));
     temp0.x = temp3.w + temp3.w;
     temp1 = temp1 * temp2;
-    temp0.yzw = temp1.zyx * ColorEmissive.zyx;
+    float luminance = (ColorEmissive.x + ColorEmissive.y + ColorEmissive.z) *0.4 ;
+    temp0.yzw = temp1.zyx * luminance;
     temp1.w = temp1.w * i.color.x;
     temp1.xyz = temp0.xxx * temp0.wzy * RecolorColor.xyz; //
     out_color = temp1;
@@ -157,12 +162,13 @@ float4 Default_PixelShader3(Default_PixelShader3_Input i) : COLOR
     temp3.w = max(temp0.x, float1(0));
     temp0.x = temp3.w + temp3.w;
     temp1 = temp1 * temp2;
-    temp0.yzw = temp1.zyx * ColorEmissive.zyx;
+    float luminance = (ColorEmissive.x + ColorEmissive.y + ColorEmissive.z) *0.4 ;
+    temp0.yzw = temp1.zyx * luminance;
     temp1.w = temp1.w * i.color.x;
     temp2.x = log2(temp0.w);
     temp2.y = log2(temp0.z);
     temp2.z = log2(temp0.y);
-    temp0.yzw = temp2.zyx * float3(2.2, 2.2, 2.2);
+    temp0.yzw = temp2.zyx * float3(2, 2, 2);
     temp2.x = exp2(temp0.w);
     temp2.y = exp2(temp0.z);
     temp2.z = exp2(temp0.y);
@@ -210,6 +216,8 @@ Default_VertexShader4_Output Default_VertexShader4(Default_VertexShader4_Input i
 
     return o;
 }
+
+//=====================================
 
 technique Default
 {
