@@ -32,19 +32,19 @@ texture SpecMap
 
 float ambient_multiply
 <string UIName = "ambient_multiply"; string SasBindAddress = "Sas.pbr_ambient_multiply";
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 0.25 }; //环境光与天空亮度
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 0.33 }; //环境光与天空亮度
 
 float diffuse_multiply
 <string UIName = "diffuse_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 0.8 }; //漫反射亮度，影响阳光与点光源
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 1.15 }; //漫反射亮度，影响阳光与点光源
 
 float spec_multiply
 <string UIName = "spec_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 1.6 }; //高光（镜面反射）亮度，影响阳光与点光源
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 2.85 }; //高光（镜面反射）亮度，影响阳光与点光源
 
 float pointlight_multiply
 <string UIName = "pointlight_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;> = { 2 }; //点光源反射整体亮度
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;> = { 1.4 }; //点光源反射整体亮度
 
 float fix_saturation
 <string UIName = "fix_saturation"; 
@@ -56,10 +56,10 @@ string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0.1; float UIStep = 0
 
 float glassf0
 <string UIName = "glassf0(fresnel-decay)"; 
-string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0.01; float UIStep = 0.01;> = { 0.16 }; //玻璃窗反射的菲涅尔效应，此值越暗效果越强烈
+string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0.01; float UIStep = 0.01;> = { 0.12 }; //玻璃窗反射的菲涅尔效应，此值越暗效果越强烈
 
 bool ignore_vertex_alpha
-<string UIName = "ignore_vertex_alpha";> =1 ; //仅原版建筑开启！强制忽略顶点透明度，避免建筑损坏时破洞贴图错误，但会让车辆损失隐身半透明效果
+<string UIName = "ignore_vertex_alpha";> =0 ; //仅原版建筑开启！强制忽略顶点透明度，避免建筑损坏时破洞贴图错误，但会让车辆损失隐身半透明效果
 
 bool AlphaTestEnable 
 <string UIName = "AlphaTestEnable";> =1 ; //贴图镂空。与上一个选项不冲突
@@ -73,15 +73,15 @@ bool GAMMAcorrection
 <string UIName = "GAMMAcorrection";> =1 ;  //SRGB颜色修正
 
 float tangent_xy_multiply
-<string UIName = "tangent_xy_multiply"; float UIMax = 2; float UIMin = -2; float UIStep = 0.1; > = 1;  //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。
+<string UIName = "tangent_xy_multiply"; float UIMax = 1; float UIMin = -1; float UIStep = 0.1; > ={ 1 };  //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。
 
 int SKY_index
 <string UIName = "SKY_index";
-string UIWidget = "Slider"; int UIMax = 10; int UIMin = 0;> = { 10 }; //选择哪个颜色为“天空”反射色
+string UIWidget = "Slider"; int UIMax = 10; int UIMin = 0;> ={ 10 }; //选择哪个颜色为 “天空”反射色
 
 int GROUND_index
 <string UIName = "GROUND_index";
-string UIWidget = "Slider"; int UIMax = 10; int UIMin = 0;> = { 7 }; //选择哪个颜色为“地面”反射色
+string UIWidget = "Slider"; int UIMax = 10; int UIMin = 0;> ={ 7  }; //选择哪个颜色为 “地面”反射色
 
 /*
 天空色和地面色的 INDEX :
@@ -576,7 +576,6 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
 
     float3 albedo_color = texcolor.xyz; 
     
-    
     float3 satfix = albedo_color.rgb + (float3(1,1,1) / fix_saturation) ; //avoid zero
     satfix.rgb /= max(satfix.b , max(satfix.r , satfix.g));
     satfix = pow(satfix , 3) ;
@@ -628,7 +627,7 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
     if (sun_tilt <= 0) {spec_dist = 0 ;};
     spec_dist = pow(spec_dist, 4) ; //simulate standard distribution
     // float  FresnelS = lerp( insulentf0 , 1 , pow((1- dot(Hsun,V)), 3) ) ; //not accurate but worth a try
-    float3 spec_sunlight = spec_dist * FresnelV * spm.x * f0spectrum.xyz * spec_multiply ; //(spm.x*spm.x)
+    float3 spec_sunlight = spec_dist * FresnelV * (spm.x*spm.x) * f0spectrum.xyz * spec_multiply ; //(spm.x*spm.x)
     
 //environmental mirror reflection
     float3 fake_skybox_lerpw = R.z * 0.5 * spm.x / roughness   ;
@@ -670,7 +669,7 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
         float  pl_specdist = saturate( dot(H_pl ,N) );
         pl_specdist = saturate(pl_specdist * spec_howsmall - spec_howsmall +1); 
         pl_specdist = pow(pl_specdist, 3) ;
-        float3 spec_pl = spec_multiply * spm.x * pl_specdist * f0spectrum.xyz ; 
+        float3 spec_pl = spec_multiply * (spm.x*spm.x) * pl_specdist * f0spectrum.xyz ; 
 
         float3 thispl_total = (diffuse_pl + spec_pl) * thispl_COLOR.xyz ;
         pl_total += thispl_total.rgb ;
