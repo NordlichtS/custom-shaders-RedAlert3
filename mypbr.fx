@@ -2,7 +2,7 @@
 //--------------
 //last modified by Nordlicht 
 //https://github.com/NordlichtS/custom-shaders-RedAlert3
-//based on Lanyi's decompiled HLSL code
+//with help from Lanyi's tool
 //https://github.com/lanyizi/DXDecompiler
 //improvements: (only on high quality pixel shaders)
 //spec map red channel as glossiness (also metalness)
@@ -36,11 +36,11 @@ string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.0
 
 float diffuse_multiply
 <string UIName = "diffuse_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 1.15 }; //漫反射亮度，影响阳光与点光源
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 1.05 }; //漫反射亮度，影响阳光与点光源
 
 float spec_multiply
 <string UIName = "spec_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 2.85 }; //高光（镜面反射）亮度，影响阳光与点光源
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 2.95 }; //高光（镜面反射）亮度，影响阳光与点光源
 
 float pointlight_multiply
 <string UIName = "pointlight_multiply"; 

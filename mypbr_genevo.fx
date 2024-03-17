@@ -1,18 +1,17 @@
 //Electronic Arts 2008 Red Alert 3 player units shader BUT WITH PBR ENHANCE!
 //--------------
+//OPTIMIZED FOR: GENERALS EVOLUTION MOD
 //last modified by Nordlicht 
 //https://github.com/NordlichtS/custom-shaders-RedAlert3
-//based on Lanyi's decompiled HLSL code
+//with help from Lanyi's tool
 //https://github.com/lanyizi/DXDecompiler
 //improvements: (only on high quality pixel shaders)
 //spec map red channel as glossiness (also metalness)
 //PBR shading with microfacet distribution model
 //up to 8 point light support, all BRDF
-//multiple adjustable parameters to make sure your textures can fit the style
-//can also use on vanilla units
+//multiple adjustable parameters to fit the style
 //make sure your models have correct smooth groups!
 //SOFT PCF SHADOWS 12 samples
-//gamma correction set to 2
 //----------
 
 #pragma warning(disable: 4008)
@@ -36,11 +35,11 @@ string UIWidget = "Slider"; float UIMax = 16; float UIMin = 0; float UIStep = 0.
 
 int SKY_index
 <string UIName = "SKY_index";
-string UIWidget = "Slider"; int UIMax = 10; int UIMin = 0;> = { 3 };
+string UIWidget = "Slider"; int UIMax = 10; int UIMin = 0;> = { 10 };  //choose which map light is sky
 
 int GROUND_index
 <string UIName = "GROUND_index";
-string UIWidget = "Slider"; int UIMax = 10; int UIMin = 0;> = { 7 };
+string UIWidget = "Slider"; int UIMax = 10; int UIMin = 0;> = { 4 };  //choose which map light is ground
 
 /*
 INDEX :
@@ -59,27 +58,27 @@ INDEX :
 
 float ambient_multiply
 <string UIName = "ambient_multiply"; string SasBindAddress = "Sas.pbr_ambient_multiply";
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 0.9 }; //total ambient light color
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 0.95 }; //total ambient light color
 
 float diffuse_multiply
 <string UIName = "diffuse_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 0.75 }; //diffuse brightness (sunlight and pointlight)
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 1.05 }; //diffuse brightness (sunlight and pointlight)
 
 float spec_multiply
 <string UIName = "spec_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;> = { 1.25 }; //specular brightness (sunlight and pointlight)
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 2.1 }; //specular brightness (sunlight and pointlight)
 
 float pointlight_multiply
 <string UIName = "pointlight_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;> = { 1.8 }; //total point light brightness
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;> = { 1.5 }; //total point light brightness
 
 float fix_saturation
 <string UIName = "fix_saturation"; 
-string UIWidget = "Slider"; float UIMax = 32; float UIMin = 0.1; float UIStep = 0.1 ;> = { 8 }; //saturation of metal's reflection spectrum
+string UIWidget = "Slider"; float UIMax = 32; float UIMin = 0.1; float UIStep = 0.1 ;> = { 16 }; //saturation of metal's reflection spectrum
 
 float roughness
 <string UIName = "roughness(microfacet-distribution)"; 
-string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0.1; float UIStep = 0.01;> = { 0.2 }; //minimal roughness on metal+glass (affect sun mirror radius)
+string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0.1; float UIStep = 0.01;> = { 0.15 }; //minimal roughness on metal+glass (affect sun mirror radius)
 
 float glassf0
 <string UIName = "glassf0(fresnel-decay)"; 
@@ -87,16 +86,13 @@ string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0; float UIStep = 0.0
 
 float glassglow
 <string UIName = "glassglow"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01;> = { 0.25 }; //to fix too dark glass
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01;> = { 0.25 }; //to fix too dark glass, may look not realistic
 
 bool AlphaTestEnable 
-<string UIName = "AlphaTestEnable";> =1; //holes on texture
+<string UIName = "AlphaTestEnable";> =0; //holes on texture
 
 bool GAMMAcorrection
-<string UIName = "GAMMAcorrection";> =1;  //gamma is always 2.0 for diffuse textures
-
-bool invert_tangent
-<string UIName = "invert_tangent(dxNRMfix)";> = 0;  //use this to fix if normal map is inverted
+<string UIName = "GAMMAcorrection";> =1;  //SRGB gamma is always 2.0 for diffuse textures
 
 //other parameters ===================
 
@@ -564,7 +560,7 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
     float insulentf0 = 1- spm.y ;  //glass judge. it's now fresnel f0 for everything
 
     float spec_howsmall = (spm.x*spm.x) / (roughness*roughness) ; //one over alpha, aka glossiness
-    float spec_howbright = saturate(spm.x*spm.x + spm.y*spm.y); //give glass more credit
+    float spec_howbright = saturate(spm.x*spm.x + spm.y); //give glass more credit
 
     float3 albedo_color = saturate(texcolor.xyz * (1+ spm.z));  //HC enhance
     
@@ -578,7 +574,7 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
 
 //tangent space to world normal
     nrm = nrm.xyz * float3(2, 2, 0) + float3(-1, -1, 1) ;
-    if (invert_tangent) {nrm.xy *= -1 ;};
+    //if (invert_tangent) {nrm.xy *= -1 ;};
     nrm.z = sqrt(1 - dot(nrm.xy, nrm.xy));
     float3 N ;
     N.x = dot(nrm, i.texcoord1.xyz);
@@ -604,7 +600,7 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
     float3 ground_color = helper_mapcolor_chooser (GROUND_index, i.color.xyz) ;
     float3 sky_color    = helper_mapcolor_chooser (SKY_index,    i.color.xyz) ;
 
-    float  FresnelV = lerp( insulentf0 , 1 , pow((1- EYEtilt), 3) ) ; //f0 is metalness
+    float  FresnelV = lerp( insulentf0 , 1 , pow((1- EYEtilt), 3) ) ; //f0 is ALMOST metalness
 
 //ambient light diffuse //DO NOT USE "AmbientLightColor" this thing only exist in VS register!
     

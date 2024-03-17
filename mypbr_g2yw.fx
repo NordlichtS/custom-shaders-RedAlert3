@@ -1,15 +1,16 @@
 //Electronic Arts 2008 Red Alert 3 player units shader BUT WITH PBR ENHANCE!
 //--------------
+//optimized for: Generals 2 mod
 //last modified by Nordlicht 
 //https://github.com/NordlichtS/custom-shaders-RedAlert3
-//based on Lanyi's decompiled HLSL code
+//with help from Lanyi's tool
 //https://github.com/lanyizi/DXDecompiler
 //improvements: (only on high quality pixel shaders)
 //spec map red channel as glossiness (also metalness)
+//green channel as glow strength, diffuse texture as glow color
 //PBR shading with microfacet distribution model
 //up to 8 point light support, all BRDF
 //multiple adjustable parameters to make sure your textures can fit the style
-//can also use on vanilla units
 //make sure your models have correct smooth groups!
 //SOFT PCF SHADOWS 12 samples
 //gamma correction set to 2
