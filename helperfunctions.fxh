@@ -4,9 +4,9 @@ float helper_shadowpcf (    //CROSS SHAPE SAMPLED
     float OneOverMapSize,       //replace with "Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w"
     float3 ShadowProjection )   //should be an input texcoord, XY being sampling coord, Z being distance to skylight
 {
-    ShadowPCFlevel = clamp(ShadowPCFlevel, 1,4);
+    ShadowPCFlevel = clamp(ShadowPCFlevel, 1,5);
     float ShadowDensity = 0; float ShadowDepth; float2 ThisShiftUV; int countSAMPLES; //merely local variabels
-    for (float countSHIFT = 0.5- ShadowPCFlevel; countSHIFT < ShadowPCFlevel; countSHIFT ++)
+    for (float countSHIFT = 0.5- ShadowPCFlevel; countSHIFT < ShadowPCFlevel; countSHIFT +=1 )
     {
         ThisShiftUV = ShadowProjection.xy + float2 (OneOverMapSize * countSHIFT , 0); //LEFT TO RIGHT
         ShadowDepth = tex2D(ShadowMapSampler, ThisShiftUV);
@@ -28,17 +28,23 @@ float3 helper_BRDF_microfacet (
     float3 L,
     float3 V,
     float3 N,
-    float  roughness_alpha, //rough"alpha" in microfacet model
-    float  metalness,
-    float3 albedopaint,
-    float3 albedometal,
-    float2 FresnelF0toSide )
+    float  glossiness_metal, //max glossiness of whole unit
+    float  glossiness_paint, //aka "one over alpha"
+    float3 albedo,      //just texture color
+    float3 fresnelf0_metal,  //it might get influence from hc
+    float  fresnelf0_paint,
+    float  metalness )  //material id, will use lerp on final step 
 {
-    if ( dot(L,N)<0 ) {return 0;} else {
-    float3 totallight;
+    if ( dot(L,N) <0 ) {return 0;} 
+    float3 totallight, total_ifpaint, total_ifmetal;
+
     float3 H = normalize(L+V); //halfway vector, also the nrm of microfacet mirror
-    return totallight;}
+
+    totallight = lerp (total_ifpaint, total_ifmetal, metalness) ;
+    return totallight;
 }
+
+
 
 float3 helper_BRDF_simple (  //with fixed roughness, microfacet model, blinn specular
     float3 L,
@@ -56,12 +62,12 @@ float3 helper_BRDF_simple (  //with fixed roughness, microfacet model, blinn spe
     float  distribution = pow( dot(H,N) , 4) ; //square cos, increase power to more glossiness
     //can also be:  pow( dot(H,N) , specexp) 
     float3 color_ifmetal = bothF0.rgb * distribution ;
-    float3 color_ifpaint = float3(1,1,1) * distribution * fresnel + lambertian * albedo_diffuse;
+    float3 color_ifpaint = float3(1,1,1) * distribution * fresnel + lambertian * albedo_diffuse.rgb;
     float3 totallight = lerp(color_ifpaint, color_ifmetal, metalness);
     return totallight;}
 }
 
-float3 helper_BRDF_simple_detailed (  //with adjustable roughness on both material
+float3 helper_BRDF_detailed (  //with adjustable roughness on both material
     float3 L,
     float3 V,
     float3 N,
@@ -73,14 +79,19 @@ float3 helper_BRDF_simple_detailed (  //with adjustable roughness on both materi
     float cosLN = dot(L,N) ;
     if ( cosLN<0 ) {return 0;} else {
     float3 H = normalize(L+V); //halfway vector, also the nrm of microfacet mirror
-    float  fresnel = lerp( bothF0.w , 1, pow(1-dot(H,V) , 4) ) ; //schlick approx fresnel but softer
-    float  lambertian = (1-fresnel) * cosLN * 0.3 ;  //0.3 as 1/pie
-    float  distribution = pow( dot(H,N) , 4) ; //square cos, increase power to more glossiness
-    //can also be:  pow( dot(H,N) , specexp) 
-    float3 color_ifmetal = bothF0.rgb * distribution ;
-    float3 color_ifpaint = float3(1,1,1) * distribution * fresnel + lambertian * albedo_diffuse;
+    float  fresnel = lerp( bothF0.w , OtherReflectionData.w,   pow(1-dot(H,V) ,4)  ) ; 
+    float  lambertian = (1-fresnel) * cosLN * OtherReflectionData.z ; 
+    float  distribution_ifmetal = pow( dot(H,N) , OtherReflectionData.y) ; //square cos, increase power to smaller spec radius
+    float  distribution_ifpaint = pow( dot(H,N) , OtherReflectionData.x) ; //square cos, increase power to smaller spec radius
+    float3 color_ifmetal = bothF0.rgb * distribution_ifmetal ;
+    float3 color_ifpaint = float3(1,1,1) * distribution_ifpaint * fresnel + lambertian * albedo_diffuse.rgb;
     float3 totallight = lerp(color_ifpaint, color_ifmetal, metalness);
     return totallight;}
+}
+
+float3 helper_genshin ()
+{
+    return 0;
 }
 
 float3 helper_BRDF_reflectangle ( //assume: light is white, but albedo still influence color
@@ -131,15 +142,15 @@ float4 helper_cliffcolorfold (
     sampler WRAPsampler,
     float2 originaluv,
     float3 worldnrm,
-    float worldZ ) 
+    float worldpositionZ ) 
 {
     float4 resultcolor;
     if (worldnrm.z > 0.7)
     {resultcolor = tex2D(ORIGINALsampler, originaluv);}
     else
     {
-        float4 Xside = tex2D(WRAPsampler, (originaluv.y , worldZ*0.0125) );
-        float4 Yside = tex2D(WRAPsampler, (originaluv.x , worldZ*0.0125) );
+        float4 Xside = tex2D(WRAPsampler, (originaluv.y , worldpositionZ*0.0125) );
+        float4 Yside = tex2D(WRAPsampler, (originaluv.x , worldpositionZ*0.0125) );
         resultcolor = (worldnrm.x > worldnrm.y) ? Xside : Yside ;
     }
     return resultcolor;
@@ -208,3 +219,15 @@ float helper_OCTAshadowpcf (
     //return sunlight*sunlight ;  //sunlight brightness
     return 1- ShadowDensity;
 }
+
+
+
+
+
+
+
+
+
+
+
+
