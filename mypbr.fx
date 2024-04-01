@@ -36,11 +36,11 @@ string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.0
 
 float diffuse_multiply
 <string UIName = "diffuse_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 1.05 }; //漫反射亮度，影响阳光与点光源
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 1.0 }; //漫反射亮度，影响阳光与点光源
 
 float spec_multiply
 <string UIName = "spec_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 2.95 }; //高光（镜面反射）亮度，影响阳光与点光源
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 2.8 }; //高光（镜面反射）亮度，影响阳光与点光源
 
 float pointlight_multiply
 <string UIName = "pointlight_multiply"; 
@@ -51,7 +51,7 @@ float fix_saturation
 string UIWidget = "Slider"; float UIMax = 32; float UIMin = 0.1; float UIStep = 0.1 ;> = { 16 }; //反射光谱的饱和度修复
 
 float roughness
-<string UIName = "roughness(microfacet-distribution)"; 
+<string UIName = "roughness(microfacet-distribute)"; 
 string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0.1; float UIStep = 0.01;> = { 0.16 }; //金属的最低粗糙度（太阳倒影的模糊光斑尺寸）
 
 float glassf0
@@ -62,15 +62,16 @@ bool ignore_vertex_alpha
 <string UIName = "ignore_vertex_alpha";> =0 ; //仅原版建筑开启！强制忽略顶点透明度，避免建筑损坏时破洞贴图错误，但会让车辆损失隐身半透明效果
 
 bool AlphaTestEnable 
-<string UIName = "AlphaTestEnable";> =1 ; //贴图镂空。与上一个选项不冲突
-
-// bool AlphaBlendEnable <string UIName = "AlphaBlendEnable";> =1; //可能导致基洛夫变半透明，暂时去掉
+<string UIName = "AlphaTestEnable";> =1 ; //贴图镂空。与上一个选项不冲突。此选项原版就有！
 
 bool HCenhance
-<string UIName = "HCenhance";> =1 ;  //提升原版阵营色的饱和度（而不是亮度）
+<string UIName = "HCenhance";> =1 ;  //提升原版阵营色的饱和度（而不是亮度）也影响发光梯度
 
 bool GAMMAcorrection
 <string UIName = "GAMMAcorrection";> =1 ;  //SRGB颜色修正
+
+float4 GLOWcolor 
+<string UIName = "GLOWcolor(Alpha=HC)"; string UIWidget = "Color"; > = {0, 0, 0, 0}; //发光颜色为 (此值RGB+A*阵营色)*SPM绿通道 !
 
 float tangent_xy_multiply
 <string UIName = "tangent_xy_multiply"; float UIMax = 1; float UIMin = -1; float UIStep = 0.1; > ={ 1 };  //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。
@@ -148,6 +149,29 @@ float4 WorldBones[128]
 bool HasShadow 
 <string UIWidget = "None"; string SasBindAddress = "Sas.HasShadow";>;
 
+float4 Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize 
+: register(ps_3_0, c11) <string UIWidget = "None"; string SasBindAddress = "Sas.Shadow[0].Zero_Zero_OneOverMapSize_OneOverMapSize";>;
+
+float2 MapCellSize 
+<string UIWidget = "None"; string SasBindAddress = "Terrain.Map.CellSize";> = { 10, 10 };
+
+int _SasGlobal : SasGlobal 
+<string UIWidget = "None"; int3 SasVersion = int3(1, 0, 0); int MaxLocalLights = 8; int MaxSupportedInstancingMode = 1;>;
+
+int NumJointsPerVertex 
+<string UIWidget = "None"; string SasBindAddress = "Sas.Skeleton.NumJointsPerVertex";>;
+
+column_major float4x3 World : World 
+: register(vs_2_0, c124) : register(vs_3_0, c124);
+
+struct{    float4 ScaleUV_OffsetUV;} 
+Shroud 
+: register(vs_2_0, c11) : register(vs_3_0, c11) <string UIWidget = "None"; string SasBindAddress = "Terrain.Shroud";> = { 1, 1, 0, 0 };
+
+float Time : Time;
+
+//============== OTHER TEXTURE AND SAMPLERS
+
 texture ShadowMap 
 <string UIWidget = "None"; string SasBindAddress = "Sas.Shadow[0].ShadowMap";>; 
 sampler2D ShadowMapSampler : register(ps_3_0, s0) <string Texture = "ShadowMap"; string UIWidget = "None"; string SasBindAddress = "Sas.Shadow[0].ShadowMap";> =
@@ -161,11 +185,6 @@ sampler_state
     AddressV = 3;
 };
 
-float4 Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize 
-: register(ps_3_0, c11) <string UIWidget = "None"; string SasBindAddress = "Sas.Shadow[0].Zero_Zero_OneOverMapSize_OneOverMapSize";>;
-
-float2 MapCellSize 
-<string UIWidget = "None"; string SasBindAddress = "Terrain.Map.CellSize";> = { 10, 10 };
 
 texture MacroSampler 
 <string UIWidget = "None"; string SasBindAddress = "Terrain.MacroTexture"; string ResourceName = "ShaderPreviewMacro.dds";>; 
@@ -182,14 +201,6 @@ sampler_state
     AddressV = 1;
 };
 
-int _SasGlobal : SasGlobal 
-<string UIWidget = "None"; int3 SasVersion = int3(1, 0, 0); int MaxLocalLights = 8; int MaxSupportedInstancingMode = 1;>;
-
-int NumJointsPerVertex 
-<string UIWidget = "None"; string SasBindAddress = "Sas.Skeleton.NumJointsPerVertex";>;
-
-column_major float4x3 World : World 
-: register(vs_2_0, c124) : register(vs_3_0, c124);
 
 texture CloudTexture 
 <string UIWidget = "None"; string SasBindAddress = "Terrain.Cloud.Texture"; string ResourceName = "ShaderPreviewCloud.dds";>; 
@@ -260,11 +271,6 @@ sampler_state
 };
 
 
-
-struct{    float4 ScaleUV_OffsetUV;} 
-Shroud 
-: register(vs_2_0, c11) : register(vs_3_0, c11) <string UIWidget = "None"; string SasBindAddress = "Terrain.Shroud";> = { 1, 1, 0, 0 };
-
 texture ShroudTexture 
 <string UIWidget = "None"; string SasBindAddress = "Terrain.Shroud.Texture";>; 
 sampler2D ShroudTextureSampler <string Texture = "ShroudTexture"; string UIWidget = "None"; string SasBindAddress = "Terrain.Shroud.Texture";> =
@@ -278,7 +284,6 @@ sampler_state
     AddressV = 3;
 };
 
-float Time : Time;
 
 //end parameters==========================
 
@@ -312,7 +317,7 @@ VS_H_Array_Shader_0_Output VS_H_Array_Shader_0(VS_H_Array_Shader_0_Input i)  //n
     temp0.x = dot(i.normal.xyz, (World._m00_m10_m20_m30).xyz);
     temp0.y = dot(i.normal.xyz, (World._m01_m11_m21_m31).xyz);
     temp0.z = dot(i.normal.xyz, (World._m02_m12_m22_m32).xyz);
-    temp0.w = dot(temp0.xyz, DirectionalLight[2].Direction.xyz);
+    temp0.w = 1;//dot(temp0.xyz, DirectionalLight[2].Direction.xyz);
     o.texcoord1.z = temp0.x;
     o.texcoord2.z = temp0.y;
     o.texcoord3.z = temp0.z;
@@ -420,7 +425,7 @@ VS_H_Array_Shader_1_Output VS_H_Array_Shader_1(VS_H_Array_Shader_1_Input i)  //h
     temp3.xyz = WorldBones[0 + addr0.x].www * temp2.xyz + -temp3.xyz;
     temp3.xyz = WorldBones[0 + addr0.x].yzx * temp2.zxy + temp3.xyz;
     temp2.xyz = WorldBones[0 + addr0.x].zxy * -temp2.yzx + temp3.xyz;
-    temp2.w = dot(temp2.xyz, DirectionalLight[2].Direction.xyz);
+    temp2.w =1;// dot(temp2.xyz, DirectionalLight[2].Direction.xyz);
     temp2.w = max(temp2.w, float1(0));
     temp3.xyz = temp2.www ;//* DirectionalLight[2].Color.xyz;
     temp2.w = float1(0.1);
@@ -497,7 +502,7 @@ float helper_notshadow_inside (int ShadowPCFlevel, float3 ShadowProjection )
 {
     if(!HasShadow){return 1;};
     float OneTexel = Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w ;
-    float ShadowDensity = 0; float ShadowDepth; float2 ThisShiftUV; int countSAMplES; 
+    float ShadowDensity = 0; float ShadowDepth; float2 ThisShiftUV; int countSAMPLES; 
     for (float countSHIFT = 0.5- ShadowPCFlevel; countSHIFT < ShadowPCFlevel; countSHIFT +=1 )
     {
         ThisShiftUV = ShadowProjection.xy + float2 (OneTexel * countSHIFT , 0); //LEFT TO RIGHT
@@ -508,9 +513,9 @@ float helper_notshadow_inside (int ShadowPCFlevel, float3 ShadowProjection )
         ShadowDepth = tex2D(ShadowMapSampler, ThisShiftUV);
         ShadowDensity += (ShadowDepth < ShadowProjection.z) ? +1 : +0;
 
-        countSAMplES +=2 ;
+        countSAMPLES +=2 ;
     }
-    ShadowDensity = saturate (ShadowDensity / countSAMplES) ;
+    ShadowDensity = saturate (ShadowDensity / countSAMPLES) ;
     return 1- ShadowDensity;
 }
 
@@ -521,19 +526,20 @@ float helper_pointlight ()
 
 float3 helper_mapcolor_chooser (int index, float3 ABcolor)  
 {
-    if (index==0) {return DirectionalLight[0].Color.xyz ;};
-    if (index==1) {return DirectionalLight[1].Color.xyz ;};
-    if (index==2) {return DirectionalLight[2].Color.xyz ;};
-    if (index==3) {return max (DirectionalLight[1].Color.xyz , DirectionalLight[2].Color.xyz) ;};
-    if (index==4) {return min (DirectionalLight[1].Color.xyz , DirectionalLight[2].Color.xyz) ;};
-    if (index==5) {return float3(0,0,0) ;};
-    if (index==6) {return float3(1,1,1) ;};
-    if (index==7) {return ABcolor ;};
-    if (index==8) {return (DirectionalLight[1].Color.xyz + DirectionalLight[2].Color.xyz) ;};
-    if (index==9) {return (max(DirectionalLight[1].Color.xyz , DirectionalLight[2].Color.xyz) + ABcolor) ;};
-    if (index==10){return (DirectionalLight[1].Color.xyz + DirectionalLight[2].Color.xyz + ABcolor) ;};
+    float3 chosenone ;
+    if (index==0) {chosenone= DirectionalLight[0].Color.xyz ;};
+    if (index==1) {chosenone= DirectionalLight[1].Color.xyz ;};
+    if (index==2) {chosenone= DirectionalLight[2].Color.xyz ;};
+    if (index==3) {chosenone= max (DirectionalLight[1].Color.xyz , DirectionalLight[2].Color.xyz) ;};
+    if (index==4) {chosenone= min (DirectionalLight[1].Color.xyz , DirectionalLight[2].Color.xyz) ;};
+    if (index==5) {chosenone= float3(0,0,0) ;};
+    if (index==6) {chosenone= float3(1,1,1) ;};
+    if (index==7) {chosenone= ABcolor ;};
+    if (index==8) {chosenone= (DirectionalLight[1].Color.xyz + DirectionalLight[2].Color.xyz) ;};
+    if (index==9) {chosenone= (max(DirectionalLight[1].Color.xyz , DirectionalLight[2].Color.xyz) + ABcolor) ;};
+    if (index==10){chosenone= (DirectionalLight[1].Color.xyz + DirectionalLight[2].Color.xyz + ABcolor) ;};
 
-    return float3(1,1,1);
+    return chosenone ;
 };
 
 //ps start
@@ -564,15 +570,13 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
     if (ignore_vertex_alpha) { out_color.w = texcolor.w ;};
     // if (AlphaTestEnable && texcolor.w <0.2 ) {discard ;};
     if (! HasRecolorColors) {spm.z =0 ;};
-    float3 actualHC = lerp( float3(1,1,1) , RecolorColor.xyz , spm.z) ;
-    if (HCenhance) { actualHC *= actualHC ;}; //HC enhance density and saturation
 
     float insulentf0 = max(texcolor.b , max(texcolor.r , texcolor.g)) ;  //glass judge before gamma
     insulentf0 = saturate (insulentf0 + glassf0);
 
     if (GAMMAcorrection) { texcolor.xyz *= texcolor.xyz ;};
 
-    float spec_howsmall = spm.x / (roughness*roughness) ; //one over alpha, aka glossiness
+    float glossiness = spm.x / (roughness*roughness) ; //one over alpha, aka spec how small
 
     float3 albedo_color = texcolor.xyz; 
     
@@ -618,34 +622,37 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
     float  skyAOcolor = lerp ( ground_color , sky_color , ground_sky_lerpw ) ;
     float3 diffuse_ambient = real_diffusecolor.xyz * skyAOcolor ;//* ambient_multiply ; 
 
-//sunlight diffuse
-    float3 diffuse_sunlight = real_diffusecolor.xyz * sun_tilt * diffuse_multiply;
-
-//sunlight spec
-    float  spec_dist = saturate( dot(Hsun,N) );
-    spec_dist = saturate(spec_dist * spec_howsmall - spec_howsmall +1 ); //spec light blur within radius
-    if (sun_tilt <= 0) {spec_dist = 0 ;};
-    spec_dist = pow(spec_dist, 4) ; //simulate standard distribution
-    // float  FresnelS = lerp( insulentf0 , 1 , pow((1- dot(Hsun,V)), 3) ) ; //not accurate but worth a try
-    float3 spec_sunlight = spec_dist * FresnelV * (spm.x*spm.x) * f0spectrum.xyz * spec_multiply ; //(spm.x*spm.x)
-    
 //environmental mirror reflection
-    float3 fake_skybox_lerpw = R.z * 0.5 * spm.x / roughness   ;
+    float3 fake_skybox_lerpw = R.z * 0.5 * (glossiness +1) ;// * spm.x / roughness   ;
     fake_skybox_lerpw = saturate (fake_skybox_lerpw +0.5);
     float3 fake_skybox_color = lerp(ground_color, sky_color, fake_skybox_lerpw);
     float3 spec_ambient = fake_skybox_color * FresnelV * spm.x * f0spectrum.xyz ;//*ambient_multiply (this is now in sky ground color)
     //make sure it's float3 or it will turn grey!
 
+
+//sunlight diffuse
+    float3 diffuse_sunlight = real_diffusecolor.xyz * sun_tilt * diffuse_multiply;
+
+//sunlight spec
+    float  spec_dist = saturate( dot(Hsun,N) );
+    //spec_dist = saturate(spec_dist * spec_howsmall - spec_howsmall +1 ); //old distribution approximation 
+    spec_dist = saturate( spec_dist *(glossiness +1) - glossiness);
+    spec_dist = pow(spec_dist, 4) ; //simulate standard distribution
+    // float  FresnelS = lerp( insulentf0 , 1 , pow((1- dot(Hsun,V)), 3) ) ; //not accurate but worth a try
+    float3 spec_sunlight = spec_dist * FresnelV * (spm.x*spm.x) * f0spectrum.xyz * spec_multiply ; //(spm.x*spm.x)
+    
+
 //shadow
     float not_shadow_density = helper_notshadow_inside (4, i.texcoord5.xyz) ;
-    not_shadow_density *= not_shadow_density ; //gamma shadow
+    if (sun_tilt <= 0) {not_shadow_density = 0 ;};  //use this for no sunlight angle culling
+    //not_shadow_density *= not_shadow_density ; //gamma shadow
     float3 total_sunlight_influence = ( diffuse_sunlight + spec_sunlight ) * sun_color.xyz * not_shadow_density ;
 
 //point lights
     float3 pl_total = float3(0,0,0) ;
-    //int maxPLcount = NumPointLights;
+    int maxPLcount = min(NumPointLights, 8); //JUST IN CASE
 
-    for (int countpl = 0; countpl < NumPointLights; ++countpl ) {
+    for (int countpl = 0; countpl < maxPLcount; ++countpl ) {
 
         float rangemax = PointLight[countpl].Range_Inner_Outer.y ;
         if ( rangemax <1) {continue;};
@@ -667,7 +674,8 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
 
         float3 H_pl = normalize(V + thispl_L) ;
         float  pl_specdist = saturate( dot(H_pl ,N) );
-        pl_specdist = saturate(pl_specdist * spec_howsmall - spec_howsmall +1); 
+        // pl_specdist = saturate(pl_specdist * spec_howsmall - spec_howsmall +1); 
+        pl_specdist = saturate( pl_specdist *(glossiness +1) - glossiness);
         pl_specdist = pow(pl_specdist, 3) ;
         float3 spec_pl = spec_multiply * (spm.x*spm.x) * pl_specdist * f0spectrum.xyz ; 
 
@@ -678,10 +686,19 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
 
 //final color modify
     out_color.xyz = diffuse_ambient + spec_ambient + total_sunlight_influence + pl_total ;
+
     float3 warfog = tex2D(ShroudTextureSampler, i.texcoord6.xy);
     out_color.xyz *= warfog ;
-    out_color.xyz *= actualHC ; //it's finish mixed hc
-    out_color.xyz = lerp( out_color.xyz , (out_color.xyz * TintColor.xyz) , (1.25- EYEtilt*EYEtilt) ); //use fresnel side light
+
+    float3 actualHC = lerp( float3(1,1,1) , RecolorColor.xyz , spm.z) ;
+    if (HCenhance) { actualHC *= actualHC ;}; //HC enhance density and saturation
+    out_color.xyz *= actualHC ; 
+
+    out_color.xyz *= lerp( float3(1,1,1) , TintColor.xyz , (1.25- EYEtilt*EYEtilt) ); 
+
+    float3 tempglow = (GLOWcolor.xyz + GLOWcolor.w * RecolorColor.xyz) * spm.y *2 ;
+    if (HCenhance) { tempglow *= tempglow ;};
+    out_color.xyz += tempglow ; //glow!
 
     return out_color;
 }
@@ -872,7 +889,7 @@ technique Default_M
         SrcBlend = 5;
         DestBlend = 6;
         AlphaFunc = 7;
-        AlphaRef = 96;
+        AlphaRef = 64;
     }
 }
 
@@ -889,7 +906,7 @@ technique Default_L
         SrcBlend = 5;
         DestBlend = 6;
         AlphaFunc = 7;
-        AlphaRef = 96;
+        AlphaRef = 64;
     }
 }
 

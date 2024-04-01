@@ -14,19 +14,19 @@ texture SpecMap
 
 float ambient_multiply
 <string UIName = "ambient_multiply"; string SasBindAddress = "Sas.pbr_ambient_multiply";
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 0.25 }; //环境光与天空亮度
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 0.33 }; //环境光与天空亮度
 
 float diffuse_multiply
 <string UIName = "diffuse_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 1.1 }; //漫反射亮度，影响阳光与点光源
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 1.0 }; //漫反射亮度，影响阳光与点光源
 
 float spec_multiply
 <string UIName = "spec_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 2.2 }; //高光（镜面反射）亮度，影响阳光与点光源
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;> = { 2.8 }; //高光（镜面反射）亮度，影响阳光与点光源
 
 float pointlight_multiply
 <string UIName = "pointlight_multiply"; 
-string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;> = { 1.5 }; //点光源反射整体亮度
+string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;> = { 1.4 }; //点光源反射整体亮度
 
 float fix_saturation
 <string UIName = "fix_saturation"; 
@@ -38,10 +38,10 @@ string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0.1; float UIStep = 0
 
 float glassf0
 <string UIName = "glassf0(fresnel-decay)"; 
-string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0.01; float UIStep = 0.01;> = { 0.16 }; //玻璃窗反射的菲涅尔效应，此值越暗效果越强烈
+string UIWidget = "Slider"; float UIMax = 1; float UIMin = 0.01; float UIStep = 0.01;> = { 0.12 }; //玻璃窗反射的菲涅尔效应，此值越暗效果越强烈
 
 bool ignore_vertex_alpha
-<string UIName = "ignore_vertex_alpha";> =1 ; //仅原版建筑开启！强制忽略顶点透明度，避免建筑损坏时破洞贴图错误，但会让车辆损失隐身半透明效果
+<string UIName = "ignore_vertex_alpha";> =0 ; //仅原版建筑开启！强制忽略顶点透明度，避免建筑损坏时破洞贴图错误，但会让车辆损失隐身半透明效果
 
 bool AlphaTestEnable 
 <string UIName = "AlphaTestEnable";> =1 ; //贴图镂空。与上一个选项不冲突
@@ -49,21 +49,24 @@ bool AlphaTestEnable
 // bool AlphaBlendEnable <string UIName = "AlphaBlendEnable";> =1; //可能导致基洛夫变半透明，暂时去掉
 
 bool HCenhance
-<string UIName = "HCenhance";> =1 ;  //提升原版阵营色的饱和度（而不是亮度）
+<string UIName = "HCenhance";> =1 ;  //提升原版阵营色的饱和度（而不是亮度）也影响发光梯度
 
 bool GAMMAcorrection
 <string UIName = "GAMMAcorrection";> =1 ;  //SRGB颜色修正
 
+float4 GLOWcolor 
+<string UIName = "GLOWcolor(Alpha=HC)"; string UIWidget = "Color"; > = {0, 0, 0, 0}; //发光颜色为 (此值RGB+A*阵营色)*SPM绿通道 !
+
 float tangent_xy_multiply
-<string UIName = "tangent_xy_multiply"; float UIMax = 2; float UIMin = -2; float UIStep = 0.1; > ={ 1 };  //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。
+<string UIName = "tangent_xy_multiply"; float UIMax = 1; float UIMin = -1; float UIStep = 0.1; > ={ 1 };  //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。
 
 int SKY_index
 <string UIName = "SKY_index";
-string UIWidget = "Slider"; int UIMax = 10; int UIMin = 0;> ={ 10 }; //选择哪个颜色为“天空”反射色
+string UIWidget = "Slider"; int UIMax = 10; int UIMin = 0;> ={ 10 }; //选择哪个颜色为 “天空”反射色
 
 int GROUND_index
 <string UIName = "GROUND_index";
-string UIWidget = "Slider"; int UIMax = 10; int UIMin = 0;> ={ 7 }; //选择哪个颜色为“地面”反射色
+string UIWidget = "Slider"; int UIMax = 10; int UIMin = 0;> ={ 7  }; //选择哪个颜色为 “地面”反射色
 
 /*
 天空色和地面色的 INDEX :
@@ -79,7 +82,6 @@ string UIWidget = "Slider"; int UIMax = 10; int UIMin = 0;> ={ 7 }; //选择哪�
 9= 补光最大值与环境光相加
 10= 两个补光与环境光相加
 */
-
 
 //the useful samplers
 sampler DiffuseSampler = sampler_state 
@@ -140,19 +142,28 @@ struct PS_INPUT
 float4 PS_Main(PS_INPUT input) : COLOR
 {
     // Sample the texture
-    float4 diffuseColor = tex2D(DiffuseSampler, input.TexCoord);
-    float4 SPMcolor = tex2D(SpecSampler, input.TexCoord);
+    float4 texcolor = tex2D(DiffuseSampler, input.TexCoord);
+    float4 spm = tex2D(SpecSampler, input.TexCoord);
+
+    if (GAMMAcorrection) { texcolor.xyz *= texcolor.xyz ;};
 
     // Lerp between HCpreviewRGB and DiffuseColor based on hcweight
-    float3 finalColor = lerp( diffuseColor.rgb, HCpreviewRGB.rgb * diffuseColor.rgb , SPMcolor.b);
-    finalColor *= (GAMMAcorrection)? finalColor : 1 ;
-    finalColor += HCpreviewRGB * SPMcolor.g ;
+    float3 out_color = texcolor.xyz ;//lerp( diffuseColor.rgb, HCpreviewRGB.rgb * diffuseColor.rgb , SPMcolor.b);
+
+
+
+    float3 actualHC = lerp( float3(1,1,1) , HCpreviewRGB.xyz , spm.z) ;
+    if (HCenhance) { actualHC *= actualHC ;}; //HC enhance density and saturation
+    out_color.xyz *= actualHC ; 
+
+    float3 tempglow = (GLOWcolor.xyz + GLOWcolor.w * HCpreviewRGB.xyz) * spm.y *2 ;
+    if (HCenhance) { tempglow *= tempglow ;};
+    out_color.xyz += tempglow ; //glow!
 
     // Alpha test: Discard pixels with alpha below a threshold
-    if (AlphaTestEnable && diffuseColor.a < 0.25)
-        {discard;};
+    clip (AlphaTestEnable && texcolor.a < 0.5);
 
-    return float4(finalColor, 1.0);  // or return float4(finalColor, finalColor.a);
+    return float4(out_color.xyz , 1.0);  // or return float4(finalColor, finalColor.a);
 }
 
 
