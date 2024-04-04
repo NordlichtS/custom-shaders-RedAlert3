@@ -71,7 +71,7 @@ bool GAMMAcorrection
 <string UIName = "GAMMAcorrection";> =1 ;  //SRGB颜色修正
 
 float4 GLOWcolor 
-<string UIName = "GLOWcolor(Alpha=HC)"; string UIWidget = "Color"; > = {0, 0, 0, 0}; //发光颜色为 (此值RGB+A*阵营色)*SPM绿通道 !
+<string UIName = "GLOWcolor(Alpha=HC)"; string UIWidget = "Color"; > = {0, 0, 0, 0}; //发光颜色为 (此值RGB+A*阵营色)*SPM绿通道*2 !
 
 float tangent_xy_multiply
 <string UIName = "tangent_xy_multiply"; float UIMax = 1; float UIMin = -1; float UIStep = 0.1; > ={ 1 };  //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。
@@ -363,7 +363,7 @@ VS_H_Array_Shader_0_Output VS_H_Array_Shader_0(VS_H_Array_Shader_0_Input i)  //n
     temp0.x = dot(temp1, (ShadowMapWorldToShadow._m00_m10_m20_m30));
     temp0.z = dot(temp1, (ShadowMapWorldToShadow._m01_m11_m21_m31));
     temp0.w = dot(temp1, (ShadowMapWorldToShadow._m02_m12_m22_m32));
-    o.texcoord5.xyz = temp0.xzw * temp0.yyy + float3(0, 0, -0.002); //0.0015
+    o.texcoord5.xyz = temp0.xzw * temp0.yyy + float3(0, 0, -0.003); //0.0015
 
     o.color.xyz = AmbientLightColor.xyz ;
 
@@ -484,7 +484,7 @@ VS_H_Array_Shader_1_Output VS_H_Array_Shader_1(VS_H_Array_Shader_1_Input i)  //h
     temp0.x = dot(temp0, (ShadowMapWorldToShadow._m03_m13_m23_m33));
     temp0.y = 1.0f / temp0.x;
     o.texcoord5.w = temp0.x;
-    o.texcoord5.xyz = temp1.xyz * temp0.yyy + float3(0, 0, -0.002); //0.0015
+    o.texcoord5.xyz = temp1.xyz * temp0.yyy + float3(0, 0, -0.004); //0.0015
 
     o.color.xyz = AmbientLightColor.xyz ;
 
@@ -519,10 +519,6 @@ float helper_notshadow_inside (int ShadowPCFlevel, float3 ShadowProjection )
     return 1- ShadowDensity;
 }
 
-float helper_pointlight ()
-{
-    return 0;
-}
 
 float3 helper_mapcolor_chooser (int index, float3 ABcolor)  
 {
@@ -546,14 +542,14 @@ float3 helper_mapcolor_chooser (int index, float3 ABcolor)
 
 struct PS_H_Array_Shader_3_Input
 {
-    float2 texcoord : TEXCOORD;
-    float3 texcoord1 : TEXCOORD1;
-    float3 texcoord2 : TEXCOORD2;
-    float3 texcoord3 : TEXCOORD3;
-    float3 texcoord4 : TEXCOORD4;
-    float3 texcoord5 : TEXCOORD5;
-    float4 texcoord6 : TEXCOORD6;
-    float4 color : COLOR;
+    float2 texcoord  : TEXCOORD;  //basic texture uv
+    float3 texcoord1 : TEXCOORD1; //tangent space to world maxtrix 1
+    float3 texcoord2 : TEXCOORD2; //tangent space to world maxtrix 2
+    float3 texcoord3 : TEXCOORD3; //tangent space to world maxtrix 3
+    float3 texcoord4 : TEXCOORD4; //fragment world position
+    float3 texcoord5 : TEXCOORD5; //shadow projection, z is depth (distance to sun)
+    float4 texcoord6 : TEXCOORD6; //xy warfog , zw cloud
+    float4 color : COLOR;  //vertex color (now ambient color)
 };
 
 //stylized
@@ -628,7 +624,6 @@ float4 PS_H_Array_Shader_3(PS_H_Array_Shader_3_Input i) : COLOR
     float3 fake_skybox_color = lerp(ground_color, sky_color, fake_skybox_lerpw);
     float3 spec_ambient = fake_skybox_color * FresnelV * spm.x * f0spectrum.xyz ;//*ambient_multiply (this is now in sky ground color)
     //make sure it's float3 or it will turn grey!
-
 
 //sunlight diffuse
     float3 diffuse_sunlight = real_diffusecolor.xyz * sun_tilt * diffuse_multiply;
