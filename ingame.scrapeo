@@ -1,0 +1,1563 @@
+# 1 "c:\\bf_ra3_qabuild_eala-build20\\ra3\\run\\shaders\\ingame.scrape"
+
+var camera Viewer
+
+# 1 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/Common.scrapeh" 1
+ 
+var surface FrameBuffer color0
+var surface DepthBuffer depth
+
+	var surface FrameRenderTarget edram $WW3D.FrameBufferSize.x $WW3D.FrameBufferSize.y $WW3D.FrameRenderTargetSurfaceFormat $WW3D.AntiAliasingMode
+ 
+	var surface FrameDepthBuffer edramdepth $WW3D.FrameBufferSizeIfAntiAliasing.x $WW3D.FrameBufferSizeIfAntiAliasing.y D24S8 $WW3D.AntiAliasingMode
+
+
+proc updateFrameRenderTargetToUse
+	if WW3D IsHdrEnabled
+		setbool WW3D IsUsingFrameRenderTarget true
+	elif WW3D IsAntiAliasingEnabled
+		setbool WW3D IsUsingFrameRenderTarget true
+	else
+		setbool WW3D IsUsingFrameRenderTarget false
+	endif
+endproc
+
+proc setFrameRenderTarget
+	if WW3D IsUsingFrameRenderTarget
+		settarget 0 FrameRenderTarget
+	else
+		settarget 0 FrameBuffer
+	endif
+endproc
+
+proc setFrameDepthBuffer
+	if WW3D IsAntiAliasingEnabled  
+		setdepth FrameDepthBuffer
+	else
+		setdepth DepthBuffer
+	endif
+endproc
+
+
+ 
+proc renderBinsUnit
+	renderbin UnitPlayer0
+	renderbin UnitPlayer1
+	renderbin UnitPlayer2
+	renderbin UnitPlayer3
+	renderbin UnitPlayer4
+	renderbin UnitPlayer5
+	renderbin UnitPlayer6
+	renderbin UnitPlayer7
+	renderbin UnitPlayer8
+	renderbin UnitPlayer9
+	renderbin UnitPlayer10
+	renderbin UnitPlayer11
+	renderbin UnitPlayer12
+	renderbin UnitPlayer13
+	renderbin UnitPlayer14
+	renderbin UnitPlayer15
+	renderbin UnitPlayer16
+	renderbin UnitPlayer17
+	renderbin UnitPlayer18
+	renderbin UnitPlayer19
+endproc
+
+proc renderBinsStaticSort
+	 
+ 
+	renderbin StaticSort4
+	renderbin StaticSort3
+	renderbin StaticSort2
+	renderbin StaticSort1
+endproc
+
+proc renderBinsStructureOutline
+	renderbin StructureOutlineSelected
+	renderbin StructureOutlineHoverAttack
+	renderbin StructureOutlineHoverSelect
+endproc
+	
+proc renderBinsUnitOutline
+	renderbin UnitOutlineSelected
+	renderbin UnitOutlineHoverAttack
+	renderbin UnitOutlineHoverSelect
+endproc	
+
+ 
+var texture FXDistortionFractal FXDistortionFractal01
+var texture FXOceanCubeMap FXOceanCubeMap
+var texture FXJapanBuildMask FXJapanBuildMask
+var texture FXChronoRift FXChronoRift
+var texture FXIronCurtain FXIronCurtain
+var texture FXLightningTeslaHit FXLightningTeslaHit
+var texture FXFilmLut FXFilmLut
+
+var texture FXstarrysky256quad FXstarrysky256quad
+
+proc initCustomTextures
+	settexture WW3D FXDistortionFractal FXDistortionFractal  
+	settexture WW3D FXOceanCubeMap FXOceanCubeMap  
+	settexture WW3D FXJapanBuildMask FXJapanBuildMask  
+	settexture WW3D FXChronoRift FXChronoRift  
+	settexture WW3D FXIronCurtain FXIronCurtain  
+	settexture WW3D FXLightningTeslaHit FXLightningTeslaHit  
+	settexture PostEffect LookupTable.FilmTonemapping FXFilmLut
+
+	settexture WW3D FXstarrysky256quad FXstarrysky256quad
+
+
+endproc
+
+
+# 9 "c:\\bf_ra3_qabuild_eala-build20\\ra3\\run\\shaders\\ingame.scrape" 2
+
+# 1 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/Shadow.scrapeh" 1
+ 
+ 
+ 
+ 
+ 
+
+
+
+ 
+ 
+ 
+
+ 
+var texture ShadowMapTexture $Sas.Shadow[0].MapSize $Sas.Shadow[0].MapSize R32F
+
+
+
+	
+	var surface ShadowMapDepthBuffer edramdepth $Sas.Shadow[0].MapSize $Sas.Shadow[0].MapSize D24S8
+	
+
+
+
+
+
+
+
+
+var camera ShadowMap
+
+ 
+proc renderShadowCasters
+	if DebugToggle BaselineRendering.IsEnabled
+		if DebugToggle TerrainCaster.IsEnabled
+			renderTerrain 
+		endif
+	endif
+
+	 
+	renderbin TerrainLikeGroundObject
+
+	renderbin Bridge
+	
+	if DebugToggle BaselineRendering.IsEnabled
+		renderProps
+	endif
+
+	beginevent RenderCasters_Units
+		callproc renderBinsUnit
+		callproc renderBinsUnitOutline
+	endevent RenderCasters_Units
+
+	renderbin Solid
+
+	if DebugToggle StructureCaster.IsEnabled
+		beginevent RenderCasters_Structures
+			renderbin Structure
+			callproc renderBinsStructureOutline
+		endevent RenderCasters_Structures
+	endif
+
+	renderbin StaticSort5 					 
+	callproc renderBinsStaticSort
+	renderbin Transparent
+	renderTransparentOutlineObjects
+
+endproc
+
+proc updateShadowTexture
+	if Sas ShadowMappingEnabled
+		beginevent UpdateShadowMap
+		
+		settarget 0 ShadowMapTexture
+		setdepth ShadowMapDepthBuffer
+		
+		shadowMap.beginUpdate
+		beginShadowOverrideTechnique
+		
+		setclearcolor		1 1 1 1
+		setcleardepth       1.0
+		clear
+		
+		setcamera ShadowMap
+		visibleobjects ShadowMap
+		
+		callproc renderShadowCasters
+
+		endShadowOverrideTechnique
+		shadowMap.endUpdate
+		
+
+
+
+	
+		endevent UpdateShadowMap
+	endif  
+endproc
+
+
+# 10 "c:\\bf_ra3_qabuild_eala-build20\\ra3\\run\\shaders\\ingame.scrape" 2
+
+# 1 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/PostFX.scrapeh" 1
+ 
+ 
+ 
+ 
+ 
+
+
+
+ 
+ 
+ 
+var texture PostEffectFrameBufferTexture $PostEffect.FrameBufferSize.x $PostEffect.FrameBufferSize.y $WW3D.FrameRenderTargetTextureFormat
+
+
+
+
+
+
+
+	
+	
+
+
+ 
+proc copyFrameBufferToTexture
+		
+
+
+		if WW3D IsUsingFrameRenderTarget
+			stretchrect FrameRenderTarget PostEffectFrameBufferTexture
+		else
+			stretchrect FrameBuffer PostEffectFrameBufferTexture
+		endif
+	
+endproc
+
+# 1 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/PostFX_LookupTable.scrapeh" 1
+ 
+ 
+ 
+ 
+ 
+
+
+
+ 
+ 
+ 
+
+var shader PostEffectLookupTableShader PostFX_LookupTable.fx
+
+proc PostEffectLookupTable
+	beginevent UpdatePostFXLookupTable
+	
+	if PostEffect LookupTable.IsEnabled
+		callproc copyFrameBufferToTexture
+
+		settarget 0 FrameBuffer
+		setdepth DepthBuffer
+		
+		settexture PostEffect FrameBufferTexture PostEffectFrameBufferTexture
+		
+		setshader PostEffectLookupTableShader Default
+		renderquad
+		
+	else  
+		 
+		if WW3D IsUsingFrameRenderTarget
+			callproc copyFrameBufferToTexture
+
+			settexture PostEffect FrameBufferTexture PostEffectFrameBufferTexture
+
+			settarget 0 FrameBuffer
+			setdepth DepthBuffer
+			
+			setshader PostEffectLookupTableShader ResolveOnly
+			renderquad
+		endif
+	endif
+
+	endevent UpdatePostFXLookupTable
+endproc
+
+
+# 37 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/PostFX.scrapeh" 2
+
+# 1 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/PostFX_Distortion.scrapeh" 1
+ 
+ 
+ 
+ 
+ 
+
+
+
+
+ 
+ 
+ 
+
+var texture DistortionOffsetTexture $PostEffect.FrameBufferSize.x $PostEffect.FrameBufferSize.y A8R8G8B8
+
+var shader PostEffectDistortionShader PostFX_Distortion.fx
+
+proc PostEffectDistortion
+	if PostEffect Distortion.IsEnabled
+		beginevent UpdatePostFXDistortion
+		
+		callproc copyFrameBufferToTexture
+
+		setclearcolor 0.5 0.5 1 1
+		clearcolor  
+		
+		renderbin Distorter
+	
+		renderbin Distorter 1
+
+		renderDistortionLasers
+		 
+
+
+
+
+		if WW3D IsUsingFrameRenderTarget
+			stretchrect FrameRenderTarget DistortionOffsetTexture
+		else
+			stretchrect FrameBuffer DistortionOffsetTexture
+		endif
+
+
+		settexture PostEffect FrameBufferTexture PostEffectFrameBufferTexture
+		settexture PostEffect Distortion.DistortionOffsetTexture DistortionOffsetTexture
+		
+		setshader PostEffectDistortionShader
+		renderquad
+		
+		endevent UpdatePostFXDistortion
+	endif
+endproc
+
+
+# 38 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/PostFX.scrapeh" 2
+
+# 1 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/PostFX_Bloom.scrapeh" 1
+ 
+ 
+ 
+ 
+ 
+
+
+
+ 
+ 
+ 
+
+var shader PostEffectBloomShader PostFX_Bloom.fx
+
+ 
+ 
+ 
+
+
+
+	
+	
+	
+	
+	
+	
+# 67 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/PostFX_Bloom.scrapeh"
+
+
+
+
+
+var texture BloomTextureHigh0 $PostEffect.Bloom.TextureSizeHigh.x $PostEffect.Bloom.TextureSizeHigh.y $PostEffect.Bloom.TextureFormat
+
+
+	var texture BloomTextureHigh1 $PostEffect.Bloom.TextureSizeHigh.x $PostEffect.Bloom.TextureSizeHigh.y $PostEffect.Bloom.TextureFormat
+	
+	
+
+
+
+
+
+
+var texture BloomTextureMedium0 $PostEffect.Bloom.TextureSizeMedium.x $PostEffect.Bloom.TextureSizeMedium.y $PostEffect.Bloom.TextureFormat
+
+
+	var texture BloomTextureMedium1 $PostEffect.Bloom.TextureSizeMedium.x $PostEffect.Bloom.TextureSizeMedium.y $PostEffect.Bloom.TextureFormat
+	
+	
+
+
+
+
+
+
+var texture BloomTextureLow0 $PostEffect.Bloom.TextureSizeLow.x $PostEffect.Bloom.TextureSizeLow.y $PostEffect.Bloom.TextureFormat
+
+
+	var texture BloomTextureLow1 $PostEffect.Bloom.TextureSizeLow.x $PostEffect.Bloom.TextureSizeLow.y $PostEffect.Bloom.TextureFormat
+	
+	
+
+
+
+
+
+
+proc PostEffectBloom
+	if PostEffect Bloom.IsEnabled
+		beginevent UpdatePostFXBloom
+
+		 
+		 
+		 
+
+		 
+		callproc copyFrameBufferToTexture
+
+		setdepth NULL
+
+		 
+		settexture PostEffect Bloom.SourceTexture PostEffectFrameBufferTexture
+		settosize PostEffect Bloom.SourceTextureSize PostEffectFrameBufferTexture
+
+		settarget 0 BloomTextureHigh0
+		settosize PostEffect Bloom.TargetTextureSize BloomTextureHigh0
+
+		setshader PostEffectBloomShader DownsampleInitial
+		renderquad
+		 
+
+		 
+		settexture PostEffect Bloom.SourceTexture BloomTextureHigh0
+		settosize PostEffect Bloom.SourceTextureSize BloomTextureHigh0
+
+		settarget 0 BloomTextureMedium0
+		setshader PostEffectBloomShader Downsample4x4
+		renderquad
+		 
+
+		 
+		settexture PostEffect Bloom.SourceTexture BloomTextureMedium0
+		settosize PostEffect Bloom.SourceTextureSize BloomTextureMedium0
+
+		settarget 0 BloomTextureLow0
+		setshader PostEffectBloomShader Downsample4x4
+		renderquad
+		 
+
+		 
+		settexture PostEffect Bloom.SourceTexture BloomTextureLow0
+		settosize PostEffect Bloom.SourceTextureSize BloomTextureLow0
+
+		settarget 0 BloomTextureLow1
+
+		setshader PostEffectBloomShader BlurGaussian11x11U
+		renderquad
+		 
+
+		settarget 0 BloomTextureLow0
+
+		settexture PostEffect Bloom.SourceTexture BloomTextureLow1
+		settosize PostEffect Bloom.SourceTextureSize BloomTextureLow1
+
+		setshader PostEffectBloomShader BlurGaussian11x11V
+		renderquad
+		 
+
+		 
+		settexture PostEffect FrameBufferTexture BloomTextureMedium0
+		settexture PostEffect Bloom.SourceTexture BloomTextureLow0
+
+		settarget 0 BloomTextureMedium1
+
+		setshader PostEffectBloomShader Accumulate
+		renderquad
+		 
+
+		 
+		settexture PostEffect Bloom.SourceTexture BloomTextureMedium1
+		settosize PostEffect Bloom.SourceTextureSize BloomTextureMedium1
+
+		settarget 0 BloomTextureMedium0
+		setshader PostEffectBloomShader BlurGaussian11x11U
+		renderquad
+		 
+
+		settexture PostEffect Bloom.SourceTexture BloomTextureMedium0
+		settosize PostEffect Bloom.SourceTextureSize BloomTextureMedium0
+
+		settarget 0 BloomTextureMedium1
+		setshader PostEffectBloomShader BlurGaussian11x11V
+		renderquad
+		 
+
+		 
+		settexture PostEffect FrameBufferTexture BloomTextureHigh0
+		settexture PostEffect Bloom.SourceTexture BloomTextureMedium1
+
+		settarget 0 BloomTextureHigh1
+		setshader PostEffectBloomShader Accumulate
+		renderquad
+		 
+
+
+		 
+		settexture PostEffect Bloom.SourceTexture BloomTextureHigh1
+		settosize PostEffect Bloom.SourceTextureSize BloomTextureHigh1
+
+		settarget 0 BloomTextureHigh0
+		setshader PostEffectBloomShader BlurGaussian11x11U
+		renderquad
+		 
+
+		settexture PostEffect Bloom.SourceTexture BloomTextureHigh0
+		settosize PostEffect Bloom.SourceTextureSize BloomTextureHigh0
+
+		settarget 0 BloomTextureHigh1
+		setshader PostEffectBloomShader BlurGaussian11x11V
+		renderquad
+		 
+
+		 
+		callproc setFrameRenderTarget
+
+		 
+		settexture PostEffect FrameBufferTexture PostEffectFrameBufferTexture
+		settexture PostEffect Bloom.SourceTexture BloomTextureHigh1
+
+		setshader PostEffectBloomShader AccumulateFinal
+		renderquad
+
+		 
+		 
+		 
+		 
+		 
+
+		callproc setFrameDepthBuffer
+		
+		endevent UpdatePostFXBloom
+	endif
+endproc
+
+
+# 39 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/PostFX.scrapeh" 2
+
+
+proc renderPostEffects
+    beginevent RenderPostEffects
+
+
+
+
+
+
+	    callproc PostEffectDistortion
+	    callproc PostEffectBloom
+	    callproc PostEffectLookupTable
+    endevent RenderPostEffects
+endproc
+
+
+# 11 "c:\\bf_ra3_qabuild_eala-build20\\ra3\\run\\shaders\\ingame.scrape" 2
+
+# 1 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/DepthMap.scrapeh" 1
+ 
+ 
+ 
+ 
+ 
+
+
+
+ 
+ 
+ 
+
+ 
+var texture DepthTexture $PostEffect.FrameBufferSize.x $PostEffect.FrameBufferSize.y R32F
+
+
+
+	
+	
+	var texture DepthTextureLinear $PostEffect.FrameBufferSize.x $PostEffect.FrameBufferSize.y R32F
+	
+	
+
+
+
+
+
+
+
+
+
+var shader PostEffectLinearDepthShader 	PostFX_LinearDepth.fx
+
+ 
+proc renderDepthCasters
+	renderTerrain 
+
+	renderbin TerrainLikeGroundObject
+	renderbin Bridge
+	renderProps
+
+	beginevent RenderCasters_Units
+		callproc renderBinsUnit
+		callproc renderBinsUnitOutline
+	endevent RenderCasters_Units
+
+	renderbin Solid
+
+	beginevent RenderCasters_Structures
+		renderbin Structure
+		callproc renderBinsStructureOutline
+	endevent RenderCasters_Structures
+
+	renderbin StaticSort5 					 
+	callproc renderBinsStaticSort
+	renderbin Transparent
+	renderTransparentOutlineObjects
+endproc
+
+proc updateDepthMapReally
+	beginevent UpdateDepthMap
+
+
+
+
+	settarget 0 DepthTexture
+
+	setdepth DepthBuffer
+	
+	beginDepthOverrideTechnique
+		
+	setclearcolor		1 1 1 1
+	setcleardepth       1.0
+	
+
+
+
+	clear
+
+	
+	setcamera Viewer
+	visibleobjects DepthMap
+	
+	callproc renderDepthCasters
+
+	endDepthOverrideTechnique
+	
+	setshader PostEffectLinearDepthShader LinearDepth
+	
+# 102 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/DepthMap.scrapeh"
+
+	settarget 0 DepthTextureLinear
+	
+	settexture PostEffect DepthBufferTexture DepthTexture
+
+	renderquad
+
+	settexture WW3D DepthTexture DepthTextureLinear	
+
+
+	endevent UpdateDepthMap
+endproc
+
+
+proc updateDepthMap
+	 
+	if Water IsReflectionVisible
+		callproc updateDepthMapReally
+	elif Particle IsSoftParticlesEnabled
+		callproc updateDepthMapReally
+	endif
+endproc
+
+
+# 12 "c:\\bf_ra3_qabuild_eala-build20\\ra3\\run\\shaders\\ingame.scrape" 2
+
+# 1 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/WaterReflection.scrapeh" 1
+ 
+ 
+ 
+ 
+ 
+
+
+
+ 
+ 
+ 
+
+
+
+var texture WaterReflectionTexture 512 512 $WW3D.FrameRenderTargetTextureFormat
+
+
+	
+
+
+
+
+var camera Reflection
+
+proc updateWaterReflection
+	if Water IsReflectionVisible
+		beginevent UpdateWaterReflection
+		
+		 
+		 
+		setbool Particle ReallyRenderSoftParticles false
+		
+		setdepth DepthBuffer	 
+		settarget 0 WaterReflectionTexture
+		
+		setclearcolor		0 0 0 1
+		setcleardepth       1.0
+		clear
+
+		setcamera Reflection
+		visibleobjects Reflection
+		
+		if DebugToggle BaselineRendering.IsEnabled
+			if DebugToggle TerrainReflection.IsEnabled
+				renderTerrain
+			endif
+
+			 
+			renderbin TerrainLikeGroundObject
+		endif
+
+		renderbin Bridge
+		
+        beginevent RenderCasters_Units
+		    callproc renderBinsUnit
+		    callproc renderBinsUnitOutline
+        endevent RenderCasters_Units
+
+		if DebugToggle BaselineRendering.IsEnabled
+			renderbin Solid
+		endif
+
+		if DebugToggle BaselineRendering.IsEnabled
+			if DebugToggle StructureReflection.IsEnabled
+				beginevent RenderCasters_Structures
+					renderbin Structure
+					callproc renderBinsStructureOutline
+				endevent RenderCasters_Structures
+			endif
+		endif
+
+		renderbin StaticSort5  
+		callproc renderBinsStaticSort
+		renderbin Transparent
+		renderParticles
+		renderTracers
+		renderLasers
+		renderConnectionLines
+				
+
+
+
+
+		settexture Water ReflectionTexture WaterReflectionTexture
+		
+		setbool Particle ReallyRenderSoftParticles true
+		
+		endevent UpdateWaterReflection
+	else
+		 
+	endif
+endproc
+
+proc updateWaterRefraction
+	if Water IsRefractionVisible
+		 
+
+
+
+		if WW3D IsUsingFrameRenderTarget
+			stretchrect FrameRenderTarget PostEffectFrameBufferTexture
+		else
+			stretchrect FrameBuffer PostEffectFrameBufferTexture
+		endif
+
+		
+		settexture Water RefractionTexture PostEffectFrameBufferTexture
+	else
+		 
+	endif
+endproc
+
+
+# 13 "c:\\bf_ra3_qabuild_eala-build20\\ra3\\run\\shaders\\ingame.scrape" 2
+
+# 1 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/OceanDisplacement.scrapeh" 1
+ 
+ 
+ 
+ 
+ 
+
+
+
+ 
+ 
+ 
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+var texture OceanDisplacementTexture 1024 1024 A16B16G16R16F
+
+
+	
+
+	 
+	var texture OceanDisplacementTexture2 1024 1024 A16B16G16R16F
+	
+
+
+
+
+
+var shader OceanDisplacementShader OceanDisplacement.fx
+
+var camera OceanDisplacement
+
+
+
+var texture StaticOceanDisplacementTexture Octave3_NRM
+
+proc updateOceanDisplacement
+
+        settexture Water StaticDisplacementTexture StaticOceanDisplacementTexture
+
+
+	if Water IsReflectionVisible
+		beginevent UpdateWaterDisplacement
+		
+		setfloat Water DisplacementTextureSize 1024
+		
+		settarget 0 OceanDisplacementTexture
+		setdepth NULL
+		
+
+
+
+		setclearcolor		0 0 0 0
+
+		clearcolor
+
+		setcamera OceanDisplacement
+		
+		renderWaterDisplacement
+		
+		renderbin OceanDisplacement
+		renderbin OceanDisplacement 1
+
+		setshader OceanDisplacementShader StaticDisplacement
+		renderquad
+
+		settexture Water DisplacementTexture OceanDisplacementTexture
+		
+
+
+
+		settarget 0 OceanDisplacementTexture2
+
+
+		setshader OceanDisplacementShader BlurU
+		renderquad
+
+
+
+
+		settexture Water DisplacementTexture OceanDisplacementTexture2
+
+		settarget 0 OceanDisplacementTexture
+
+
+		setshader OceanDisplacementShader BlurV
+		renderquad
+
+
+
+
+		settexture Water DisplacementTexture OceanDisplacementTexture
+
+
+		endevent UpdateWaterDisplacement
+	endif
+
+
+
+endproc
+
+
+# 14 "c:\\bf_ra3_qabuild_eala-build20\\ra3\\run\\shaders\\ingame.scrape" 2
+
+# 1 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/UnderwaterDeferred.scrapeh" 1
+ 
+ 
+ 
+ 
+ 
+
+
+
+var shader UnderwaterDeferredShader UnderwaterDeferred.fx
+
+var texture DepthLutTexture FXDepthLut
+var texture CausticsTexture FXCaustics
+
+proc renderUnderwaterDeferred
+	settexture Water DepthLutTexture DepthLutTexture
+	settexture Water CausticsTexture CausticsTexture
+
+	if Water IsReflectionVisible
+		beginevent RenderUnderwaterDeferred
+		
+		setshader UnderwaterDeferredShader Tint
+		renderquad
+
+		if DebugToggle RenderCaustics.IsEnabled
+			setshader UnderwaterDeferredShader Caustics
+			renderquad
+		endif
+
+		endevent RenderUnderwaterDeferred
+	endif
+endproc
+
+
+# 15 "c:\\bf_ra3_qabuild_eala-build20\\ra3\\run\\shaders\\ingame.scrape" 2
+
+# 1 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/Outlines.scrapeh" 1
+ 
+ 
+ 
+ 
+ 
+
+
+
+
+
+# 22 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/Outlines.scrapeh"
+
+	
+	
+
+
+
+
+
+	 
+	 
+	var texture OutlineTextureFill $WW3D.FrameBufferSize.x $WW3D.FrameBufferSize.y A8R8G8B8
+	var surface OutlineRenderTargetFill edram $WW3D.FrameBufferSizeIfAntiAliasing.x $WW3D.FrameBufferSizeIfAntiAliasing.y A8R8G8B8 $WW3D.AntiAliasingMode
+
+	var texture OutlineTexture $WW3D.Outline.TextureSize.x $WW3D.Outline.TextureSize.y A8R8G8B8
+	
+
+# 52 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/Outlines.scrapeh"
+
+
+var shader OutlinesShader	Outlines.fx
+
+proc renderOutlines
+	if WW3D Outline.IsEnabled
+		beginevent RenderOutlines
+
+
+
+
+
+
+
+
+
+
+         
+         
+
+		 
+		 
+		if WW3D IsAntiAliasingEnabled
+			settarget 0 OutlineRenderTargetFill
+		else
+			settarget 0 OutlineTextureFill
+		endif
+
+
+
+
+
+		callproc setFrameDepthBuffer
+
+		setclearcolor		0 0 0 0
+		clearcolor
+		
+		setcamera Viewer
+		
+		 
+		if WW3D Outline.IsSelectedBinPopulated
+			setshader OutlinesShader FillSelected
+			renderquad
+		endif
+		if WW3D Outline.IsHoverSelectBinPopulated
+			setshader OutlinesShader FillHoverSelect
+			renderquad
+		endif		
+		if WW3D Outline.IsHoverAttackBinPopulated
+			setshader OutlinesShader FillHoverAttack
+			renderquad
+		endif
+		
+
+
+
+
+		if WW3D IsAntiAliasingEnabled
+			 
+			stretchrect OutlineRenderTargetFill OutlineTextureFill
+		endif
+
+
+		settarget 0 OutlineTexture
+		setdepth NULL
+
+        settexture WW3D Outline.Texture OutlineTextureFill
+		setshader OutlinesShader BlurBox
+		renderquad
+		
+
+
+
+
+		
+		 
+		callproc setFrameRenderTarget
+		callproc setFrameDepthBuffer
+
+
+
+
+
+
+
+		
+		 
+		settexture WW3D Outline.Texture OutlineTexture
+		setshader OutlinesShader DrawWithStencil
+		renderquad
+
+		endevent RenderOutlines
+	endif
+endproc
+
+
+# 16 "c:\\bf_ra3_qabuild_eala-build20\\ra3\\run\\shaders\\ingame.scrape" 2
+
+# 1 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/RotateEnvironmentMap.scrapeh" 1
+ 
+ 
+ 
+ 
+ 
+
+
+
+# 1 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/RotateEnvironmentMap_Defs.scrapeh" 1
+ 
+ 
+ 
+ 
+ 
+
+
+
+ 
+var texturecube EnvironmentSourceTextureObjects fromscope Terrain EnvironmentTexture
+var texturecube EnvironmentSourceTextureWater fromscope WW3D FXOceanCubeMap 
+
+ 
+
+
+
+var texturecube EnvironmentDestinationTextureObjects 128 128 $WW3D.EnvMapRenderTargetTextureFormat autogenmipmap
+var texturecube EnvironmentDestinationTextureWater 128 128 $WW3D.EnvMapRenderTargetTextureFormat autogenmipmap
+
+ 
+
+
+
+
+ 
+var shader RotateEnvironmentMapShader RotateEnvironmentMap.fx
+
+
+# 9 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/RotateEnvironmentMap.scrapeh" 2
+
+
+# 1 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/RotateEnvironmentMap_Water.scrapeh" 1
+ 
+ 
+ 
+ 
+ 
+
+
+
+ 
+
+ 
+
+ 
+
+ 
+# 1 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/RotateEnvironmentMap_Proc.scrapeh" 1
+ 
+ 
+ 
+ 
+ 
+
+ 
+
+	
+
+
+proc doRotateEnvironmentMapWater
+
+		beginevent DoRotateEnvironmentMap
+
+		 
+		settexture Environment SourceTexture EnvironmentSourceTextureWater
+
+		setdepth NULL
+
+		 
+
+		settarget 0 EnvironmentDestinationTextureWater 0
+		setshader RotateEnvironmentMapShader CubeFace0
+		renderquad
+
+
+
+
+		settarget 0 EnvironmentDestinationTextureWater 1
+		setshader RotateEnvironmentMapShader CubeFace1
+		renderquad
+
+
+
+
+		settarget 0 EnvironmentDestinationTextureWater 2
+		setshader RotateEnvironmentMapShader CubeFace2
+		renderquad
+
+
+
+
+		settarget 0 EnvironmentDestinationTextureWater 3
+		setshader RotateEnvironmentMapShader CubeFace3
+		renderquad
+
+
+
+
+		settarget 0 EnvironmentDestinationTextureWater 4
+		setshader RotateEnvironmentMapShader CubeFace4
+		renderquad
+
+
+
+
+		settarget 0 EnvironmentDestinationTextureWater 5
+		setshader RotateEnvironmentMapShader CubeFace5
+		renderquad
+
+
+
+
+		endevent DoRotateEnvironmentMap
+
+endproc
+# 16 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/RotateEnvironmentMap_Water.scrapeh" 2
+
+
+
+
+
+
+# 11 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/RotateEnvironmentMap.scrapeh" 2
+
+# 1 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/RotateEnvironmentMap_Objects.scrapeh" 1
+ 
+ 
+ 
+ 
+ 
+
+
+
+ 
+
+ 
+
+ 
+
+# 1 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/RotateEnvironmentMap_Proc.scrapeh" 1
+ 
+ 
+ 
+ 
+ 
+
+ 
+
+	
+
+
+proc doRotateEnvironmentMapObjects
+
+		beginevent DoRotateEnvironmentMap
+
+		 
+		settexture Environment SourceTexture EnvironmentSourceTextureObjects
+
+		setdepth NULL
+
+		 
+
+		settarget 0 EnvironmentDestinationTextureObjects 0
+		setshader RotateEnvironmentMapShader CubeFace0
+		renderquad
+
+
+
+
+		settarget 0 EnvironmentDestinationTextureObjects 1
+		setshader RotateEnvironmentMapShader CubeFace1
+		renderquad
+
+
+
+
+		settarget 0 EnvironmentDestinationTextureObjects 2
+		setshader RotateEnvironmentMapShader CubeFace2
+		renderquad
+
+
+
+
+		settarget 0 EnvironmentDestinationTextureObjects 3
+		setshader RotateEnvironmentMapShader CubeFace3
+		renderquad
+
+
+
+
+		settarget 0 EnvironmentDestinationTextureObjects 4
+		setshader RotateEnvironmentMapShader CubeFace4
+		renderquad
+
+
+
+
+		settarget 0 EnvironmentDestinationTextureObjects 5
+		setshader RotateEnvironmentMapShader CubeFace5
+		renderquad
+
+
+
+
+		endevent DoRotateEnvironmentMap
+
+endproc
+# 15 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/RotateEnvironmentMap_Objects.scrapeh" 2
+
+
+
+
+
+
+# 12 "c:/bf_ra3_qabuild_eala-build20/ra3/run/shaders/RotateEnvironmentMap.scrapeh" 2
+
+
+ 
+proc doRotateEnvironmentMaps
+
+	 
+	if WW3D MustRefreshEnvironment
+		setbool WW3D MustRefreshEnvironment false
+
+		setcamera Viewer
+		setGlobalLightInfo
+		callproc doRotateEnvironmentMapWater
+		 
+		callproc doRotateEnvironmentMapObjects
+		 
+	endif
+
+	settexture Objects LightSpaceEnvironmentMap EnvironmentDestinationTextureObjects
+	settexture Water LightSpaceEnvironmentMap EnvironmentDestinationTextureWater
+
+endproc
+
+
+# 17 "c:\\bf_ra3_qabuild_eala-build20\\ra3\\run\\shaders\\ingame.scrape" 2
+
+
+
+
+
+
+ 
+ 
+ 
+proc InGame
+
+	callproc initCustomTextures
+	
+	callproc updateFrameRenderTargetToUse
+
+
+
+
+
+
+
+	callproc updateShadowTexture
+	 
+	callproc doRotateEnvironmentMaps
+	callproc updateWaterReflection
+	 
+	callproc updateOceanDisplacement
+	 
+	callproc updateDepthMap
+	 
+
+	beginevent UpdateFrameBuffer
+	
+	callproc setFrameRenderTarget
+	callproc setFrameDepthBuffer
+	
+	setcamera Viewer
+	visibleobjects Frame
+
+	setclearcolor 0 0 0 1
+	setcleardepth 1.0
+
+
+
+
+	clear
+
+
+	 
+	if Sas ShadowMappingEnabled
+		settexture Sas Shadow[0].ShadowMap ShadowMapTexture
+	endif
+	
+	renderTerrain
+	
+	renderRoads
+
+	 
+	renderbin TerrainLikeGroundObject
+
+	renderScorchMarks
+	
+	renderTerrainTracks
+
+	 
+	renderbin Bridge
+	
+	renderProps
+
+	renderUnits			 
+
+	 
+	renderbin Solid
+	
+	renderStructures	 
+	
+	renderbin StaticSort5  
+
+
+
+	if DebugToggle RenderUnderwater.IsEnabled
+		beginevent RenderUnderwater
+			 
+			callproc renderUnderwaterDeferred
+
+			 
+			renderbin Underwater
+			renderbin Underwater 1
+		endevent RenderUnderwater
+	endif
+
+	callproc updateWaterRefraction
+	renderWater
+	
+	renderDecals
+	
+	renderbin Transparent
+	
+	renderTransparentOutlineObjects
+
+	if DebugToggle RenderOutlines.IsEnabled
+		callproc renderOutlines	 
+	endif
+	
+	renderBehindBuildingMarkers
+
+	callproc renderBinsStaticSort
+	
+	setbool Particle ReallyRenderSoftParticles true
+	if DebugToggle RenderParticles.IsEnabled
+		renderParticles
+	endif
+
+	renderTerrainUI
+	renderTracers
+	renderLasers
+	renderConnectionLines
+	renderRain
+        
+	 
+	 
+	 
+
+	callproc renderPostEffects  
+	
+	renderDebugSystems
+	renderTileFeedback
+	
+	renderIconLayers
+	renderUI
+	
+	renderDebugDisplays
+
+	 
+	 
+	
+	endevent UpdateFrameBuffer
+endproc
+
+ 
+ 
+ 
+proc Editor
+	callproc initCustomTextures
+
+	callproc updateFrameRenderTargetToUse
+
+	callproc updateShadowTexture
+	callproc updateWaterReflection
+	callproc updateDepthMap
+	
+	beginevent UpdateFrameBuffer
+	
+	callproc setFrameRenderTarget
+	callproc setFrameDepthBuffer
+
+	setcamera Viewer
+	visibleobjects Frame
+
+	setclearcolor		1 1 1 1
+	setcleardepth       1.0
+	clear
+
+	 
+	if Sas ShadowMappingEnabled
+		settexture Sas Shadow[0].ShadowMap ShadowMapTexture
+	endif
+
+	renderTerrain
+	
+	renderRoads
+
+	 
+	renderbin TerrainLikeGroundObject
+
+	renderScorchMarks
+		
+	 
+	renderbin Bridge
+	
+	renderProps
+	
+	renderUnits			 
+	
+	 
+	renderbin Solid
+
+	renderStructures	 
+	
+	renderbin StaticSort5  
+
+	 
+	callproc renderUnderwaterDeferred
+
+	 
+	renderbin Underwater
+
+	callproc updateWaterRefraction
+
+	renderWater
+	
+	renderDecals
+	
+	renderbin Transparent
+	
+	callproc renderOutlines  
+	callproc renderBinsStaticSort
+	
+	renderTileFeedback
+	
+	renderEditorObjects
+	
+	callproc PostEffectBloom
+	callproc PostEffectLookupTable
+	
+	endevent UpdateFrameBuffer
+endproc
