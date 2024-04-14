@@ -3,10 +3,12 @@ Graphic improvements for this old dx9 game "Command Conquer Red Alert 3 " (2008)
 
 also with a little help from https://github.com/lanyizi/DXDecompiler (could be experimental)
 
-the main project here is PBR (physical based render) shader. It should be used to replace Objects and Buildings shaders in the game (after compile! 
-Don't try to let the game itself compile it, its compiler is too outdated. Use FXC.EXE from legacy microsoft dx sdk.)
+the main project here is PBR (physical based render) shader. It should be used to replace Objects and Buildings shaders in the game 
+(after compile! Don't try to let the game itself compile it, its compiler is too outdated. Use FXC.EXE from legacy microsoft dx sdk.)
 
-it has three variants: "myPBR" for original game and most mods, "myPBR_g2yw" for Generals 2 mod, "myPBR_genevo" for Generals Evolution mod.
+ObjectsWorkflow.fx is my latest and most complete implementation, with the ability of previewing near in-game result in 3dsmax.
+
+The older PBR implementaions have three variants: "myPBR" for original game and most mods, "myPBR_g2yw" for Generals 2 mod, "myPBR_genevo" for Generals Evolution mod.
 "3dsmax only" is for you to export the needed parameters in 3dsmax when making an w3x model file. It cannot be used in-game. The preview is crude (for now) you have to guess its in-game visuals. I'll implement a better preview in 3dsmax later.
 
 Each has 10 (maybe more) global variables to adjust, you can tweak them to get the style fitting for your skirmish map. 
