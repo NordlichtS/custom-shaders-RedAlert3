@@ -14,17 +14,34 @@
 string DefaultParameterScopeBlock = "material"; 
 
 #if defined(_3DSMAX_)
+//3dsmax preview ===================
     string ParamID = "0x1";
+
+    float3 HCpreviewRGB <
+	    string UIName = "HC(Preview!)RGB";
+	    string UIWidget = "Color";
+        string UIWidgetParams = "noalpha";
+	    bool ExportValue = false;
+        > = float3(1,0,0);
+    //cannot export ===================
+
+    float4x4 WorldViewProjection : WorldViewProjection;
+    float4x4 MAXworld : WORLD;
+    float4x4 ViewI : VIEWINVERSE; //3dsmax give you that ?
+
+    // light direction (world space)
+    float3 MAXsunlightdir : Direction <  
+	    string UIName = "SunlightDirection(Preview!)"; 
+	    string Object = "TargetLight";
+	    bool ExportValue = false;
+	    > = {1, 0, 0};
+    float MAXshowSunlight <
+        string UIName = "MAXshowSunlight(Preview!)"; 
+        float UIMax = 2; float UIMin = 0; float UIStep = 0.1; 
+        bool ExportValue = false;
+        > = { 1.2 }; 
+
 #endif
-
-//cannot export ===================
-
-float3 HCpreviewRGB <
-	string UIName = "HC(Preview)RGB";
-	string UIWidget = "Color";
-    string UIWidgetParams = "noalpha";
-	bool ExportValue = false;
-> = float3(1,0,0);
 
 //adjustable parameters
 
@@ -40,20 +57,14 @@ texture SpecMap
 <string UIName = "SpecMap";>; //SPM贴图
 //R=mid gloss, G=glow, B=hc , A=ao map. DXT:dxt5
 
-texture DamagedTexture ;
-//<string UIName = "DamagedTexture";>; //how does this work anyway
+/*
+texture HeightMap 
+<string UIName = "HeightMap";>; //用来实时法线的高度图
+// L8 to store height
+*/
 
 float paintTEXloop  //漫反射贴图循环次数
 <string UIName = "paintTEXloop"; float UIMax = 16; float UIMin = 1; float UIStep = 1; > = { 1 }; 
-
-float FresnelF0  //菲涅尔效应F0
-<string UIName = "FresnelF0"; float UIMax = 1; float UIMin = 0.04; float UIStep = 0.01; > = { 0.2 }; 
-
-float MINroughness  //最低粗糙度
-<string UIName = "MINroughness"; float UIMax = 1; float UIMin = 0.04; float UIStep = 0.01;> = { 0.1 };
-
-float spm_metal_gradient  //金属度过渡，越大越陡峭
-<string UIName = "spm_metal_gradient"; float UIMax = 32; float UIMin = 1; float UIStep = 1;> = { 8 };
 
 float tangent_xy_multiply //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。
 <string UIName = "tangent_xy_multiply"; float UIMax = 1; float UIMin = -1; float UIStep = 0.25; > ={ 1 }; 
@@ -67,134 +78,134 @@ bool ignore_vertex_alpha //仅原版建筑开启！强制忽略顶点透明度�
 bool AlphaTestEnable //贴图镂空。与上一个选项不冲突。此选项原版就有！
 <string UIName = "AlphaTestEnable";> =1 ; 
 
-float4 GlassSpectrum  //玻璃色，alpha为阵营色
+float4 GlassSpectrum  //玻璃光谱+1 再乘F0 为玻璃垂直视角时的颜色，但不影响边缘视角
 <string UIName = "GlassSpectrum"; string UIWidget = "Color"; > = {0, 0, 0, 1}; 
 
 float4 GlowColor  //发光色，alpha为阵营色
-<string UIName = "GlowColor"; string UIWidget = "Color"; > = {0, 0, 0, 0.25}; 
+<string UIName = "GlowColor"; string UIWidget = "Color"; > = {0, 0, 0, 0.5}; 
 
 float GlowPeriod //发光呼吸周期
 <string UIName = "GlowPeriod"; float UIMax = 10; float UIMin = 0; float UIStep = 0.2; > ={ 1 }; 
 
 float GlowAmplitude //发光呼吸幅度
-<string UIName = "GlowAmplitude"; float UIMax = 4; float UIMin = 0; float UIStep = 0.25; > ={ 3 }; 
+<string UIName = "GlowAmplitude"; float UIMax = 4; float UIMin = 0; float UIStep = 0.25; > ={ 2 }; 
 
 // internal style parameters ======================
 
-float ambient_multiply < string SasBindAddress = "Sas.mid_ambient_multiply";
-//string UIName = "ambient_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;
+float FresnelF0  <string UIWidget="None"; string SasBindAddress = "Sas.mid_FresnelF0";
+// string UIName = "FresnelF0"; float UIMax = 1; float UIMin = 0.02; float UIStep = 0.01;
+> = { 0.125 }; //菲涅尔效应F0
+
+float MINroughness  <string UIWidget="None"; string SasBindAddress = "Sas.mid_MINroughness";
+// string UIName = "MINroughness"; float UIMax = 1; float UIMin = 0.02; float UIStep = 0.01;
+> = { 0.125 }; //最低粗糙度
+
+float spm_metal_gradient  <string UIWidget="None"; string SasBindAddress = "Sas.mid_spm_metal_gradient";
+// string UIName = "spm_metal_gradient"; float UIMax = 32; float UIMin = 1; float UIStep = 1;
+> = { 8 }; //金属度过渡，越大越陡峭
+
+float ambient_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_ambient_multiply";
+// string UIName = "ambient_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;
 > = { 0.5 }; //环境光与天空亮度
 
-float sunlight_multiply < string SasBindAddress = "Sas.mid_ambient_multiply";
-//string UIName = "ambient_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;
-> = { 0.8 }; //环境光与天空亮度
+float sunlight_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_sunlight_multiply";
+// string UIName = "sunlight_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;
+> = { 0.8 }; //阳光亮度
 
-float diffuse_multiply < string SasBindAddress = "Sas.mid_diffuse_multiply";
-//string UIName = "diffuse_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;
-> = { 1.0 }; //漫反射亮度，影响阳光与点光源
+float diffuse_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_diffuse_multiply";
+// string UIName = "diffuse_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;
+> = { 1 }; //漫反射亮度，影响阳光与点光源
 
-float specBASE_multiply < string SasBindAddress = "Sas.mid_specbase_multiply";
-//string UIName = "spec_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;
-> = { 0.5 }; //高光在最大粗糙度下的基础亮度，影响阳光与点光源
+float specbase_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_specbase_multiply";
+// string UIName = "specbase_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;
+> = { 1 }; //高光在最大粗糙度下的基础峰值亮度，影响阳光与点光源
 
-float pointlight_multiply < string SasBindAddress = "Sas.mid_pointlight_multiply";
-//string UIName = "pointlight_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;
-> = { 1.0 }; //点光源反射整体亮度
+float pointlight_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_pointlight_multiply";
+// string UIName = "pointlight_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;
+> = { 1 }; //点光源反射整体亮度
 
 
 //other param===================================
 
+
 float3 RecolorColor
-: register(ps_2_0, c0) : register(ps_3_0, c0) <	bool ExportValue = false;> = {1,0,0};
+: register(ps_2_0, c0) : register(ps_3_0, c0) 
+<string UIWidget="None"; bool ExportValue = false;> = {1,0,0};
 
 bool HasRecolorColors 
-< string SasBindAddress = "WW3D.HasRecolorColors"; bool ExportValue = 0;> =1 ;
+<string UIWidget="None"; string SasBindAddress = "WW3D.HasRecolorColors"; bool ExportValue = 0;> =1 ;
 
 float3 AmbientLightColor
-: register(vs_2_0, c4) : register(vs_3_0, c4) <string SasBindAddress = "Sas.AmbientLight[0].Color"; bool unmanaged = 1;> = { 0.3, 0.2, 0.1 };
+: register(vs_2_0, c4) : register(vs_3_0, c4) 
+<string UIWidget="None"; //string SasBindAddress = "Sas.AmbientLight[0].Color"; 
+bool unmanaged = 1;> = { 0.3, 0.2, 0.1 };
 
 struct{    float3 Color;    float3 Direction;} 
-DirectionalLight[3] : register(vs_2_0, c5) : register(ps_3_0, c5) : register(vs_3_0, c5) <bool unmanaged = 1;> = 
+DirectionalLight[3] : register(vs_2_0, c5) : register(ps_3_0, c5) : register(vs_3_0, c5) <string UIWidget="None"; bool unmanaged = 1;> = 
 { 1.0, 1.0, 1.0,   0, 0, 1, 
   0.5, 0.6, 0.7,   1, 0, 0, 
   0.3, 0.3, 0.3,   0, 1, 0 };
 
 int NumPointLights  // : register(ps_3_0, i0) 
-<string SasBindAddress = "Sas.NumPointLights"; > =8;
+<string UIWidget="None"; string SasBindAddress = "Sas.NumPointLights"; > =8;
 
 struct{    float3 Color;    float3 Position;    float2 Range_Inner_Outer;} 
-PointLight[8] : register(ps_3_0, c89) <bool unmanaged = 1;>;
+PointLight[8] : register(ps_3_0, c89) <string UIWidget="None"; bool unmanaged = 1;>;
 
 struct{    float4 WorldPositionMultiplier_XYZZ;    float2 CurrentOffsetUV;} 
-Cloud : register(vs_3_0, c117) <bool unmanaged = 1;>;
+Cloud : register(vs_3_0, c117) <string UIWidget="None"; bool unmanaged = 1;>;
 
 float3 NoCloudMultiplier 
-<bool unmanaged = 1;> = { 1, 1, 1 };
+<string UIWidget="None"; bool unmanaged = 1;> = { 1, 1, 1 };
 
 column_major float4x4 ShadowMapWorldToShadow 
-: register(vs_3_0, c113) <bool unmanaged = 1;>;
+: register(vs_3_0, c113) <string UIWidget="None"; bool unmanaged = 1;>;
 
 float OpacityOverride 
-: register(vs_2_0, c1) : register(vs_3_0, c1) <bool unmanaged = 1;> = { 1 };
+: register(vs_2_0, c1) : register(vs_3_0, c1) <string UIWidget="None"; bool unmanaged = 1;> = { 1 };
 
 float3 TintColor 
-: register(ps_2_0, c2) : register(ps_3_0, c2) <bool unmanaged = 1;> = { 1, 1, 1 };
+: register(ps_2_0, c2) : register(ps_3_0, c2) <string UIWidget="None"; bool unmanaged = 1;> = { 1, 1, 1 };
 
 float3 EyePosition 
-: register(vs_3_0, c123) : register(ps_3_0, c123) <bool unmanaged = 1;> = {0,0,0};
+: register(vs_3_0, c123) : register(ps_3_0, c123) <string UIWidget="None"; bool unmanaged = 1;> = {0,0,0};
 
 column_major float4x4 ViewProjection 
-: register(vs_2_0, c119) : register(vs_3_0, c119) <bool unmanaged = 1;>;
+: register(vs_2_0, c119) : register(vs_3_0, c119) <string UIWidget="None"; bool unmanaged = 1;>;
 
 float4 WorldBones[128] 
-: register(vs_2_0, c128) : register(vs_3_0, c128) <bool unmanaged = 1;>;
+: register(vs_2_0, c128) : register(vs_3_0, c128) <string UIWidget="None"; bool unmanaged = 1;>;
 
 bool HasShadow 
-< string SasBindAddress = "Sas.HasShadow";> =0;
+<string UIWidget="None"; string SasBindAddress = "Sas.HasShadow";> =0;
 
 float4 Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize 
-: register(ps_3_0, c11) < string SasBindAddress = "Sas.Shadow[0].Zero_Zero_OneOverMapSize_OneOverMapSize";>;
+: register(ps_3_0, c11) <string UIWidget="None"; string SasBindAddress = "Sas.Shadow[0].Zero_Zero_OneOverMapSize_OneOverMapSize";>;
 
 float2 MapCellSize 
-< string SasBindAddress = "Terrain.Map.CellSize";> = { 10, 10 };
+<string UIWidget="None"; string SasBindAddress = "Terrain.Map.CellSize";> = { 10, 10 };
 
 int _SasGlobal : SasGlobal 
-< int3 SasVersion = int3(1, 0, 0); int MaxLocalLights = 8; int MaxSupportedInstancingMode = 1;>;
+<string UIWidget="None"; int3 SasVersion = int3(1, 0, 0); int MaxLocalLights = 8; int MaxSupportedInstancingMode = 1;>;
 
 int NumJointsPerVertex 
-< string SasBindAddress = "Sas.Skeleton.NumJointsPerVertex";> =0 ;
+<string UIWidget="None"; string SasBindAddress = "Sas.Skeleton.NumJointsPerVertex";> =0 ;
 
 column_major float4x3 World : World 
 : register(vs_2_0, c124) : register(vs_3_0, c124);
 
 struct{    float4 ScaleUV_OffsetUV;} 
 Shroud 
-: register(vs_2_0, c11) : register(vs_3_0, c11) < string SasBindAddress = "Terrain.Shroud";> = { 1, 1, 0, 0 };
+: register(vs_2_0, c11) : register(vs_3_0, c11) <string UIWidget="None"; string SasBindAddress = "Terrain.Shroud";> = { 1, 1, 0, 0 };
 
 float Time : Time;
 
-//3dsmax preview ===================
-
-float4x4 WorldViewProjection : WorldViewProjection;
-float4x4 MAXworld : WORLD;
-float4x4 ViewI : VIEWINVERSE; //3dsmax give you that ?
-// light direction (world space)
-float3 MAXsunlightdir : Direction <  
-	string UIName = "SunlightDirection(Preview)"; 
-	string Object = "TargetLight";
-	bool ExportValue = false;
-	> = {1, 0, 0};
-float MAXshowSunlight <
-    string UIName = "MAXshowSunlight(Preview)"; 
-    float UIMax = 2; float UIMin = 0; float UIStep = 0.1; 
-    bool ExportValue = false;
-    > = { 1.2 }; 
 
 
 //============== OTHER TEXTURE AND SAMPLERS
 
 texture ShadowMap 
-<string UIWidget = "None"; string SasBindAddress = "Sas.Shadow[0].ShadowMap";>; 
+<string UIWidget="None"; string SasBindAddress = "Sas.Shadow[0].ShadowMap";>; 
 sampler2D ShadowMapSampler : register(ps_3_0, s0) 
 <string Texture = "ShadowMap";  string SasBindAddress = "Sas.Shadow[0].ShadowMap";> =
 sampler_state
@@ -209,7 +220,7 @@ sampler_state
 
 
 texture CloudTexture 
-<string UIWidget = "None"; string SasBindAddress = "Terrain.Cloud.Texture"; string ResourceName = "ShaderPreviewCloud.dds";>; 
+<string UIWidget="None"; string SasBindAddress = "Terrain.Cloud.Texture"; string ResourceName = "ShaderPreviewCloud.dds";>; 
 sampler2D CloudTextureSampler 
 <string Texture = "CloudTexture"; string SasBindAddress = "Terrain.Cloud.Texture"; string ResourceName = "ShaderPreviewCloud.dds";> =
 sampler_state
@@ -223,7 +234,7 @@ sampler_state
 };
 
 texture EnvironmentTexture 
-<string UIWidget = "None"; string SasBindAddress = "Objects.LightSpaceEnvironmentMap"; string ResourceType = "Cube";>; 
+<string UIWidget="None"; string SasBindAddress = "Objects.LightSpaceEnvironmentMap"; string ResourceType = "Cube";>; 
 samplerCUBE EnvironmentTextureSampler 
 <string Texture = "EnvironmentTexture";  string SasBindAddress = "Objects.LightSpaceEnvironmentMap"; string ResourceType = "Cube";> =
 sampler_state
@@ -266,7 +277,7 @@ sampler_state
 };
 
 
-sampler2D SpecMapSampler //: register(ps_2_0, s1) 
+sampler2D SpecMapSampler //
 <string Texture = "SpecMap"; string UIName = "SpecMap";> =
 sampler_state
 {
@@ -281,7 +292,7 @@ sampler_state
 
 
 texture ShroudTexture 
-<string UIWidget = "None"; string SasBindAddress = "Terrain.Shroud.Texture";>; 
+<string UIWidget="None"; string SasBindAddress = "Terrain.Shroud.Texture";>; 
 sampler2D ShroudTextureSampler 
 <string Texture = "ShroudTexture"; string SasBindAddress = "Terrain.Shroud.Texture";> =
 sampler_state
@@ -292,6 +303,21 @@ sampler_state
     MipFilter = 2;
     AddressU = 3;
     AddressV = 3;
+};
+
+
+texture DamagedTexture 
+<string UIWidget="None"; bool ExportValue = false;>; //no need
+//<string UIName = "DamagedTexture";>; //how does this work anyway
+sampler2D DamagedTextureSampler //
+<string Texture = "DamagedTexture"; > = sampler_state
+{
+    Texture = <DamagedTexture>; 
+    MinFilter = 2;
+    MagFilter = 2;
+    MipFilter = 2;
+    AddressU = 1;
+    AddressV = 1;
 };
 
 
@@ -333,7 +359,7 @@ VS_H_Array_Shader_0_Output VS_H_Array_Shader_0(VS_H_Array_Shader_0_Input i)  //n
     o.texcoord3.z = temp0.z;
     temp0.x = max(temp0.w, float1(0));
     temp0.xyz = temp0.xxx ;//* DirectionalLight[2].Color.xyz;
-    temp1.z = float1(0.1);
+    temp1.z = float1(0);
     temp0.xyz =  temp1.zzz + temp0.xyz; //amb
     temp0.xyz = temp0.xyz * i.color.xyz;
     temp0.w = OpacityOverride.x;
@@ -376,7 +402,7 @@ VS_H_Array_Shader_0_Output VS_H_Array_Shader_0(VS_H_Array_Shader_0_Input i)  //n
     o.texcoord5.xyz = temp0.xzw * temp0.yyy + float3(0, 0, -0.004); //0.0015
 
     o.color.xyz = AmbientLightColor.xyz ;
-    if(ignore_vertex_alpha){o.color.z =1;};
+    //if(ignore_vertex_alpha){o.color.z =1;};
 
     return o;
 }
@@ -439,7 +465,7 @@ VS_H_Array_Shader_1_Output VS_H_Array_Shader_1(VS_H_Array_Shader_1_Input i)  //h
     temp2.w =1;// dot(temp2.xyz, DirectionalLight[2].Direction.xyz);
     temp2.w = max(temp2.w, float1(0));
     temp3.xyz = temp2.www ;//* DirectionalLight[2].Color.xyz;
-    temp2.w = float1(0.1);
+    temp2.w = float1(0);
     temp3.xyz =  temp2.www + temp3.xyz; //amb
     temp1.xyz = temp3.xyz * i.color.xyz;
     o.color = temp0 * temp1;
@@ -498,7 +524,7 @@ VS_H_Array_Shader_1_Output VS_H_Array_Shader_1(VS_H_Array_Shader_1_Input i)  //h
     o.texcoord5.xyz = temp1.xyz * temp0.yyy + float3(0, 0, -0.004); //0.0015
 
     o.color.xyz = AmbientLightColor.xyz ;
-    if(ignore_vertex_alpha){o.color.z =1;};
+    //if(ignore_vertex_alpha){o.color.z =1;};
 
     return o;
 }
@@ -559,8 +585,8 @@ float helper_specdist(float glossiness, float3 R, float3 L)
     //square function is similar to cosine within half period
     float specdist = cosRL * OOA - OOA +1 ;
     specdist = saturate(specdist);
-    specdist = pow(specdist , 3 ); //smooth tails
-    float peakbrightness = glossiness * specBASE_multiply ;
+    specdist = pow(specdist , 4 ); //smooth tails
+    float peakbrightness = glossiness * specbase_multiply ;
     specdist *= peakbrightness ;
     return specdist ;
 };
@@ -582,9 +608,7 @@ float helper_fresnel(float3 L, float3 V, float F0)
 };
 
 float3 helper_color_decider (float4 InputColor, float3 actualHC)  
-{
-    return (InputColor.xyz + InputColor.w * actualHC) ;
-};
+{   return (InputColor.xyz + InputColor.w * actualHC) ;  };
 
 float3 helper_normalmapper(float2 TEXtangent) 
 {
@@ -610,7 +634,7 @@ float3 helper_fakeskybox_noise (int index, float3 EVC, float3 R, float2 cloudoff
 {
     float2 cloudUV = ( R.xy / R.z ) + cloudoffset ;
     float3 cloudnoise = tex2D(CloudTextureSampler, cloudUV);
-    cloudnoise = clamp(((0.5- cloudnoise) * sharpness), -1,1 );
+    cloudnoise = clamp(((0.5- cloudnoise) * sharpness), -1,1 ); // or cloudnoise - 0.5
     float3 cloudds = saturate(R.z *2) * cloudnoise;  //avoid horizon, reduce noise below 30 degrees
     float3 EVCMAX = float3(1,1,1)* max(EVC.z, max(EVC.x, EVC.y));
     float3 EVCMIN = float3(1,1,1)* min(EVC.z, min(EVC.x, EVC.y));
@@ -643,6 +667,7 @@ float3 helper_mapcolor_chooser (int index, float3 vertexcolorab)
     if (index==9) {chosenone= (max(DirectionalLight[1].Color.xyz , DirectionalLight[2].Color.xyz) + vertexcolorab) ;};
     if (index==10){chosenone= (DirectionalLight[1].Color.xyz + DirectionalLight[2].Color.xyz + vertexcolorab) ;};
     if (index==11){chosenone= float3(0.4 , 0.5 , 0.6) ;};
+    if (index==12){chosenone= float3(0.3 , 0.2 , 0.1) ;};
 
     return chosenone ;
 };
@@ -684,13 +709,13 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
 
 //get textures
     float4 dif = tex2D(DiffuseTextureSampler, (i.MainTexUV.xy * paintTEXloop) );
-    float4 nrm = tex2D(NormalMapSampler,      i.MainTexUV.xy);
-    float4 spm = tex2D(SpecMapSampler,        i.MainTexUV.xy);
+    float4 nrm = tex2D(NormalMapSampler,       i.MainTexUV.xy);
+    float4 spm = tex2D(SpecMapSampler,         i.MainTexUV.xy);
 
     //dif.xyz *= dif.xyz ; //gamma for vanilla compatible
 
     float3 actualHC = (HasRecolorColors)? RecolorColor : float3(1,1,1) ;
-#if defined(_3DSMAX_)
+#if defined(_3DSMAX_)  // MAX永远有HC
     actualHC = HCpreviewRGB ;
 #endif
 
@@ -706,7 +731,6 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
     float  mirAO = lerp(spm.w, 1, clamp(spm.x, 0.5, 1));  //mult on env spec
     float  F0 = lerp(FresnelF0 , 1, metalness);
     float  blackbody = nrm.z ;
-    float3 GlassColor = helper_color_decider(GlassSpectrum, actualHC) ;
 
 //tangent space to world normal
     nrm.xyz = helper_normalmapper(nrm.xy) ;
@@ -723,8 +747,9 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
 #endif
     V = normalize(V) ;
 
-    float  EYEtilt = dot(V,N) ; //1= perpendicular view, 0= side view , -1=back
-    float3 R = reflect( -V , N ); //input light vector is towards fragment!
+    float  EYEtilt = dot(V , N) ; //1= perpendicular view, 0= side view , -1=back
+    float3 R = reflect(-V , N); //input light vector is towards fragment!
+    if(EYEtilt <0){R = -V ;}; //SHOULD I FIX IT ?
 
     float3 Lsun      = DirectionalLight[0].Direction.xyz ;
     float3 sun_color = DirectionalLight[0].Color.xyz ;
@@ -741,12 +766,13 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
     if(sun_tilt <= 0) {sun_color = 0 ;};
 
 //special handel: glass
-    if(nrm.w <0.5)
+    if(nrm.w ==0)
     {
+        float3 GlassColor = helper_color_decider(GlassSpectrum, actualHC) * EYEtilt + float3(1,1,1);
+        speccolor = GlassColor ;  //side = 111white, verticle view = (Spectrum +1) *F0
         Reflectivity = 1;
-        speccolor = saturate(lerp(float3(1,1,1), GlassColor, EYEtilt)) ;
         glossgradient = 1;
-        glossiness = helper_glossiness (1) ;
+        glossiness = 1 / MINroughness ;
         metalness  = 0 ;
         difcolor = float3(0,0,0);
         difAO = 1;
@@ -761,8 +787,9 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
 
     float3 fake_skybox_upper = sky_color ;
     float3 fake_skybox_lower = ground_color ;
+
 #if !defined(_3DSMAX_)  //预览没有云
-    fake_skybox_upper = helper_fakeskybox_noise (6, sky_color, R.xyz , i.FogCloudUV.zw , (glossiness -1)) ;
+//    fake_skybox_upper = helper_fakeskybox_noise (6, sky_color, R.xyz , i.FogCloudUV.zw , (glossiness -1 +metalness)) ;
 #endif
 
     float  ground_sky_lerpw = saturate(R.z * glossiness +0.5) ;
@@ -824,24 +851,34 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
     out_color.xyz *= TintColor ;
 
 #if !defined(_3DSMAX_)  //预览没有迷雾
-    out_color.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy);  //warfog
+    float3 warfog = tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;
+    out_color.xyz *= warfog ;  
 #endif 
 
     float3 glowmap = helper_color_decider(GlowColor, actualHC) * spm.y ;
 #if !defined(_3DSMAX_) //预览没有呼吸灯波动
     glowmap *= helper_glowpulse() ;
 #endif
-
     out_color.xyz += glowmap ;  
 
     if(HC_AffectRef) {out_color.xyz *= HCchannelMult ;}; 
-    if(AlphaTestEnable){out_color.w = i.color.w * dif.w ;};
+    out_color.w = 1;
+    if(AlphaTestEnable){out_color.w = dif.w ;};
+    if(! ignore_vertex_alpha){out_color.w *= i.color.w ;};
+    
 
     return out_color;
 };
 
+float4 PS_H_INFANTRY(PS_H_MAIN_INPUT i) : COLOR 
+{
+    return 0 ;
+}
 
-
+PixelShader PS_H_Render_Array[2] = {
+    compile ps_3_0 PS_H_MAIN (),  //0
+    compile ps_3_0 PS_H_INFANTRY(),  //1
+}; 
 
 //END HIGH SHADERS================================
 //DELETED M L SHADERS
@@ -962,7 +999,7 @@ float4 PSCreateShadowMap_Array_Shader_0(float texcoord1 : TEXCOORD1) : COLOR
 PixelShader PSCreateShadowMap_Array[1] = {    compile ps_2_0 PSCreateShadowMap_Array_Shader_0(), };
 
 //FOR MAX PREVIEW ===================================
-
+#if defined(_3DSMAX_) 
 
 struct VSforMAX_Input
 {
@@ -1001,12 +1038,13 @@ VSforMAX_Output VSforMAX(VSforMAX_Input i)  //
     o.texcoord1.z = dot(i.normal.xyz, (MAXworld._m00_m10_m20_m30).xyz);
     o.texcoord2.z = dot(i.normal.xyz, (MAXworld._m01_m11_m21_m31).xyz);
     o.texcoord3.z = dot(i.normal.xyz, (MAXworld._m02_m12_m22_m32).xyz);
-    o.texcoord1.x = 0- dot(i.binormal.xyz, (MAXworld._m00_m10_m20_m30).xyz);
-    o.texcoord1.y = 0- dot(i.tangent.xyz, (MAXworld._m00_m10_m20_m30).xyz);
-    o.texcoord2.x = 0- dot(i.binormal.xyz, (MAXworld._m01_m11_m21_m31).xyz);
-    o.texcoord2.y = 0- dot(i.tangent.xyz, (MAXworld._m01_m11_m21_m31).xyz);
-    o.texcoord3.x = 0- dot(i.binormal.xyz, (MAXworld._m02_m12_m22_m32).xyz);
-    o.texcoord3.y = 0- dot(i.tangent.xyz, (MAXworld._m02_m12_m22_m32).xyz);
+    float4 temp0 ;  //3dsmax 的切线空间似乎是互换binormal 和tangent
+    o.texcoord1.y = 0- dot(i.binormal.xyz, (MAXworld._m00_m10_m20_m30).xyz);
+    o.texcoord1.x = 0- dot(i.tangent.xyz, (MAXworld._m00_m10_m20_m30).xyz);
+    o.texcoord2.y = 0- dot(i.binormal.xyz, (MAXworld._m01_m11_m21_m31).xyz);
+    o.texcoord2.x = 0- dot(i.tangent.xyz, (MAXworld._m01_m11_m21_m31).xyz);
+    o.texcoord3.y = 0- dot(i.binormal.xyz, (MAXworld._m02_m12_m22_m32).xyz);
+    o.texcoord3.x = 0- dot(i.tangent.xyz, (MAXworld._m02_m12_m22_m32).xyz);
 
     o.ShadowPROJ = float3(0,0,-1) ;
     o.FogCloudUV = float4(2,2,2,2) ;
@@ -1017,15 +1055,8 @@ VSforMAX_Output VSforMAX(VSforMAX_Input i)  //
     return o;
 };
 
-
-//end max preview
-
-//expressions==========================
-
-int VSchooser_Expression()  //0 no skin, 1 skin
-{  return (min(NumJointsPerVertex.x, 1));  }
-
-//start techniques
+#endif
+#if defined(_3DSMAX_) 
 
 technique MAXpreview
 {
@@ -1046,6 +1077,18 @@ technique MAXpreview
     }
 }
 
+#endif
+
+//end max preview
+
+//expressions==========================
+
+
+int VSchooser_Expression()  //0 no skin, 1 skin
+{  return (min(NumJointsPerVertex.x, 1));  }
+
+//start techniques
+
 technique Default
 {
     pass p0 <string ExpressionEvaluator = "Objects";>
@@ -1060,8 +1103,8 @@ technique Default
         DestBlend = 6;
         AlphaFunc = 7;
         AlphaRef = 64;
-        AlphaTestEnable = (AlphaTestEnable) ;
-        AlphaBlendEnable = (OpacityOverride < 0.99) ;
+        //AlphaTestEnable = (AlphaTestEnable) ;
+        //AlphaBlendEnable = (OpacityOverride < 0.99) ;
     }
 }
 
