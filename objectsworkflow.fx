@@ -17,12 +17,11 @@ string DefaultParameterScopeBlock = "material";
 //3dsmax preview ===================
     string ParamID = "0x1";
 
-    float3 HCpreviewRGB <
-	    string UIName = "HC(Preview!)RGB";
+    float4 HCpreviewRGB <
+	    string UIName = "(Preview!)RGB=HC,A=SunBrightness";
 	    string UIWidget = "Color";
-        string UIWidgetParams = "noalpha";
 	    bool ExportValue = false;
-        > = float3(1,0,0);
+        > = {1, 0, 0, 0.5};
     //cannot export ===================
 
     float4x4 WorldViewProjection : WorldViewProjection;
@@ -31,15 +30,17 @@ string DefaultParameterScopeBlock = "material";
 
     // light direction (world space)
     float3 MAXsunlightdir : Direction <  
-	    string UIName = "SunlightDirection(Preview!)"; 
+	    string UIName = "(Preview!)SunlightDirection"; 
 	    string Object = "TargetLight";
 	    bool ExportValue = false;
 	    > = {1, 0, 0};
+    /*
     float MAXshowSunlight <
-        string UIName = "MAXshowSunlight(Preview!)"; 
+        string UIName = "(Preview!)SunlightBrightness"; 
         float UIMax = 2; float UIMin = 0; float UIStep = 0.1; 
         bool ExportValue = false;
         > = { 1.2 }; 
+    */
 
 #endif
 
@@ -92,35 +93,35 @@ float GlowAmplitude //发光呼吸幅度
 
 // internal style parameters ======================
 
-float FresnelF0  <string UIWidget="None"; string SasBindAddress = "Sas.mid_FresnelF0";
+float FresnelF0  <string UIWidget="None"; string SasBindAddress = "Sas.mid_FresnelF0"; bool ExportValue = 0;
 // string UIName = "FresnelF0"; float UIMax = 1; float UIMin = 0.02; float UIStep = 0.01;
 > = { 0.125 }; //菲涅尔效应F0
 
-float MINroughness  <string UIWidget="None"; string SasBindAddress = "Sas.mid_MINroughness";
+float MINroughness  <string UIWidget="None"; string SasBindAddress = "Sas.mid_MINroughness"; bool ExportValue = 0;
 // string UIName = "MINroughness"; float UIMax = 1; float UIMin = 0.02; float UIStep = 0.01;
 > = { 0.125 }; //最低粗糙度
 
-float spm_metal_gradient  <string UIWidget="None"; string SasBindAddress = "Sas.mid_spm_metal_gradient";
+float spm_metal_gradient  <string UIWidget="None"; string SasBindAddress = "Sas.mid_spm_metal_gradient"; bool ExportValue = 0;
 // string UIName = "spm_metal_gradient"; float UIMax = 32; float UIMin = 1; float UIStep = 1;
 > = { 8 }; //金属度过渡，越大越陡峭
 
-float ambient_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_ambient_multiply";
+float ambient_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_ambient_multiply"; bool ExportValue = 0;
 // string UIName = "ambient_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;
 > = { 0.5 }; //环境光与天空亮度
 
-float sunlight_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_sunlight_multiply";
+float sunlight_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_sunlight_multiply"; bool ExportValue = 0;
 // string UIName = "sunlight_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;
 > = { 0.8 }; //阳光亮度
 
-float diffuse_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_diffuse_multiply";
+float diffuse_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_diffuse_multiply"; bool ExportValue = 0;
 // string UIName = "diffuse_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;
 > = { 1 }; //漫反射亮度，影响阳光与点光源
 
-float specbase_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_specbase_multiply";
+float specbase_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_specbase_multiply"; bool ExportValue = 0;
 // string UIName = "specbase_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;
 > = { 1 }; //高光在最大粗糙度下的基础峰值亮度，影响阳光与点光源
 
-float pointlight_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_pointlight_multiply";
+float pointlight_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_pointlight_multiply"; bool ExportValue = 0;
 // string UIName = "pointlight_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;
 > = { 1 }; //点光源反射整体亮度
 
@@ -321,6 +322,8 @@ sampler2D DamagedTextureSampler //
 };
 
 
+
+
 //end parameters==========================
 
 struct VS_H_Array_Shader_0_Input
@@ -402,7 +405,7 @@ VS_H_Array_Shader_0_Output VS_H_Array_Shader_0(VS_H_Array_Shader_0_Input i)  //n
     o.texcoord5.xyz = temp0.xzw * temp0.yyy + float3(0, 0, -0.004); //0.0015
 
     o.color.xyz = AmbientLightColor.xyz ;
-    //if(ignore_vertex_alpha){o.color.z =1;};
+    //if(ignore_vertex_alpha){o.color.w =1;};
 
     return o;
 }
@@ -524,7 +527,7 @@ VS_H_Array_Shader_1_Output VS_H_Array_Shader_1(VS_H_Array_Shader_1_Input i)  //h
     o.texcoord5.xyz = temp1.xyz * temp0.yyy + float3(0, 0, -0.004); //0.0015
 
     o.color.xyz = AmbientLightColor.xyz ;
-    //if(ignore_vertex_alpha){o.color.z =1;};
+    //if(ignore_vertex_alpha){o.color.w =1;};
 
     return o;
 }
@@ -716,7 +719,7 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
 
     float3 actualHC = (HasRecolorColors)? RecolorColor : float3(1,1,1) ;
 #if defined(_3DSMAX_)  // MAX永远有HC
-    actualHC = HCpreviewRGB ;
+    actualHC = HCpreviewRGB.rgb ;
 #endif
 
     float3 HCchannelMult = lerp (float3(1,1,1) , actualHC , spm.z);
@@ -755,7 +758,7 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
     float3 sun_color = DirectionalLight[0].Color.xyz ;
 #if defined(_3DSMAX_)  //MAX预览阳光方向与颜色覆盖
     Lsun      = MAXsunlightdir ; 
-    sun_color = float3(1,1,1) * MAXshowSunlight;
+    sun_color = float3(2,2,2) * HCpreviewRGB.a ;
 #endif
 
 #if !defined(_3DSMAX_)  //预览没有影子
@@ -870,15 +873,7 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
     return out_color;
 };
 
-float4 PS_H_INFANTRY(PS_H_MAIN_INPUT i) : COLOR 
-{
-    return 0 ;
-}
 
-PixelShader PS_H_Render_Array[2] = {
-    compile ps_3_0 PS_H_MAIN (),  //0
-    compile ps_3_0 PS_H_INFANTRY(),  //1
-}; 
 
 //END HIGH SHADERS================================
 //DELETED M L SHADERS
