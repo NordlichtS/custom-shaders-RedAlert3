@@ -624,7 +624,7 @@ float3 helper_normalmapper(float2 TEXtangent)
 
 float helper_glowpulse()
 {
-    float phase = ( Time / GlowPeriod ) % 1 ;
+    float phase = frac( Time / GlowPeriod ) ; // % 1
     if(GlowPeriod ==0){phase = 1 ;};
     phase = abs(phase *2 -1) ;
     phase = phase *2 -1 ;
