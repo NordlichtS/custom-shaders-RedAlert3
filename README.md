@@ -16,7 +16,7 @@ They all support up to 8 point lights (per mesh) all using microfacet BRDF to sh
 
 I will upload a few preview screenshots later.
 
-Compiled game-ready patch, download it here: (updated) https://www.moddb.com/mods/psysonic-omega/downloads/pbr-shader-patch-v12
+Compiled game-ready patch, download it here: (updated on April 22) [https://www.moddb.com/mods/psysonic-omega/downloads/pbr-shader-patch-v14](https://www.moddb.com/mods/psysonic-omega/addons/pbr-shader-patch-v14)
 
 terrain:  smooth shadow, RA2 style fog of war
 
