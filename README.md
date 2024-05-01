@@ -1,11 +1,12 @@
 # custom-shaders-RedAlert3
 Graphic improvements for this old dx9 game "Command Conquer Red Alert 3 " (2008) , based on hlsl code published in CnC3 Tiberium Wars MODSDK by Electronic Arts.
 
-also with a little help from https://github.com/lanyizi/DXDecompiler (could be experimental)
+also with a little help from [https://github.com/lanyizi/DXDecompiler](https://github.com/lanyizi/DXDecompiler) (could be experimental)
 
 the main project here is PBR (physical based render) shader. It should be used to replace Objects and Buildings shaders in the game 
-(after compile! Don't try to let the game itself compile it, its compiler is too outdated. Use FXC.EXE from legacy microsoft direct x sdk.)
-Compiled game-ready patch, download it here: (updated on April 22) [https://www.moddb.com/mods/psysonic-omega/downloads/pbr-shader-patch-v14](https://www.moddb.com/mods/psysonic-omega/addons/pbr-shader-patch-v14)
+(after compile! Don't try to let the game itself compile it, its compiler is too outdated. Use FXC.EXE from legacy microsoft direct x sdk. BUT 3dsmax requires uncompiled version)
+
+Compiled+packed game-ready patch, download it here: (updated on April 22) [https://www.moddb.com/mods/psysonic-omega/downloads/pbr-shader-patch-v14](https://www.moddb.com/mods/psysonic-omega/addons/pbr-shader-patch-v14)
 
 ObjectsWorkflow series is my latest and most complete implementation, with the ability of previewing near in-game result in 3dsmax.
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/maxprev.png)
