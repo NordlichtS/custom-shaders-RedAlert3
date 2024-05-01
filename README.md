@@ -38,8 +38,8 @@ Fresnel effect is also more obvious, though less realistic compared to the popul
 ====(side project)====
 
 I accidentially read across this [input semantic for pixel shader](https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-semantics#direct3d-9-vpos-and-direct3d-10-sv_position)  and realized, by using screen-space position as texture sampling coordinate, i can show the "protal to cosmos" visual effects, inspired by the "blade of no thought" vfx from genshin impact.
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/starry%2001.png ) [alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/starry%20laser%2001.png) 
-[alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/starry%20laser%2001.png)
+![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/starry%2001.png ) ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/starry%20laser%2001.png) 
+![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/starry%20laser%2001.png)
 remember to register the starry sky texture in SCRAPEO so it can have standard annotation string address.
 
 
