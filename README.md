@@ -39,7 +39,7 @@ Fresnel effect is also more obvious, though less realistic compared to the popul
 
 I accidentially read across this [input semantic for pixel shader](https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-semantics#direct3d-9-vpos-and-direct3d-10-sv_position)  and realized, by using screen-space position as texture sampling coordinate, i can show the "protal to cosmos" visual effects, inspired by the "blade of no thought" vfx from genshin impact.
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/starry%2001.png ) ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/starry%20laser%2001.png) 
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/starry%20laser%2001.png)
+![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/starry%20laser%2002.png)
 remember to register the starry sky texture in SCRAPEO so it can have standard annotation string address.
 
 
@@ -53,8 +53,6 @@ Each has 10 (maybe more) global variables to adjust, you can tweak them to get t
 They all support up to 8 point lights (per mesh) all using microfacet BRDF to shade. You can see how the VFX cast lights on windows are way different from original game.
 
 I will upload a few preview screenshots later.
-
-![alt text]( )
 
 terrain:  smooth shadow, RA2 style fog of war (register conflict occured, need further fixing)
 
