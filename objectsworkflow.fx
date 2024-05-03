@@ -34,13 +34,6 @@ string DefaultParameterScopeBlock = "material";
 	    string Object = "TargetLight";
 	    bool ExportValue = false;
 	    > = {1, 0, 0};
-    /*
-    float MAXshowSunlight <
-        string UIName = "(Preview!)SunlightBrightness"; 
-        float UIMax = 2; float UIMin = 0; float UIStep = 0.1; 
-        bool ExportValue = false;
-        > = { 1.2 }; 
-    */
 
 #endif
 
@@ -71,10 +64,10 @@ float tangent_xy_multiply //如果法线图凹凸反了，写-1修正。完全�
 <string UIName = "tangent_xy_multiply"; float UIMax = 1; float UIMin = -1; float UIStep = 0.25; > ={ 1 }; 
 
 bool HC_AffectRef  //是否允许阵营色影响反射光谱。包括金属和非金属，以及发光
-<string UIName = "HC_AffectRef";> =0 ;
+<string UIName = "HC_AffectRef";> =1 ;
 
 bool ignore_vertex_alpha //仅原版建筑开启！强制忽略顶点透明度，避免建筑损坏时破洞贴图错误，但会让车辆损失隐身半透明效果
-<string UIName = "ignore_vertex_alpha";> =0 ; 
+<string UIName = "ignore_vertex_alpha";> =1 ; 
 
 bool AlphaTestEnable //贴图镂空。与上一个选项不冲突。此选项原版就有！
 <string UIName = "AlphaTestEnable";> =1 ; 
@@ -83,47 +76,17 @@ float4 GlassSpectrum  //玻璃光谱+1 再乘F0 为玻璃垂直视角时的颜�
 <string UIName = "GlassSpectrum"; string UIWidget = "Color"; > = {0, 0, 0, 1}; 
 
 float4 GlowColor  //发光色，alpha为阵营色
-<string UIName = "GlowColor"; string UIWidget = "Color"; > = {0, 0, 0, 0.5}; 
+<string UIName = "GlowColor"; string UIWidget = "Color"; > = {0, 0, 0, 0}; 
 
 float GlowPeriod //发光呼吸周期
 <string UIName = "GlowPeriod"; float UIMax = 10; float UIMin = 0; float UIStep = 0.2; > ={ 1 }; 
 
 float GlowAmplitude //发光呼吸幅度
-<string UIName = "GlowAmplitude"; float UIMax = 4; float UIMin = 0; float UIStep = 0.25; > ={ 2 }; 
+<string UIName = "GlowAmplitude"; float UIMax = 4; float UIMin = 0; float UIStep = 0.25; > ={ 0 }; 
 
 // internal style parameters ======================
 
-float FresnelF0  <string UIWidget="None"; string SasBindAddress = "Sas.mid_FresnelF0"; bool ExportValue = 0;
-// string UIName = "FresnelF0"; float UIMax = 1; float UIMin = 0.02; float UIStep = 0.01;
-> = { 0.125 }; //菲涅尔效应F0
 
-float MINroughness  <string UIWidget="None"; string SasBindAddress = "Sas.mid_MINroughness"; bool ExportValue = 0;
-// string UIName = "MINroughness"; float UIMax = 1; float UIMin = 0.02; float UIStep = 0.01;
-> = { 0.125 }; //最低粗糙度
-
-float spm_metal_gradient  <string UIWidget="None"; string SasBindAddress = "Sas.mid_spm_metal_gradient"; bool ExportValue = 0;
-// string UIName = "spm_metal_gradient"; float UIMax = 32; float UIMin = 1; float UIStep = 1;
-> = { 8 }; //金属度过渡，越大越陡峭
-
-float ambient_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_ambient_multiply"; bool ExportValue = 0;
-// string UIName = "ambient_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;
-> = { 0.5 }; //环境光与天空亮度
-
-float sunlight_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_sunlight_multiply"; bool ExportValue = 0;
-// string UIName = "sunlight_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;
-> = { 0.8 }; //阳光亮度
-
-float diffuse_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_diffuse_multiply"; bool ExportValue = 0;
-// string UIName = "diffuse_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;
-> = { 1 }; //漫反射亮度，影响阳光与点光源
-
-float specbase_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_specbase_multiply"; bool ExportValue = 0;
-// string UIName = "specbase_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.01 ;
-> = { 1 }; //高光在最大粗糙度下的基础峰值亮度，影响阳光与点光源
-
-float pointlight_multiply <string UIWidget="None"; string SasBindAddress = "Sas.mid_pointlight_multiply"; bool ExportValue = 0;
-// string UIName = "pointlight_multiply"; string UIWidget = "Slider"; float UIMax = 4; float UIMin = 0; float UIStep = 0.1 ;
-> = { 1 }; //点光源反射整体亮度
 
 
 //other param===================================
@@ -561,7 +524,7 @@ float helper_notshadow_inside ( float3 ShadowProjection )
     return 1- ShadowDensity;
 };
 
-float helper_metalness(float spmredvalue)
+float helper_metalness(float spmredvalue, float spm_metal_gradient)
 {
     float metalness = spmredvalue ;
     metalness -= 0.5 ;
@@ -571,7 +534,7 @@ float helper_metalness(float spmredvalue)
     return metalness ;
 };
 
-float helper_glossiness(float glossgradient)
+float helper_glossiness(float glossgradient, float MINroughness)
 {
     //float lerpw = saturate(spmredvalue *2 -1) ;
     float roughness = lerp(1, MINroughness, glossgradient);
@@ -588,17 +551,10 @@ float helper_specdist(float glossiness, float3 R, float3 L)
     //square function is similar to cosine within half period
     float specdist = cosRL * OOA - OOA +1 ;
     specdist = saturate(specdist);
-    specdist = pow(specdist , 4 ); //smooth tails
-    float peakbrightness = glossiness * specbase_multiply ;
+    specdist = pow(specdist , 2 ); //smooth tails
+    float peakbrightness = glossiness ;//* specbase_multiply ;
     specdist *= peakbrightness ;
     return specdist ;
-};
-
-float helper_lambertian(float3 L, float3 N)
-{
-    float lambertian = dot(L,N) ;
-    lambertian = saturate(lambertian) * diffuse_multiply ;
-    return lambertian ;
 };
 
 float helper_fresnel(float3 L, float3 V, float F0)
@@ -608,6 +564,13 @@ float helper_fresnel(float3 L, float3 V, float F0)
     lerpw = pow (lerpw, 8);
     float fresnelLV = lerp(F0, 1, lerpw);
     return fresnelLV ;
+};
+
+float helper_lambertian(float3 L, float3 N)
+{
+    float lambertian = dot(L,N) ;
+    lambertian = saturate(lambertian) ;//* diffuse_multiply ;
+    return lambertian ;
 };
 
 float3 helper_color_decider (float4 InputColor, float3 actualHC)  
@@ -708,8 +671,21 @@ struct PS_H_MAIN_INPUT
 
 float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR 
 {
-    float4 out_color = i.color.xyzw;
 
+//STYLES
+float FresnelF0 = { 0.125 }; //菲涅尔效应F0
+float MINroughness = { 0.125 }; //最低粗糙度
+float spm_metal_gradient = { 16 }; //金属度过渡，越大越陡峭
+float ambient_multiply = { 0.5 }; //环境光与天空亮度
+float sunlight_multiply = { 0.8 }; //阳光亮度
+float diffuse_multiply = { 1 }; //漫反射亮度，影响阳光与点光源
+float specbase_multiply = { 1 }; //高光在最大粗糙度下的基础峰值亮度，影响阳光与点光源
+float pointlight_multiply = { 1 }; //点光源反射整体亮度
+//END STYLES
+
+
+
+    float4 out_color = i.color.xyzw;
 //get textures
     float4 dif = tex2D(DiffuseTextureSampler, (i.MainTexUV.xy * paintTEXloop) );
     float4 nrm = tex2D(NormalMapSampler,       i.MainTexUV.xy);
@@ -726,8 +702,8 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
     float  Reflectivity = saturate(spm.x *2);  //mult on spec
     float3 speccolor = float3(1,1,1) * Reflectivity ;
     float  glossgradient = saturate(spm.x *2 -1);
-    float  glossiness = helper_glossiness (glossgradient) ; //1-10
-    float  metalness  = helper_metalness (spm.x) ;
+    float  glossiness = helper_glossiness (glossgradient, MINroughness) ; //1-8
+    float  metalness  = helper_metalness (spm.x , spm_metal_gradient) ;
     float3 difcolor = lerp(dif.xyz , actualHC , spm.z) * (1- Reflectivity); //mult on all dif
     if(! HC_AffectRef) {difcolor *= HCchannelMult ;};  
     float  difAO = spm.w * spm.w ;  //mult on env dif
@@ -785,7 +761,7 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
 
 //所有BRDF：自身光谱 x 分布方程或AO x (spec菲涅尔) x [光源色] x 风格multiply
 //environmental stuff
-    float3 sky_color    = helper_mapcolor_chooser ( 3, i.color.xyz) ;
+    float3 sky_color    = helper_mapcolor_chooser ( 9, i.color.xyz) ;
     float3 ground_color = helper_mapcolor_chooser ( 7, i.color.xyz) ;
 
     float3 fake_skybox_upper = sky_color ;
@@ -798,7 +774,7 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
     float  ground_sky_lerpw = saturate(R.z * glossiness +0.5) ;
     float3 fake_skybox_color = lerp(fake_skybox_lower, fake_skybox_upper, ground_sky_lerpw);
     float3 EVspec = speccolor * mirAO * helper_fresnel(R, V, F0) * fake_skybox_color ;
-    //              自身光谱,     分布方程或AO,   菲涅尔  ,                        光源色
+    //              自身光谱,     分布方程或AO,   菲涅尔  ,                   光源色  
 
     float3 EVambientlight = lerp(ground_color, sky_color, (N.z +1)/2 );
     float3 EVdiff = difcolor * difAO * EVambientlight ;
@@ -810,8 +786,8 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
     float3 SUNdiff =  difcolor * sun_tilt * diffuse_multiply;
     //                自身光谱   分布方程或AO              
 
-    float3 SUNspec = speccolor * helper_specdist(glossiness, R, Lsun) * helper_fresnel(Lsun, V, F0);
-    //               自身光谱,     分布方程或AO,                          菲涅尔  
+    float3 SUNspec = speccolor * helper_specdist(glossiness, R, Lsun) * helper_fresnel(Lsun, V, F0) * specbase_multiply ;
+    //               自身光谱,     分布方程或AO,                          菲涅尔                     风格
 
     float3 SUNtotal = sun_color * (SUNdiff + SUNspec) * sunlight_multiply; //光源色
 
@@ -841,7 +817,7 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
         float3 PLcolor = PointLight[countpl].Color.xyz * decaymult;
 
         float3 PLdiff = difcolor * PLtilt * diffuse_multiply;
-        float3 PLspec = speccolor * helper_specdist(glossiness, R, PLL) * helper_fresnel(PLL, V, F0);
+        float3 PLspec = speccolor * helper_specdist(glossiness, R, PLL) * helper_fresnel(PLL, V, F0) * specbase_multiply;
         
         PLtotal += PLcolor * (PLdiff + PLspec) ;
     };
