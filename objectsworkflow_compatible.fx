@@ -692,8 +692,8 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
     actualHC = HCpreviewRGB.rgb ;
 #endif
 
-    float  greyscale = (dif.x + dif.y + dif.z) ;//  /3
-    float3 satfix = dif.xyz *3 / greyscale; 
+    float  greyscale = (dif.x + dif.y + dif.z)/3 ;
+    float3 satfix = (dif.xyz +0.005) / (greyscale +0.005); 
     satfix = lerp(float3(1,1,1), satfix, MetalSaturation);
     satfix = clamp(satfix, 0, 2);
     //float  AlbedoLumine = max(dif.b , max(dif.r , dif.g)) ;
