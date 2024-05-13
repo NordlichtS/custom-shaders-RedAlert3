@@ -77,8 +77,7 @@ float GlowMIN  //发光最小亮度。颜色固定是阵营色
 float GlowPeriod //发光呼吸周期，秒数，写0为禁止发光 （原版车辆最好也0，建筑开启）
 <string UIName = "GlowPeriod(sec,0=ForbidGlow)"; float UIMax = 10; float UIMin = 0; float UIStep = 0.2; > ={ 1 }; 
 
-float MetalSaturation //发光呼吸周期，秒数，写0为禁止发光 （原版车辆最好也0，建筑开启）
-<string UIName = "MetalSaturation"; float UIMax = 3; float UIMin = 0; float UIStep = 0.1; > ={ 1 }; 
+
 
 #if defined(IS_BUILDING_SHADER)
 texture DamagedTexture 
@@ -99,6 +98,10 @@ bool IgnoreDamageTex //忽略损伤破洞贴图。用于车辆1。建筑0
 <string UIName = "IgnoreDamageTex(vehicle=1,building=0)";> = 0 ; 
 
 /*
+
+float MetalSaturation //
+<string UIName = "MetalSaturation"; float UIMax = 3; float UIMin = 0; float UIStep = 0.1; > ={ 1 }; 
+
 float GlowBrightness  //发光亮度。颜色固定是阵营色 （原版车辆最好也关了，建筑开启）
 <string UIName = "GlowBrightness"; string UIWidget = "Color"; > = {0.25}; 
 
@@ -678,6 +681,7 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
     float diffuse_multiply =  1 ; //漫反射亮度，影响阳光与点光源
     float specbase_multiply =  1 ; //高光在最大粗糙度下的基础峰值亮度，影响阳光与点光源
     float pointlight_multiply =  1.25 ; //点光源反射整体亮度
+    float MetalSaturation = 1.5 ;
 
     //END fake global variables
 
