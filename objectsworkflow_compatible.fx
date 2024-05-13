@@ -1,12 +1,16 @@
 //Electronic Arts 2008 Red Alert 3 player units shader
-//procedural material generation
+//microfacet model PBR shader
+//!!! this shader is used for those who dont want to edit vanilla textures !!!
 //--------------
 //last modified by Nordlicht 
 //https://github.com/NordlichtS/custom-shaders-RedAlert3
 //with help from Lanyi's tool
 //https://github.com/lanyizi/DXDecompiler
-//improvements: (only on high quality pixel shaders)
 
+//improvements: (only on high quality pixel shaders)
+//fresnel effect deleted
+//glow pulse (default 1 Hz)
+//up to 8 point lights, all BRDF
 //----------
 /*
 fxc.exe /O1 /T fx_2_0 /Fo   objects_comp.fxo   objectsworkflow_compatible.fx
@@ -64,14 +68,17 @@ texture SpecMap
 bool AlphaTestEnable //贴图镂空。与上一个选项不冲突。此选项原版就有！
 <string UIName = "AlphaTestEnable";> = 1 ; 
 
-float GlowBrightness  //发光为阵营色 （原版车辆最好也关了，建筑开启）
-<string UIName = "GlowBrightness"; string UIWidget = "Color"; > = {0.25}; 
+float GlowMAX  //发光最大亮度。颜色固定是阵营色
+<string UIName = "GlowMAX(Brightness)"; float UIMax = 16; float UIMin = 0; float UIStep = 0.1; > = {2}; 
 
-float GlowPeriod //发光呼吸周期
-<string UIName = "GlowPeriod"; float UIMax = 10; float UIMin = 0.2; float UIStep = 0.2; > ={ 1 }; 
+float GlowMIN  //发光最小亮度。颜色固定是阵营色
+<string UIName = "GlowMIN(Brightness)"; float UIMax = 16; float UIMin = -16; float UIStep = 0.1; > = {-6}; 
 
-float GlowAmplitude //发光呼吸幅度
-<string UIName = "GlowAmplitude"; float UIMax = 4; float UIMin = 0; float UIStep = 0.25; > ={ 5 }; 
+float GlowPeriod //发光呼吸周期，秒数，写0为禁止发光 （原版车辆最好也0，建筑开启）
+<string UIName = "GlowPeriod(sec,0=ForbidGlow)"; float UIMax = 10; float UIMin = 0; float UIStep = 0.2; > ={ 1 }; 
+
+float MetalSaturation //发光呼吸周期，秒数，写0为禁止发光 （原版车辆最好也0，建筑开启）
+<string UIName = "MetalSaturation"; float UIMax = 3; float UIMin = 0; float UIStep = 0.1; > ={ 1 }; 
 
 #if defined(IS_BUILDING_SHADER)
 texture DamagedTexture 
@@ -88,8 +95,16 @@ sampler2D DamagedTextureSampler //
 };
 #endif
 
-bool IgnoreDamageTex //用于车辆1。建筑0
-<string UIName = "IgnoreDamageTex(for vehicle)";> = 0 ; 
+bool IgnoreDamageTex //忽略损伤破洞贴图。用于车辆1。建筑0
+<string UIName = "IgnoreDamageTex(vehicle=1,building=0)";> = 0 ; 
+
+/*
+float GlowBrightness  //发光亮度。颜色固定是阵营色 （原版车辆最好也关了，建筑开启）
+<string UIName = "GlowBrightness"; string UIWidget = "Color"; > = {0.25}; 
+
+float GlowAmplitude //发光呼吸幅度
+<string UIName = "GlowAmplitude"; float UIMax = 4; float UIMin = 0; float UIStep = 0.25; > ={ 5 }; 
+*/
 
 // internal style parameters ======================
 //MOVED TO LOCAL VARIABLES
@@ -112,8 +127,8 @@ bool unmanaged = 1;> = { 0.3, 0.2, 0.1 };
 struct{    float3 Color;    float3 Direction;} 
 DirectionalLight[3] : register(vs_2_0, c5) : register(ps_3_0, c5) : register(vs_3_0, c5) <string UIWidget="None"; bool unmanaged = 1;> = 
 { 1.0, 1.0, 1.0,   0, 0, 1, 
-  0.5, 0.6, 0.7,   1, 0, 0, 
-  0.3, 0.3, 0.3,   0, 1, 0 };
+  0.5, 0.6, 0.7,   0, 1, 0, 
+  0.3, 0.3, 0.3,   1, 0, 0 };
 
 int NumPointLights  // : register(ps_3_0, i0) 
 <string UIWidget="None"; string SasBindAddress = "Sas.NumPointLights"; > =8;
@@ -552,6 +567,7 @@ float3 helper_normalmapper(float2 TEXtangent)
     return nrm ;
 };
 
+/*
 float helper_glowpulse()
 {
     float phase = frac( Time / GlowPeriod ) ; // % 1
@@ -562,6 +578,17 @@ float helper_glowpulse()
     LumineMult = clamp(LumineMult, 0, 64) ;
     return LumineMult ;
 };
+*/
+
+float helper_glowpulse()
+{
+    if(GlowPeriod ==0){return 0;};
+    float phase = frac( Time / GlowPeriod ) ;
+    phase = abs(phase *2 -1) ;
+    float LumineMult = lerp(GlowMIN, GlowMAX, phase) ;
+    LumineMult = clamp(LumineMult, 0, 4);
+    return LumineMult ;
+}
 
 float3 helper_fakeskybox_noise (int index, float3 EVC, float3 R, float2 cloudoffset, float sharpness)  
 {
@@ -643,7 +670,7 @@ struct PS_H_MAIN_INPUT
 float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR 
 {
 
-    //fake global variables
+//fake global variables
 
     float MINroughness =  0.125 ; //最低粗糙度
     float ambient_multiply =  0.33 ; //环境光与天空亮度 
@@ -665,9 +692,13 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
     actualHC = HCpreviewRGB.rgb ;
 #endif
 
-    float  AlbedoLumine = max(dif.b , max(dif.r , dif.g)) ;
-    float3 satfix = (dif.xyz + 1/8) / (AlbedoLumine + 1/8);
-    satfix = pow(satfix , 3) ;
+    float  greyscale = (dif.x + dif.y + dif.z) ;//  /3
+    float3 satfix = dif.xyz *3 / greyscale; 
+    satfix = lerp(float3(1,1,1), satfix, MetalSaturation);
+    satfix = clamp(satfix, 0, 2);
+    //float  AlbedoLumine = max(dif.b , max(dif.r , dif.g)) ;
+    //satfix = (dif.xyz + 1/8) / (AlbedoLumine + 1/8);
+    //satfix = pow(satfix , 3) ;
     float3 HCchannelMult = lerp (float3(1,1,1) , actualHC , spm.z);
     float  Reflectivity = spm.x ;  //mult on spec
     float3 speccolor = lerp(float3(1,1,1), satfix, (spm.x * spm.x) ) * Reflectivity ; //(spm.x * spm.x)
@@ -783,14 +814,16 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
     out_color.w = dif.w * dif.w;
 
 #if defined(IS_BUILDING_SHADER)
-    float3 glowmap = GlowBrightness * spm.y * actualHC * helper_glowpulse();
-    if(HasRecolorColors)
-    {out_color.xyz += glowmap;}; // vanilla vehicles and neutral buildings MUST NOT GLOW
+    float3 glowmap = spm.y * actualHC * helper_glowpulse();
+    //if(HasRecolorColors)
+    //{out_color.xyz += glowmap;}; // vanilla vehicles and neutral buildings MUST NOT GLOW
+
     float4 dmgtex ;
     if(! IgnoreDamageTex)
     {dmgtex = tex2D(DamagedTextureSampler, i.MainTexUV.wz );};
     if(IgnoreDamageTex)
-    {dmgtex.rgb = actualHC /2 ; dmgtex.a = 0 ;};
+    {dmgtex = float4(1,1,1,0);};
+    //{dmgtex.rgb = actualHC /2 ; dmgtex.a = 0 ;}; 
     out_color.xyzw *= lerp( dmgtex , float4(1,1,1,1), i.color.w);
 //#else
     //out_color.w *= i.color.w ;
