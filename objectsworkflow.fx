@@ -5,7 +5,7 @@
 //https://github.com/NordlichtS/custom-shaders-RedAlert3
 //with help from Lanyi's tool
 //https://github.com/lanyizi/DXDecompiler
-//improvements: (only on high quality pixel shaders)
+//
 
 //----------
 
@@ -683,8 +683,6 @@ float specbase_multiply = { 1 }; //高光在最大粗糙度下的基础峰值亮
 float pointlight_multiply = { 1 }; //点光源反射整体亮度
 //END STYLES
 
-
-
     float4 out_color = i.color.xyzw;
 //get textures
     float4 dif = tex2D(DiffuseTextureSampler, (i.MainTexUV.xy * paintTEXloop) );
@@ -707,7 +705,7 @@ float pointlight_multiply = { 1 }; //点光源反射整体亮度
     float3 difcolor = lerp(dif.xyz , actualHC , spm.z) * (1- Reflectivity); //mult on all dif
     if(! HC_AffectRef) {difcolor *= HCchannelMult ;};  
     float  difAO = spm.w * spm.w ;  //mult on env dif
-    float  mirAO = lerp(spm.w, 1, clamp(spm.x, 0.5, 1));  //mult on env spec
+    float  mirAO = spm.w ; // lerp(spm.w, 1, clamp(spm.x, 0.5, 1));  //mult on env spec
     float  F0 = lerp(FresnelF0 , 1, metalness);
     float  blackbody = nrm.z ;
 
@@ -747,14 +745,14 @@ float pointlight_multiply = { 1 }; //点光源反射整体亮度
 //special handel: glass
     if(nrm.w ==0)
     {
-        float3 GlassColor = helper_color_decider(GlassSpectrum, actualHC) * EYEtilt + float3(1,1,1);
-        speccolor = GlassColor ;  //side = 111white, verticle view = (Spectrum +1) *F0
+        float3 GlassColor = helper_color_decider(GlassSpectrum, actualHC) ;
+        speccolor = max((GlassColor * EYEtilt *2), (1- EYEtilt)); //with spectrum cutoff effect
         Reflectivity = 1;
         glossgradient = 1;
         glossiness = 1 / MINroughness ;
         metalness  = 0 ;
         difcolor = float3(0,0,0);
-        difAO = 1;
+        difAO = 0;
         mirAO = 1;
         F0 = FresnelF0 ;
     };
@@ -828,6 +826,7 @@ float pointlight_multiply = { 1 }; //点光源反射整体亮度
     out_color.xyz = EVtotal + SUNtotal + PLtotal ;
     out_color.xyz *= blackbody ; //cavitymap
     out_color.xyz *= TintColor ;
+    if(HC_AffectRef) {out_color.xyz *= HCchannelMult ;}; 
 
 #if !defined(_3DSMAX_)  //预览没有迷雾
     float3 warfog = tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;
@@ -840,7 +839,6 @@ float pointlight_multiply = { 1 }; //点光源反射整体亮度
 #endif
     out_color.xyz += glowmap ;  
 
-    if(HC_AffectRef) {out_color.xyz *= HCchannelMult ;}; 
     out_color.w = 1;
     if(AlphaTestEnable){out_color.w = dif.w ;};
     if(! ignore_vertex_alpha){out_color.w *= i.color.w ;};
