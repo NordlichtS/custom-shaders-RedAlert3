@@ -11,11 +11,13 @@
 //fresnel effect deleted
 //glow pulse (default 1 Hz)
 //up to 8 point lights, all BRDF
+//metal now has reflection spectrum instead of all white
+
 //----------
 /*
-fxc.exe /O1 /T fx_2_0 /Fo   objects_comp.fxo   objectsworkflow_compatible.fx
-fxc.exe /O1 /T fx_2_0 /Fo  comp_objects.fxo  objectsworkflow_compatible.fx
-fxc.exe /O1 /T fx_2_0 /Fo  comp_building.fxo  objectsworkflow_compatible.fx
+fxc.exe /O2 /T fx_2_0 /Fo  comp_objects.fxo  objectsworkflow_compatible.fx
+fxc.exe /O2 /T fx_2_0 /Fo  comp_building.fxo  objectsworkflow_compatible.fx
+O2可以改成O1 降低优化等级，或许能避免一些小bug
 */
 #define IS_BUILDING_SHADER 1
 //CAN I USE IT?===================
@@ -65,19 +67,19 @@ texture NormalMap
 texture SpecMap 
 <string UIName = "SpecMap";>; //SPM贴图
 
-bool AlphaTestEnable //贴图镂空。与上一个选项不冲突。此选项原版就有！
+bool AlphaTestEnable //开启贴图镂空。此选项原版就有！
 <string UIName = "AlphaTestEnable";> = 1 ; 
 
-float GlowMAX  //发光最大亮度。颜色固定是阵营色
+float GlowMAX  //发光 最大 亮度。发光颜色固定是阵营色
 <string UIName = "GlowMAX(Brightness)"; float UIMax = 16; float UIMin = 0; float UIStep = 0.1; > = {2}; 
 
-float GlowMIN  //发光最小亮度。颜色固定是阵营色
+float GlowMIN  //发光 最小 亮度。（填负数可以有更大间隔的闪烁效果）
 <string UIName = "GlowMIN(Brightness)"; float UIMax = 16; float UIMin = -16; float UIStep = 0.1; > = {-6}; 
 
-float GlowPeriod //发光呼吸周期，秒数，写0为禁止发光 （原版车辆最好也0，建筑开启）
+float GlowPeriod //发光呼吸周期，秒数，写0为禁止发光 
 <string UIName = "GlowPeriod(sec,0=ForbidGlow)"; float UIMax = 10; float UIMin = 0; float UIStep = 0.2; > ={ 1 }; 
 
-
+//原版车辆最好把发光相关都写0，因为那些SPM绿通道都是乱的。中立物体酌情考虑开启
 
 #if defined(IS_BUILDING_SHADER)
 texture DamagedTexture 
@@ -94,7 +96,7 @@ sampler2D DamagedTextureSampler //
 };
 #endif
 
-bool IgnoreDamageTex //忽略损伤破洞贴图。用于车辆1。建筑0
+bool IgnoreDamageTex //忽略损伤破洞贴图。用于车辆1。建筑0。
 <string UIName = "IgnoreDamageTex(vehicle=1,building=0)";> = 0 ; 
 
 /*
@@ -681,7 +683,7 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
     float diffuse_multiply =  1 ; //漫反射亮度，影响阳光与点光源
     float specbase_multiply =  1 ; //高光在最大粗糙度下的基础峰值亮度，影响阳光与点光源
     float pointlight_multiply =  1.25 ; //点光源反射整体亮度
-    float MetalSaturation = 1.5 ;
+    float MetalSaturation = 1.5 ; //金属反射光谱的饱和度倍增
 
     //END fake global variables
 
