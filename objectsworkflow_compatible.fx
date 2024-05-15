@@ -67,6 +67,14 @@ texture NormalMap
 texture SpecMap 
 <string UIName = "SpecMap";>; //SPM贴图
 
+#if defined(IS_BUILDING_SHADER)
+texture DamagedTexture 
+<string UIName = "DamagedTexture";>; //how does this work anyway
+#endif
+
+bool IgnoreDamageTex //忽略损伤破洞贴图。用于车辆1。建筑0。
+<string UIName = "IgnoreDamageTex(vehicle=1,building=0)";> = 0 ; 
+
 bool AlphaTestEnable //开启贴图镂空。此选项原版就有！
 <string UIName = "AlphaTestEnable";> = 1 ; 
 
@@ -80,36 +88,6 @@ float GlowPeriod //发光呼吸周期，秒数，写0为禁止发光
 <string UIName = "GlowPeriod(sec,0=ForbidGlow)"; float UIMax = 10; float UIMin = 0; float UIStep = 0.2; > ={ 1 }; 
 
 //原版车辆最好把发光相关都写0，因为那些SPM绿通道都是乱的。中立物体酌情考虑开启
-
-#if defined(IS_BUILDING_SHADER)
-texture DamagedTexture 
-<string UIName = "DamagedTexture";>; //how does this work anyway
-sampler2D DamagedTextureSampler //
-<string Texture = "DamagedTexture"; > = sampler_state
-{
-    Texture = <DamagedTexture>; 
-    MinFilter = 2;
-    MagFilter = 2;
-    MipFilter = 2;
-    AddressU = 1;
-    AddressV = 1;
-};
-#endif
-
-bool IgnoreDamageTex //忽略损伤破洞贴图。用于车辆1。建筑0。
-<string UIName = "IgnoreDamageTex(vehicle=1,building=0)";> = 0 ; 
-
-/*
-
-float MetalSaturation //
-<string UIName = "MetalSaturation"; float UIMax = 3; float UIMin = 0; float UIStep = 0.1; > ={ 1 }; 
-
-float GlowBrightness  //发光亮度。颜色固定是阵营色 （原版车辆最好也关了，建筑开启）
-<string UIName = "GlowBrightness"; string UIWidget = "Color"; > = {0.25}; 
-
-float GlowAmplitude //发光呼吸幅度
-<string UIName = "GlowAmplitude"; float UIMax = 4; float UIMin = 0; float UIStep = 0.25; > ={ 5 }; 
-*/
 
 // internal style parameters ======================
 //MOVED TO LOCAL VARIABLES
@@ -192,6 +170,17 @@ float Time : Time;
 
 
 //============== OTHER TEXTURE AND SAMPLERS
+
+sampler2D DamagedTextureSampler //
+<string Texture = "DamagedTexture"; > = sampler_state
+{
+    Texture = <DamagedTexture>; 
+    MinFilter = 2;
+    MagFilter = 2;
+    MipFilter = 2;
+    AddressU = 1;
+    AddressV = 1;
+};
 
 texture ShadowMap 
 <string UIWidget="None"; string SasBindAddress = "Sas.Shadow[0].ShadowMap";>; 
@@ -678,7 +667,7 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
 //fake global variables
 
     float MINroughness =  0.125 ; //最低粗糙度
-    float ambient_multiply =  0.33 ; //环境光与天空亮度 
+    float ambient_multiply =  0.25 ; //环境光与天空亮度 
     float sunlight_multiply =  1 ; //阳光亮度
     float diffuse_multiply =  1 ; //漫反射亮度，影响阳光与点光源
     float specbase_multiply =  1 ; //高光在最大粗糙度下的基础峰值亮度，影响阳光与点光源
@@ -699,7 +688,7 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
 #endif
 
     float  greyscale = (dif.x + dif.y + dif.z)/3 ;
-    float3 satfix = (dif.xyz +0.005) / (greyscale +0.005); 
+    float3 satfix = (dif.xyz +0.01) / (greyscale +0.01); 
     satfix = lerp(float3(1,1,1), satfix, MetalSaturation);
     satfix = clamp(satfix, 0, 2);
     //float  AlbedoLumine = max(dif.b , max(dif.r , dif.g)) ;
@@ -810,30 +799,28 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
     out_color.xyz = EVtotal + SUNtotal + PLtotal ;
     //out_color.xyz *= blackbody ; //cavitymap
     out_color.xyz *= TintColor ;
-    out_color.xyz *= HCchannelMult ;
+    out_color.xyz *= HCchannelMult;
+    out_color.w = dif.w * dif.w ;
 
 #if !defined(_3DSMAX_)  //预览没有迷雾
     float3 warfog = tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;
     out_color.xyz *= warfog ;  
 #endif 
 
-    out_color.w = dif.w * dif.w;
+//#if defined(IS_BUILDING_SHADER)
+    //out_color.xyz += glowmap;
+    if(HasRecolorColors)
+    {out_color.xyz += spm.y * RecolorColor * helper_glowpulse();}; 
+    // vanilla vehicles and neutral buildings MUST NOT GLOW
 
-#if defined(IS_BUILDING_SHADER)
-    float3 glowmap = spm.y * actualHC * helper_glowpulse();
-    //if(HasRecolorColors)
-    //{out_color.xyz += glowmap;}; // vanilla vehicles and neutral buildings MUST NOT GLOW
-
-    float4 dmgtex ;
+    float4 dmgtex = float4(1,1,1,1) ;
     if(! IgnoreDamageTex)
     {dmgtex = tex2D(DamagedTextureSampler, i.MainTexUV.wz );};
-    if(IgnoreDamageTex)
-    {dmgtex = float4(1,1,1,0);};
+    if(IgnoreDamageTex){dmgtex.w = 0;};
     //{dmgtex.rgb = actualHC /2 ; dmgtex.a = 0 ;}; 
     out_color.xyzw *= lerp( dmgtex , float4(1,1,1,1), i.color.w);
-//#else
-    //out_color.w *= i.color.w ;
-#endif
+
+//#endif
     
     return out_color;
 };
