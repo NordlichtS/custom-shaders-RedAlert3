@@ -8,6 +8,8 @@ the main project here is PBR (physical based render) shader. It should be used t
 
 Compiled+packed game-ready patch, download it here: (updated on April 22) https://www.moddb.com/mods/psysonic-omega/addons/pbr-shader-patch-v15#downloadsform
 
+showcase of a bold attempt to create starcraft style warping vfx (purely shadercontrolled) https://www.bilibili.com/video/BV1LZ421x7rJ/?
+
 ObjectsWorkflow series is my latest and most complete implementation, with the ability of previewing near in-game result in 3dsmax.
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/maxprev.png)
 you may notice, as the reflectivity increase, diffuse lights decreases according to law of conservation of energy. 
