@@ -12,6 +12,8 @@ showcase of a bold attempt to create starcraft style warping vfx (purely shaderc
 
 ObjectsWorkflow series is my latest and most complete implementation, with the ability of previewing near in-game result in 3dsmax.
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/maxprev.png)
+A special "compatible" version, for compatibility with textures from original game, is also added, a less accurate but more stylized PBR tweaking.
+![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/20240517113152.png)
 you may notice, as the reflectivity increase, diffuse lights decreases according to law of conservation of energy. 
 Fresnel effect (darker on verticle view angle) also becomes more obvious, and disappear again once the material is considered metallic. Metal is not supposed to cause diffuse reflection or fresnel effect either, all energy goes to specular.
 if you want to edit the preview, such as adding or neglecting an in-game feature in 3dsmax, caution:
