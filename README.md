@@ -8,11 +8,15 @@ the main project here is PBR (physical based render) shader. It should be used t
 
 Compiled+packed game-ready patch, download it here: (updated on April 22) https://www.moddb.com/mods/psysonic-omega/addons/pbr-shader-patch-v15#downloadsform
 
-showcase of a bold attempt to create starcraft style warping vfx (purely shadercontrolled) https://www.bilibili.com/video/BV1LZ421x7rJ/?
+Here's also a video demo of my latest attempt to make a more "3d printing" effect when building up an object in the game, that has starry light rays descend from sky  and morph into a new triangle, one by one they build up a new structure. DX9 doesn't have geometry shader so i used multiple passes to handle different parts. (purely shadercontrolled, no new models needed) https://www.bilibili.com/video/BV1LZ421x7rJ/?
 
 ObjectsWorkflow series is my latest and most complete implementation, with the ability of previewing near in-game result in 3dsmax.
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/maxprev.png)
-A special "compatible" version, for compatibility with textures from original game, is also added, a less accurate but more stylized PBR tweaking.
+there are these adjustable parameters: (either get them from texture, or just a constant variable, or hardcoded)
+
+diffuse color, insulent's reflectivity, fresnel effect f0, roughness, metalness, metal's reflection spectrum color, team color, emmisive color, emmisive blink frequncy, emmisive blink amplitude, shadow smoothing radius (is currently hardcoded to 2 for optimization),  transparency, and even a sub-surface scatter color for glass liquid container!
+
+A special "compatible" version, for compatibility with textures from original game, is also added, a less accurate but more stylized PBR tweaking. The parameters mentioned above can be reconstructed via some hard coded functions and original game's textures.
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/20240517113152.png)
 you may notice, as the reflectivity increase, diffuse lights decreases according to law of conservation of energy. 
 Fresnel effect (darker on verticle view angle) also becomes more obvious, and disappear again once the material is considered metallic. Metal is not supposed to cause diffuse reflection or fresnel effect either, all energy goes to specular.
@@ -23,6 +27,7 @@ ObjectWorkflow_Compatile.fx is a variant specially fine-tuned to match the origi
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/old%20verson%20demo.png)
 Left=original game shader, Right=new shader. As you may notice, the shadow's edge is also smoothed and anti-aliased.
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/pcfshadow.png)
+skybox is not needed, the shader will simulate a skybox with reflect vector and current roughness.
 
 the original game used a very lasy way to shade the lights received from nearby point light sources (usually flame or laser VFX) which is a waste for such a nice feature. 
 I implemented BRDF for all my point lights (the function was originally written for directional sunlight, but turns out even better for point light sources with correct decay multiplier)
