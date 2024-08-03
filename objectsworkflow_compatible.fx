@@ -688,9 +688,9 @@ float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR
 #endif
 
     float  greyscale = (dif.x + dif.y + dif.z)/3 ;
-    float3 satfix = (dif.xyz +0.01) / (greyscale +0.01); 
+    float3 satfix = (dif.xyz +0.125) / (greyscale +0.125); 
     satfix = lerp(float3(1,1,1), satfix, MetalSaturation);
-    satfix = clamp(satfix, 0, 2);
+    //satfix = clamp(satfix, 0, 2);
     //float  AlbedoLumine = max(dif.b , max(dif.r , dif.g)) ;
     //satfix = (dif.xyz + 1/8) / (AlbedoLumine + 1/8);
     //satfix = pow(satfix , 3) ;
