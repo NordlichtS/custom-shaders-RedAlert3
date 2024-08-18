@@ -45,7 +45,7 @@ texture DiffuseTexture
 
 texture NormalMap 
 <string UIName = "NormalMap";>; //法线贴图
-//RG=tangent, B=cavity , A=glass invert. DXT:rgba 5551 
+//RG=tangent, B=cavity , A=???. DXT:rgba 5551 
 
 texture SpecMap 
 <string UIName = "SpecMap";>; //SPM贴图
@@ -61,32 +61,55 @@ float paintTEXloop  //漫反射贴图循环次数
 <string UIName = "paintTEXloop"; float UIMax = 16; float UIMin = 1; float UIStep = 1; > = { 1 }; 
 
 float tangent_xy_multiply //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。
-<string UIName = "tangent_xy_multiply"; float UIMax = 1; float UIMin = -1; float UIStep = 0.25; > ={ 1 }; 
+<string UIName = "tangent_xy_multiply"; float UIMax = 2; float UIMin = -2; float UIStep = 0.25; > ={ -1 }; 
 
-bool HC_AffectRef  //是否允许阵营色影响反射光谱。包括金属和非金属，以及发光
+bool HC_AffectAll  //是否允许阵营色影响所有光谱。如果否就只影响漫反射
 <string UIName = "HC_AffectRef";> =1 ;
 
-bool ignore_vertex_alpha //仅原版建筑开启！强制忽略顶点透明度，避免建筑损坏时破洞贴图错误，但会让车辆损失隐身半透明效果
-<string UIName = "ignore_vertex_alpha";> =1 ; 
+bool ignore_bone_alpha //原版建筑和履带开启！强制忽略骨骼透明度，避免建筑损坏时破洞贴图错误，以及履带忽闪，不影响隐形
+<string UIName = "ignore_bone_alpha";> =1 ; 
 
 bool AlphaTestEnable //贴图镂空。与上一个选项不冲突。此选项原版就有！
 <string UIName = "AlphaTestEnable";> =1 ; 
 
-float4 GlassSpectrum  //玻璃光谱+1 再乘F0 为玻璃垂直视角时的颜色，但不影响边缘视角
-<string UIName = "GlassSpectrum"; string UIWidget = "Color"; > = {0, 0, 0, 1}; 
+/*
+bool Lights_AlwaysOn  //如果关闭，被狙白导致失去阵营色时会关灯
+<string UIName = "Lights_AlwaysOn";> =0 ; 
 
-float4 GlowColor  //发光色，alpha为阵营色
+float4 GlassF0Spectrum  //用于丐版次表面散射，玻璃垂直视角时spec的颜色，但不影响边缘视角
+<string UIName = "GlassSpectrum"; string UIWidget = "Color"; > = {0, 0, 0, 1}; 
+// actual f0 color = GlassColor * EYEtilt *2 * fresnelf0
+*/
+
+float4 MetalSpectrum  //金属反射光谱, alpha为是否覆盖主贴图颜色，0为用贴图，1为用前面的RGB值
+<string UIName = "MetalSpectrum(alpha=OverrideTex)"; string UIWidget = "Color"; > = {1, 1, 1, 0}; 
+
+float4 GlowColorMax  //发光色 峰值，alpha为阵营色
+<string UIName = "GlowColor"; string UIWidget = "Color"; > = {0, 0, 0, 2}; 
+
+float4 GlowColorMin  //发光色 波谷，alpha为阵营色
 <string UIName = "GlowColor"; string UIWidget = "Color"; > = {0, 0, 0, 0}; 
 
 float GlowPeriod //发光呼吸周期
 <string UIName = "GlowPeriod"; float UIMax = 10; float UIMin = 0; float UIStep = 0.2; > ={ 1 }; 
 
-float GlowAmplitude //发光呼吸幅度
-<string UIName = "GlowAmplitude"; float UIMax = 4; float UIMin = 0; float UIStep = 0.25; > ={ 0 }; 
+// float GlowAmplitude <string UIName = "GlowAmplitude"; float UIMax = 4; float UIMin = 0; float UIStep = 0.25; > ={ 0 }; 
 
 // internal style parameters ======================
 
 
+static const float FresnelF0 = { 0.125 }; //绝缘体菲涅尔效应F0
+static const float FresnelMetalF0 = { 0.875 }; //金属的菲涅尔F0
+static const float MINroughness = { 0.125 }; //最低粗糙度
+static const float ambient_diff_multiply = { 0.5 }; //环境光与天空diffuse
+static const float ambient_spec_multiply = { 0.5 }; //环境光与天空specular
+static const float sunlight_multiply = { 0.8 }; //阳光亮度
+static const float diffuse_multiply = { 1 }; //漫反射亮度，影响阳光与点光源
+static const float specbase_multiply = { 1 }; //高光在最大粗糙度金属下的基础峰值亮度，影响阳光与点光源
+static const float pointlight_multiply = { 1 }; //点光源整体亮度
+static const float ambient_reflectivity_loss = { 0.5 }; //环境光被菲涅尔效应分走的能量比例（算下半球体积分?）
+static const float direct_reflectivity_loss = { 0.75 }; //直射光被菲涅尔效应分走的能量比例（暂时没用）
+static const float direct_fresnel_cutoff = { 1.75 }; //拟合上面那个用的，1-2之间越小越显著
 
 
 //other param===================================
@@ -102,13 +125,14 @@ bool HasRecolorColors
 float3 AmbientLightColor
 : register(vs_2_0, c4) : register(vs_3_0, c4) 
 <string UIWidget="None"; //string SasBindAddress = "Sas.AmbientLight[0].Color"; 
-bool unmanaged = 1;> = { 0.3, 0.2, 0.1 };
+bool unmanaged = 1;> = { 0.2, 0.2, 0.2 };
 
 struct{    float3 Color;    float3 Direction;} 
-DirectionalLight[3] : register(vs_2_0, c5) : register(ps_3_0, c5) : register(vs_3_0, c5) <string UIWidget="None"; bool unmanaged = 1;> = 
+DirectionalLight[3] : register(vs_2_0, c5) : register(ps_3_0, c5) : register(vs_3_0, c5) 
+<string UIWidget="None"; bool unmanaged = 1;> = 
 { 1.0, 1.0, 1.0,   0, 0, 1, 
-  0.5, 0.6, 0.7,   1, 0, 0, 
-  0.3, 0.3, 0.3,   0, 1, 0 };
+  0.5, 0.6, 0.7,   0, 1, 0, 
+  0.3, 0.2, 0.1,   1, 0, 0 };
 
 int NumPointLights  // : register(ps_3_0, i0) 
 <string UIWidget="None"; string SasBindAddress = "Sas.NumPointLights"; > =8;
@@ -144,7 +168,8 @@ bool HasShadow
 <string UIWidget="None"; string SasBindAddress = "Sas.HasShadow";> =0;
 
 float4 Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize 
-: register(ps_3_0, c11) <string UIWidget="None"; string SasBindAddress = "Sas.Shadow[0].Zero_Zero_OneOverMapSize_OneOverMapSize";>;
+: register(ps_3_0, c11) 
+<string UIWidget="None"; string SasBindAddress = "Sas.Shadow[0].Zero_Zero_OneOverMapSize_OneOverMapSize";>;
 
 float2 MapCellSize 
 <string UIWidget="None"; string SasBindAddress = "Terrain.Map.CellSize";> = { 10, 10 };
@@ -160,7 +185,8 @@ column_major float4x3 World : World
 
 struct{    float4 ScaleUV_OffsetUV;} 
 Shroud 
-: register(vs_2_0, c11) : register(vs_3_0, c11) <string UIWidget="None"; string SasBindAddress = "Terrain.Shroud";> = { 1, 1, 0, 0 };
+: register(vs_2_0, c11) : register(vs_3_0, c11) 
+<string UIWidget="None"; string SasBindAddress = "Terrain.Shroud";> = { 1, 1, 0, 0 };
 
 float Time : Time;
 
@@ -323,9 +349,9 @@ VS_H_Array_Shader_0_Output VS_H_Array_Shader_0(VS_H_Array_Shader_0_Input i)  //n
     o.texcoord1.z = temp0.x;
     o.texcoord2.z = temp0.y;
     o.texcoord3.z = temp0.z;
-    temp0.x = max(temp0.w, float1(0));
+    temp0.x = max(temp0.w, 0);
     temp0.xyz = temp0.xxx ;//* DirectionalLight[2].Color.xyz;
-    temp1.z = float1(0);
+    temp1.z = 0;
     temp0.xyz =  temp1.zzz + temp0.xyz; //amb
     temp0.xyz = temp0.xyz * i.color.xyz;
     temp0.w = OpacityOverride.x;
@@ -347,17 +373,17 @@ VS_H_Array_Shader_0_Output VS_H_Array_Shader_0(VS_H_Array_Shader_0_Input i)  //n
     o.texcoord6.zw = Cloud.CurrentOffsetUV.xy; //temp0.xy + 
     o.texcoord = i.texcoord.xyyx;
     temp0.x = dot(i.binormal.xyz, (World._m00_m10_m20_m30).xyz);
-    o.texcoord1.x = -temp0.x;
+    o.texcoord1.x = temp0.x;
     temp0.x = dot(i.tangent.xyz, (World._m00_m10_m20_m30).xyz);
-    o.texcoord1.y = -temp0.x;
+    o.texcoord1.y = temp0.x;
     temp0.x = dot(i.binormal.xyz, (World._m01_m11_m21_m31).xyz);
-    o.texcoord2.x = -temp0.x;
+    o.texcoord2.x = temp0.x;
     temp0.x = dot(i.tangent.xyz, (World._m01_m11_m21_m31).xyz);
-    o.texcoord2.y = -temp0.x;
+    o.texcoord2.y = temp0.x;
     temp0.x = dot(i.binormal.xyz, (World._m02_m12_m22_m32).xyz);
-    o.texcoord3.x = -temp0.x;
+    o.texcoord3.x = temp0.x;
     temp0.x = dot(i.tangent.xyz, (World._m02_m12_m22_m32).xyz);
-    o.texcoord3.y = -temp0.x;
+    o.texcoord3.y = temp0.x;
     o.texcoord4 = temp1;
     temp0.x = dot(temp1, (ShadowMapWorldToShadow._m03_m13_m23_m33));
     temp0.y = 1.0f / temp0.x;
@@ -429,9 +455,9 @@ VS_H_Array_Shader_1_Output VS_H_Array_Shader_1(VS_H_Array_Shader_1_Input i)  //h
     temp3.xyz = WorldBones[0 + addr0.x].yzx * temp2.zxy + temp3.xyz;
     temp2.xyz = WorldBones[0 + addr0.x].zxy * -temp2.yzx + temp3.xyz;
     temp2.w =1;// dot(temp2.xyz, DirectionalLight[2].Direction.xyz);
-    temp2.w = max(temp2.w, float1(0));
+    temp2.w = max(temp2.w, 0);
     temp3.xyz = temp2.www ;//* DirectionalLight[2].Color.xyz;
-    temp2.w = float1(0);
+    temp2.w = 0;
     temp3.xyz =  temp2.www + temp3.xyz; //amb
     temp1.xyz = temp3.xyz * i.color.xyz;
     o.color = temp0 * temp1;
@@ -467,17 +493,17 @@ VS_H_Array_Shader_1_Output VS_H_Array_Shader_1(VS_H_Array_Shader_1_Input i)  //h
     temp3 = i.tangent.zxyy * WorldBones[0 + addr0.x].yzxy;
     temp3 = WorldBones[0 + addr0.x].wwwx * i.tangent.xyzx + temp3;
     temp4 = i.tangent.yzxz * WorldBones[0 + addr0.x].zxyz;
-    temp3 = temp3 * float4(1, 1, 1, -1) + -temp4;
+    temp3 = temp3 * float4(1, 1, 1, -1)  - temp4;
     temp4.xyz = temp3.www * WorldBones[0 + addr0.x].xyz;
     temp4.xyz = WorldBones[0 + addr0.x].www * temp3.xyz + -temp4.xyz;
     temp4.xyz = WorldBones[0 + addr0.x].yzx * temp3.zxy + temp4.xyz;
     temp3.xyz = WorldBones[0 + addr0.x].zxy * -temp3.yzx + temp4.xyz;
-    o.texcoord1.y = -temp3.x;
+    o.texcoord1.y = temp3.x;
     o.texcoord1.z = temp2.x;
-    o.texcoord2.x = -temp1.y;
-    o.texcoord3.x = -temp1.z;
-    o.texcoord2.y = -temp3.y;
-    o.texcoord3.y = -temp3.z;
+    o.texcoord2.x = temp1.y;
+    o.texcoord3.x = temp1.z;
+    o.texcoord2.y = temp3.y;
+    o.texcoord3.y = temp3.z;
     o.texcoord2.z = temp2.y;
     o.texcoord3.z = temp2.z;
     o.texcoord4 = temp0;
@@ -524,17 +550,17 @@ float helper_notshadow_inside ( float3 ShadowProjection )
     return 1- ShadowDensity;
 };
 
-float helper_metalness(float spmredvalue, float spm_metal_gradient)
+float helper_midstep(float inputvalue, float gradient)
 {
-    float metalness = spmredvalue ;
+    float metalness = inputvalue ;
     metalness -= 0.5 ;
-    metalness *= spm_metal_gradient ;
+    metalness *= gradient ;
     metalness += 0.5 ;
     metalness = saturate(metalness);
     return metalness ;
 };
 
-float helper_glossiness(float glossgradient, float MINroughness)
+float helper_glossiness(float glossgradient)
 {
     //float lerpw = saturate(spmredvalue *2 -1) ;
     float roughness = lerp(1, MINroughness, glossgradient);
@@ -552,25 +578,33 @@ float helper_specdist(float glossiness, float3 R, float3 L)
     float specdist = cosRL * OOA - OOA +1 ;
     specdist = saturate(specdist);
     specdist = pow(specdist , 2 ); //smooth tails
-    float peakbrightness = glossiness ;//* specbase_multiply ;
+    float peakbrightness = glossiness  ; //for now
     specdist *= peakbrightness ;
-    return specdist ;
+    return specdist * specbase_multiply ;
 };
 
 float helper_fresnel(float3 L, float3 V, float F0)
 {
     float cosRV = dot( L , V ) ;
     float lerpw = (1- cosRV)/2 ;
+    //maybe i can try another lerp
+    //need confirm with curve
     lerpw = pow (lerpw, 8);
     float fresnelLV = lerp(F0, 1, lerpw);
     return fresnelLV ;
 };
 
-float helper_lambertian(float3 L, float3 N)
+float helper_newdiffuse(float dotLN, float Reflectivity) //corrected with reflectivity
 {
-    float lambertian = dot(L,N) ;
-    lambertian = saturate(lambertian) ;//* diffuse_multiply ;
-    return lambertian ;
+    //float lambertian = dot(L,N) ;
+    float lambertian = saturate(dotLN) ;
+    float lamb_after_fresnel = min(lambertian, (lambertian * lambertian * 1.5)); 
+    //cheap approx
+    //fine approx
+    //float fresnel_loss = pow((1- lambertian * lambertian), 4) * Reflectivity ;
+    //float newlambertian = lambertian * (1- fresnel_loss) ;
+    float newlambertian = lerp( lambertian , lamb_after_fresnel , Reflectivity ) ;
+    return newlambertian * diffuse_multiply ;
 };
 
 float3 helper_color_decider (float4 InputColor, float3 actualHC)  
@@ -578,23 +612,26 @@ float3 helper_color_decider (float4 InputColor, float3 actualHC)
 
 float3 helper_normalmapper(float2 TEXtangent) 
 {
+    if(tangent_xy_multiply == 0 ){return float3(0,0,1);};
     float3 nrm = float3(TEXtangent ,1 ) ;
     nrm.xy = nrm.xy * 2 -1 ;
     nrm.xy *= tangent_xy_multiply ;//
-    nrm.z = saturate(1 - dot(nrm.xy, nrm.xy)) *2; //sqrt
+    nrm.z = saturate(1 - dot(nrm.xy, nrm.xy)) ;//*2; //sqrt
     return nrm ;
 };
+
 
 float helper_glowpulse()
 {
     float phase = frac( Time / GlowPeriod ) ; // % 1
     if(GlowPeriod ==0){phase = 1 ;};
     phase = abs(phase *2 -1) ;
-    phase = phase *2 -1 ;
-    phase = phase * GlowAmplitude +1 ;
-    phase = max(phase, 0) ;
+    //phase = phase *2 -1 ;
+    //phase = phase * GlowAmplitude +1 ;
+    //phase = max(phase, 0) ;
     return phase ;
 };
+
 
 float3 helper_fakeskybox_noise (int index, float3 EVC, float3 R, float2 cloudoffset, float sharpness)  
 {
@@ -672,41 +709,40 @@ struct PS_H_MAIN_INPUT
 float4 PS_H_MAIN(PS_H_MAIN_INPUT i) : COLOR 
 {
 
-//STYLES
-float FresnelF0 = { 0.125 }; //菲涅尔效应F0
-float MINroughness = { 0.125 }; //最低粗糙度
-float spm_metal_gradient = { 16 }; //金属度过渡，越大越陡峭
-float ambient_multiply = { 0.5 }; //环境光与天空亮度
-float sunlight_multiply = { 0.8 }; //阳光亮度
-float diffuse_multiply = { 1 }; //漫反射亮度，影响阳光与点光源
-float specbase_multiply = { 1 }; //高光在最大粗糙度下的基础峰值亮度，影响阳光与点光源
-float pointlight_multiply = { 1 }; //点光源反射整体亮度
-//END STYLES
-
     float4 out_color = i.color.xyzw;
 //get textures
-    float4 dif = tex2D(DiffuseTextureSampler, (i.MainTexUV.xy * paintTEXloop) );
-    float4 nrm = tex2D(NormalMapSampler,       i.MainTexUV.xy);
-    float4 spm = tex2D(SpecMapSampler,         i.MainTexUV.xy);
+float4 dif = tex2D(DiffuseTextureSampler, (i.MainTexUV.xy * paintTEXloop) );
+float4 nrm = tex2D(NormalMapSampler,       i.MainTexUV.xy);
+float4 spm = tex2D(SpecMapSampler,         i.MainTexUV.xy);
 
-    //dif.xyz *= dif.xyz ; //gamma for vanilla compatible
+    if(AlphaTestEnable){clip(dif.w - 0.5);};
+    //clip(nrm.w - 0.5); //maybe useful
+    dif.xyz = pow(dif.xyz, 2) ; //gamma for vanilla compatible
+
 
     float3 actualHC = (HasRecolorColors)? RecolorColor : float3(1,1,1) ;
 #if defined(_3DSMAX_)  // MAX永远有HC
     actualHC = HCpreviewRGB.rgb ;
 #endif
+    bool isGLASS = bool(nrm.w < 0.5); //maybe wont be used
 
     float3 HCchannelMult = lerp (float3(1,1,1) , actualHC , spm.z);
     float  Reflectivity = saturate(spm.x *2);  //mult on spec
     float3 speccolor = float3(1,1,1) * Reflectivity ;
     float  glossgradient = saturate(spm.x *2 -1);
-    float  glossiness = helper_glossiness (glossgradient, MINroughness) ; //1-8
-    float  metalness  = helper_metalness (spm.x , spm_metal_gradient) ;
-    float3 difcolor = lerp(dif.xyz , actualHC , spm.z) * (1- Reflectivity); //mult on all dif
-    if(! HC_AffectRef) {difcolor *= HCchannelMult ;};  
+    // glossgradient = (isGLASS)? 1 : glossgradient ;
+    float  glossiness = helper_glossiness (glossgradient) ; //1-8
+    float  metalness  = helper_midstep (spm.x, 16) ;
+    float3 RealMetalSpectrum = lerp(dif.xyz, MetalSpectrum.xyz, MetalSpectrum.w); //w is override alpha
+    speccolor = lerp(speccolor.xyz, RealMetalSpectrum.xyz, metalness);
+
+    float3 difcolor = lerp(dif.xyz , actualHC , spm.z) ;
+    difcolor *= 1 - FresnelF0 * Reflectivity; //大概在base贴图上是没有这个修正的
+    difcolor *= 1 - metalness ;
+    if(! HC_AffectAll) {difcolor *= HCchannelMult ;};  
     float  difAO = spm.w * spm.w ;  //mult on env dif
-    float  mirAO = spm.w ; // lerp(spm.w, 1, clamp(spm.x, 0.5, 1));  //mult on env spec
-    float  F0 = lerp(FresnelF0 , 1, metalness);
+    float  mirAO = lerp( spm.w , 1 , glossgradient);  //mult on env spec
+    float  F0 = lerp(FresnelF0 , FresnelMetalF0, metalness);
     float  blackbody = nrm.z ;
 
 //tangent space to world normal
@@ -735,18 +771,21 @@ float pointlight_multiply = { 1 }; //点光源反射整体亮度
     sun_color = float3(2,2,2) * HCpreviewRGB.a ;
 #endif
 
+    float  sun_tilt  = dot(N,Lsun) ;
+    if(sun_tilt < 0) {sun_color = 0 ;};
+
 #if !defined(_3DSMAX_)  //预览没有影子
     sun_color *= helper_notshadow_inside(i.ShadowPROJ);
 #endif
 
-    float  sun_tilt  = dot(N,Lsun) ;
-    if(sun_tilt <= 0) {sun_color = 0 ;};
-
+/*
 //special handel: glass
-    if(nrm.w ==0)
+    float3 GlassColor = helper_color_decider(GlassF0Spectrum, actualHC) ;
+    GlassColor = max((GlassColor * EYEtilt *2), (1 - EYEtilt)); //with spectrum cutoff effect
+    
+    if(nrm.w < 0.5)
     {
-        float3 GlassColor = helper_color_decider(GlassSpectrum, actualHC) ;
-        speccolor = max((GlassColor * EYEtilt *2), (1- EYEtilt)); //with spectrum cutoff effect
+        speccolor = GlassColor ;
         Reflectivity = 1;
         glossgradient = 1;
         glossiness = 1 / MINroughness ;
@@ -756,6 +795,8 @@ float pointlight_multiply = { 1 }; //点光源反射整体亮度
         mirAO = 1;
         F0 = FresnelF0 ;
     };
+*/
+
 
 //所有BRDF：自身光谱 x 分布方程或AO x (spec菲涅尔) x [光源色] x 风格multiply
 //environmental stuff
@@ -775,19 +816,17 @@ float pointlight_multiply = { 1 }; //点光源反射整体亮度
     //              自身光谱,     分布方程或AO,   菲涅尔  ,                   光源色  
 
     float3 EVambientlight = lerp(ground_color, sky_color, (N.z +1)/2 );
-    float3 EVdiff = difcolor * difAO * EVambientlight ;
-    //              自身光谱, 分布方程或AO,   光源色
-
-    float3 EVtotal = (EVspec + EVdiff) * ambient_multiply ; //所属风格multiply
+    float3 EVdiff = difcolor * difAO * EVambientlight * ( 1- Reflectivity * ambient_reflectivity_loss);
+    //              自身光谱, 分布方程或AO,   光源色,      额外的四面八方镜面反射损失能量
 
 //sunlight BRDF
-    float3 SUNdiff =  difcolor * sun_tilt * diffuse_multiply;
+    float3 SUNdiff =  difcolor * sun_tilt ;
     //                自身光谱   分布方程或AO              
 
-    float3 SUNspec = speccolor * helper_specdist(glossiness, R, Lsun) * helper_fresnel(Lsun, V, F0) * specbase_multiply ;
+    float3 SUNspec = speccolor * helper_specdist(glossiness, R, Lsun) * helper_fresnel(Lsun, V, F0) ;
     //               自身光谱,     分布方程或AO,                          菲涅尔                     风格
 
-    float3 SUNtotal = sun_color * (SUNdiff + SUNspec) * sunlight_multiply; //光源色
+    float3 SUNtotal = sun_color * sunlight_multiply * (SUNdiff + SUNspec) ; //光源色
 
 
 //point lights
@@ -802,48 +841,60 @@ float pointlight_multiply = { 1 }; //点光源反射整体亮度
         if ( PLrange <1) {continue;};
 
         float3 PLpos = PointLight[countpl].Position.xyz - i.FragWpos.xyz ;
+
+        //need change
         float  PLdistSquare = dot(PLpos, PLpos) ;
-        float  PLrangeSquare = dot(PLrange, PLrange) ;
+        float  PLrangeSquare = PLrange * PLrange ;
         if ( PLdistSquare > PLrangeSquare) {continue;};
 
         float3 PLL = normalize(PLpos);
         float  PLtilt = dot(PLL, N) ;
-        if ( PLtilt <= 0 ) {continue;};
+        if ( PLtilt < 0 ) {continue;};
 
         float  decaymult = 1- saturate(PLdistSquare / PLrangeSquare) ;
-        decaymult = pow(decaymult , 3) ;
-        float3 PLcolor = PointLight[countpl].Color.xyz * decaymult;
+        decaymult = pow(decaymult , 2) ; //was 3
+        //need change
 
-        float3 PLdiff = difcolor * PLtilt * diffuse_multiply;
-        float3 PLspec = speccolor * helper_specdist(glossiness, R, PLL) * helper_fresnel(PLL, V, F0) * specbase_multiply;
-        
+        float3 PLdiff = difcolor * helper_newdiffuse(PLtilt, Reflectivity) ;
+        float3 PLspec = speccolor * helper_specdist(glossiness, R, PLL) * helper_fresnel(PLL, V, F0) ;
+
+        float3 PLcolor = PointLight[countpl].Color.xyz * decaymult;
         PLtotal += PLcolor * (PLdiff + PLspec) ;
     };
+    //
     PLtotal *= pointlight_multiply ;
 #endif
 
 //final color modify
-    out_color.xyz = EVtotal + SUNtotal + PLtotal ;
+    out_color.xyz = EVspec + EVdiff + SUNtotal + PLtotal ;
     out_color.xyz *= blackbody ; //cavitymap
     out_color.xyz *= TintColor ;
-    if(HC_AffectRef) {out_color.xyz *= HCchannelMult ;}; 
+    out_color.xyz *= (HC_AffectAll)? HCchannelMult : 1 ;
 
 #if !defined(_3DSMAX_)  //预览没有迷雾
     float3 warfog = tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;
     out_color.xyz *= warfog ;  
 #endif 
 
+/*
     float3 glowmap = helper_color_decider(GlowColor, actualHC) * spm.y ;
 #if !defined(_3DSMAX_) //预览没有呼吸灯波动
     glowmap *= helper_glowpulse() ;
 #endif
-    out_color.xyz += glowmap ;  
+    if(HasRecolorColors || Lights_AlwaysOn ){}
+*/
 
-    out_color.w = 1;
-    if(AlphaTestEnable){out_color.w = dif.w ;};
-    if(! ignore_vertex_alpha){out_color.w *= i.color.w ;};
+    if(HasRecolorColors)
+    { out_color.xyz += lerp(
+        helper_color_decider(GlowColorMax, RecolorColor) , 
+        helper_color_decider(GlowColorMin, RecolorColor) , 
+        helper_glowpulse() ) * spm.y; };
+
+    out_color.w = i.color.w * dif.w;
+    //if(AlphaTestEnable){out_color.w = dif.w ;};
+    //if(! ignore_vertex_alpha){out_color.w *= i.color.w ;};
+    //maybe add nrm.w as alpha too
     
-
     return out_color;
 };
 
@@ -945,8 +996,11 @@ VSCreateShadowMap_Array_Shader_1_Output VSCreateShadowMap_Array_Shader_1(VSCreat
     temp0.x = temp0.x * temp0.y + temp0.z;
     temp0.x = temp0.x + temp0.x;
     addr0.x = temp0.x;
-    temp0.x = i.color.w * WorldBones[1 + addr0.x].w;
-    o.color = temp0.x * OpacityOverride.x;
+    float bone_alpha = WorldBones[1 + addr0.x].w;
+    o.color = OpacityOverride.x;
+    o.color *= (ignore_bone_alpha)? 1 : bone_alpha ;
+    // temp0.x = i.color.w * WorldBones[1 + addr0.x].w;
+    // o.color = temp0.x * OpacityOverride.x;
     o.texcoord = i.texcoord;
 
     return o;
@@ -1008,12 +1062,12 @@ VSforMAX_Output VSforMAX(VSforMAX_Input i)  //
     o.texcoord2.z = dot(i.normal.xyz, (MAXworld._m01_m11_m21_m31).xyz);
     o.texcoord3.z = dot(i.normal.xyz, (MAXworld._m02_m12_m22_m32).xyz);
     float4 temp0 ;  //3dsmax 的切线空间似乎是互换binormal 和tangent
-    o.texcoord1.y = 0- dot(i.binormal.xyz, (MAXworld._m00_m10_m20_m30).xyz);
-    o.texcoord1.x = 0- dot(i.tangent.xyz, (MAXworld._m00_m10_m20_m30).xyz);
-    o.texcoord2.y = 0- dot(i.binormal.xyz, (MAXworld._m01_m11_m21_m31).xyz);
-    o.texcoord2.x = 0- dot(i.tangent.xyz, (MAXworld._m01_m11_m21_m31).xyz);
-    o.texcoord3.y = 0- dot(i.binormal.xyz, (MAXworld._m02_m12_m22_m32).xyz);
-    o.texcoord3.x = 0- dot(i.tangent.xyz, (MAXworld._m02_m12_m22_m32).xyz);
+    o.texcoord1.y =  dot(i.binormal.xyz, (MAXworld._m00_m10_m20_m30).xyz);
+    o.texcoord1.x =  dot(i.tangent.xyz, (MAXworld._m00_m10_m20_m30).xyz);
+    o.texcoord2.y =  dot(i.binormal.xyz, (MAXworld._m01_m11_m21_m31).xyz);
+    o.texcoord2.x =  dot(i.tangent.xyz, (MAXworld._m01_m11_m21_m31).xyz);
+    o.texcoord3.y =  dot(i.binormal.xyz, (MAXworld._m02_m12_m22_m32).xyz);
+    o.texcoord3.x =  dot(i.tangent.xyz, (MAXworld._m02_m12_m22_m32).xyz);
 
     o.ShadowPROJ = float3(0,0,-1) ;
     o.FogCloudUV = float4(2,2,2,2) ;
