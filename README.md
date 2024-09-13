@@ -4,17 +4,20 @@ Graphic improvements for this old dx9 game "Command Conquer Red Alert 3 " (2008)
 also with a little help from [https://github.com/lanyizi/DXDecompiler](https://github.com/lanyizi/DXDecompiler) (could be experimental)
 
 the main project here is PBR (physical based render) shader. It should be used to replace Objects and Buildings shaders in the game 
-(after compile! Don't try to let the game itself compile it, its compiler is too outdated. Use FXC.EXE from legacy microsoft direct x sdk. BUT 3dsmax requires uncompiled version)
+(after compile! Don't try to let the game itself compile it, its compiler is too outdated. Use FXC.EXE from legacy microsoft direct x sdk. BUT 3dsmax requires uncompiled version. I recommand 3dsmax2023 with the exporter plugin in TOOLS folder)
 
 Compiled+packed game-ready patch, download it here: (updated on April 22) https://www.moddb.com/mods/psysonic-omega/addons/pbr-shader-patch-v15#downloadsform
 
+To compile your own shader: find "fxc.exe" in TOOLS folder (or from microsoft's official website), place it in the same folder with your FX and FXH files, open a command prompt here by type CMD on the path bar and use following command:   
+ ` fxc.exe /O2 /T fx_2_0 /Fo  OutputFileName.fxo   SourceFileName.fx  `
+
 Here's also a video demo of my latest attempt to make a more "3d printing" effect when building up an object in the game, that has starry light rays descend from sky  and morph into a new triangle, one by one they build up a new structure. DX9 doesn't have geometry shader so i used multiple passes to handle different parts. (purely shadercontrolled, no new models needed) https://www.bilibili.com/video/BV1LZ421x7rJ/?
 
-ObjectsWorkflow series is my latest and most complete implementation, with the ability of previewing near in-game result in 3dsmax.
+ObjectsPBR series is my latest and most complete implementation, with the ability of previewing near in-game result in 3dsmax.
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/maxprev.png)
 there are these adjustable parameters: (either get them from texture, or just a constant variable, or hardcoded)
 
-diffuse color, insulent's reflectivity, fresnel effect f0, roughness, metalness, metal's reflection spectrum color, team color, emmisive color, emmisive blink frequncy, emmisive blink amplitude, shadow smoothing radius (is currently hardcoded to 2 for optimization),  transparency, and even a sub-surface scatter color for glass liquid container!
+diffuse color, ambient occlusion, insulent's reflectivity, fresnel effect f0, roughness, metalness, metal's reflection spectrum color, team color, emmisive color, emmisive blink frequncy, emmisive blink amplitude, shadow smoothing radius (is currently hardcoded to 2 for optimization),  transparency, and even a sub-surface scatter color for glass liquid container!
 
 A special "compatible" version, for compatibility with textures from original game, is also added, a less accurate but more stylized PBR tweaking. The parameters mentioned above can be reconstructed via some hard coded functions and original game's textures.
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/20240517113152.png)
