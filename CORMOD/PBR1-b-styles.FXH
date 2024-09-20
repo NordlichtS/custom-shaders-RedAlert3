@@ -15,7 +15,6 @@ static const float MinRoughness = 1/16 ; //最低粗糙度，防止除以零或�
 static const float max_skybox_lod_bias = 16 ; //最大粗糙度时使用的天空盒mipmap偏移（8会被log到3）
 static const bool  skybox_lod_absolute = false ; //用绝对lod而非相对lod bias采样模糊天空盒
 static const bool  skybox_lod_logarithmic = true ; //是否根据粗糙度的log2修正天空盒mipmap偏移
-static const bool  use_irradiance_box = false ; //要不要用irradiance环境光漫反射
 
 static const float ambient_diff_multiply =  0.75 ; //环境光与天空盒diffuse
 static const float ambient_spec_multiply =  0.75 ; //环境光与天空盒specular
