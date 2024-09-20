@@ -5,6 +5,7 @@ static const float PIE = radians(180) ; //圆周率
 static const bool  base_texture_gamma = true ; //是否对主贴图进行gamma修正
 static const bool  double_hc_bright = true ; //像原版一样翻倍阵营色亮度
 static const bool  exchange_tangent_in3dsmax = false ; //对MAX预览互换切线，因为似乎是反的
+static const bool  final_output_gamma = false ;
 
 static const float FresnelF0 =  0.125 ; //绝缘体菲涅尔效应F0，即反射角为0时高光亮度
 static const float FresnelMetalF0 = 0.875 ; //金属的菲涅尔F0
@@ -14,7 +15,7 @@ static const float MinRoughness = 1/16 ; //最低粗糙度，防止除以零或�
 static const float max_skybox_lod_bias = 16 ; //最大粗糙度时使用的天空盒mipmap偏移（8会被log到3）
 static const bool  skybox_lod_absolute = false ; //用绝对lod而非相对lod bias采样模糊天空盒
 static const bool  skybox_lod_logarithmic = true ; //是否根据粗糙度的log2修正天空盒mipmap偏移
-static const 
+static const bool  use_irradiance_box = false ; //要不要用irradiance环境光漫反射
 
 static const float ambient_diff_multiply =  0.75 ; //环境光与天空盒diffuse
 static const float ambient_spec_multiply =  0.75 ; //环境光与天空盒specular
@@ -27,8 +28,16 @@ static const float specbase_multiply =  1 ; //高光在最大粗糙度金属下�
 
 static const float shadowBias =  1/256 ; //阴影偏移，防止给自己投影
 // static const int   ShadowPCFlevel = 2 ; //柔和阴影的十字采样数量是这个乘4
+
+
+
+#if defined(_3DSMAX_)
 static const bool  HasCloud = false ; //允许动态云影响阳光亮度
 static const bool  HasWarfog = false ; //允许接受战争迷雾（大多数单位直接会消失所以没必要）
+#else
+static const bool  HasCloud = true ; //允许动态云影响阳光亮度
+static const bool  HasWarfog = true ; //允许接受战争迷雾（大多数单位直接会消失所以没必要）
+#endif
 
 
 /*

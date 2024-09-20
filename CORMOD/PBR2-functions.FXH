@@ -33,20 +33,28 @@ float3 Quaternion_R(float4 rotation, float3 position)
 	return finalvector;
 }; //非常巧妙，把一个3X3矩阵省略到float4
 
-// 摄像机相对位置与距离
+/*
+// 摄像机相对位置与距离 (这个不能用了)
 float4 helper_eye_relative(float3 WorldPosition) 
 {
     float3 V = (EyePosition.xyz - WorldPosition);
-#if defined(_3DSMAX_)  //MAX自己的视角位置覆盖
-    V = (ViewI[3].xyz - WorldPosition);
-#endif
+    #if defined(_3DSMAX_)  //MAX自己的视角位置覆盖
+        V = (ViewI[3].xyz - WorldPosition);
+    #endif
     float distance_eye_vertex = length(V);
     return  float4(V.xyz, distance_eye_vertex );
 };  //然后在PS里 XYZ/W 就能获得normalized后的view vector
+*/
 
-
-float3 helper_ps_getViewVector(float3 WorldPosition) //直接在PS里算的
-{   return normalize(EyePosition.xyz - WorldPosition);   };
+//直接在PS里算的VIEW
+float3 helper_ps_getViewVector(float3 WorldPosition) 
+{   
+    float3 camera_in_world = EyePosition ;
+    #if defined(_3DSMAX_)  //MAX自己的视角位置覆盖
+        camera_in_world = ViewI[3].xyz ;
+    #endif
+    return normalize(camera_in_world - WorldPosition);   
+};
 
 
 // 计算战争迷雾贴图的 UV 坐标
@@ -114,11 +122,27 @@ float helper_invert_shadow_density_cross ( float3 ShadowProjection, float sun_ti
     return 1- ShadowDensity;
 };
 
-float helper_invert_shadow_density_square ( float3 ShadowProjection, float sun_tilt )  
+float helper_invert_shadow_density_array ( float3 ShadowProjection, float sun_tilt )  
 {
     if(sun_tilt <= 0) {return 0;};
     if(! HasShadow)   {return 1;}; 
-    return 0;
+
+    float texelX[9] = {0, -1, +1,  0,  0, -1, +1, -1, +1} ;
+    float texelY[9] = {0,  0,  0, -1, +1, -1, -1, +1, +1} ;
+
+    float2 ThisShiftUV; float ShadowDepth ; float ShadowDensity ; int countSAMPLES ;
+
+    for(int sc = 0; sc <= 4; sc++) //这个用来调采样数
+    {
+        ThisShiftUV = float2(texelX[sc], texelY[sc]) * 1.25
+        * Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w + ShadowProjection.xy ;
+
+        ShadowDepth = tex2D(ShadowMapSampler, ThisShiftUV);
+        ShadowDensity += (ShadowDepth < ShadowProjection.z) ? +1 : +0 ;
+        countSAMPLES +=1 ;
+    };
+    ShadowDensity /= countSAMPLES ; //need saturate?
+    return 1- ShadowDensity;
 }
 
 
@@ -150,10 +174,13 @@ float3 getSKYBOXcolor (float3 R, float roughness)
 
 float3 getIRRADIANCEcolor (float3 N) 
 {
-    float3 irradiance_color = texCUBE(IrradianceTextureSampler, N);
+    if(use_irradiance_box){
+    float3 irradianceBOX = texCUBE(IrradianceTextureSampler, N);
+    return irradianceBOX ;}
 
-
-    return 0;
+    float3 nomap_irradiance = AmbientLightColor ;
+    nomap_irradiance *= saturate(N.z +1);
+    return nomap_irradiance;
 }
 
 //高光的分布
@@ -181,8 +208,9 @@ float helper_specdist(float glossiness, float3 R, float3 L)
     //square curve is similar to cosine within half period
     float specdist = cosRL * OOA - OOA +1 ;
     specdist = saturate(specdist);
+    specdist *= specdist ;
 
-    return ( specdist * specdist * glossiness * specbase_multiply ) ;
+    return ( specdist * glossiness * specbase_multiply ) ;
 };
 
 //基于目光与光源，而不是半程向量的菲涅尔效应，虽然不写实但更有表现力，也省一次开方

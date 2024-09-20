@@ -10,14 +10,13 @@ struct VS_H_output
 {
     float4 Position : POSITION;   //VS一定要输出的clip space渲染坐标
     float4 VertexColor : COLOR0;  //顶点颜色
-    float4 MainTexUV : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
+    float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
     float3 ShadowPROJ : TEXCOORD1; //阴影空间投影
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
     float3 WorldP : TEXCOORD3;  //世界空间位置
-    float4 WorldV : TEXCOORD4;  //视线相对矢量，XYZ/W 可以normalize
-    float3 WorldN : TEXCOORD5_centroid; //世界法线Z
-    float3 WorldT : TEXCOORD6_centroid; //世界切线Y
-    float3 WorldB : TEXCOORD7_centroid; //世界切线X
+    float3 WorldN : TEXCOORD4_centroid; //世界法线Z
+    float3 WorldT : TEXCOORD5_centroid; //世界切线Y
+    float3 WorldB : TEXCOORD6_centroid; //世界切线X
 };
 //如果PS不接受position或者需要别的变量比如VPOS，就在PS文件里新建一个结构
 //另外，_centroid modifier会导致贴图采样时gradient不准确，此处影响天空盒，可能得删了
@@ -57,7 +56,6 @@ VS_H_output  VS_H_noskin (VS_H_noskin_input  i)  //no bone skin
     WorldPosition.xyz = o.WorldP ; //世界坐标
     //以上要换成骨骼相关的代码，以下保留======
 
-    o.WorldV = helper_eye_relative(WorldPosition.xyz); //最后在ps里 xyz/w 就能normalize 视线
     o.MainTexUV = i.texcoord ; //直接转存贴图UV
     if(HasWarfog) { o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;};
     if(HasCloud)  { o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;};
@@ -103,7 +101,6 @@ VS_H_output  VS_H_hardskin (VS_H_hardskin_input  i)  //1 bone skin
     //以上要换成双骨骼软绑定相关的代码，以下保留======
 
     WorldPosition.xyz = o.WorldP  ; //四维世界坐标
-    o.WorldV = helper_eye_relative(WorldPosition.xyz); //最后在ps里 xyz/w 就能normalize 视线
     o.MainTexUV = i.texcoord ; //直接转存贴图UV
     if(HasWarfog) { o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;};
     if(HasCloud)  { o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;};
@@ -148,13 +145,16 @@ VS_H_output  VS_H_softskin (VS_H_softskin_input  i)  //2 bone skin, with tangent
     float3 this_WorldN = Quaternion_R( This_Quaternion , i.normal0.xyz);
     float3 this_WorldT = Quaternion_R( This_Quaternion , i.tangent0.xyz);
     float3 this_WorldB = Quaternion_R( This_Quaternion , i.binormal0.xyz);
+
+    /*
     // 不需要第二骨骼时，直接存第一骨骼的变换结果
     o.WorldP = this_WorldP ; o.WorldN = this_WorldN ;
     o.WorldT = this_WorldT ; o.WorldB = this_WorldB ;
     o.VertexColor.w *= This_offset_alpha.w ;
     //如果检查到权重可以启用第二骨骼
     if(i.blendweight.y > 0) 
-    {
+    */
+
     float4 That_Quaternion   = WorldBones[i.blendindices.y * 2 ];
     float4 That_offset_alpha = WorldBones[i.blendindices.y * 2 + 1];
     //     that                        that             .y         1.       that
@@ -169,11 +169,10 @@ VS_H_output  VS_H_softskin (VS_H_softskin_input  i)  //2 bone skin, with tangent
     o.WorldB = lerp( that_WorldB , this_WorldB , i.blendweight.x) ;
     o.VertexColor.w *= lerp(That_offset_alpha.w , This_offset_alpha.w , i.blendweight.x) ; 
     o.WorldN = normalize(o.WorldN); //插值后向量会变短要拉回来
-    };
+
     //以上是物体到世界空间相关的代码，以下保留======
 
     WorldPosition.xyz = o.WorldP  ; //四维世界坐标
-    o.WorldV = helper_eye_relative(WorldPosition.xyz); //最后在ps里 xyz/w 就能normalize 视线
     o.MainTexUV = i.texcoord ; //直接转存贴图UV
     if(HasWarfog) { o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;};
     if(HasCloud)  { o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;};
@@ -185,7 +184,7 @@ VS_H_output  VS_H_softskin (VS_H_softskin_input  i)  //2 bone skin, with tangent
 
 
 
-//下面的是多用途VS实验型，可以根据全局constant自动开关第二骨骼和切线框架，或许能优化（或许不能）
+//下面的是多用途VS实验型，可以根据全局constant自动开关第二骨骼和切线框架，或许能优化（或许不能,IF太多了）
 VS_H_output  VS_H_skincomplex (VS_H_softskin_input  i)  //1-2 bone skin, with or no tangentframe
 {
     VS_H_output o;
@@ -206,7 +205,7 @@ VS_H_output  VS_H_skincomplex (VS_H_softskin_input  i)  //1-2 bone skin, with or
     float3 this_WorldN = Quaternion_R( This_Quaternion , i.normal0.xyz);
     o.WorldP = this_WorldP ;  
     o.WorldN = this_WorldN ;
-    o.VertexColor.w *= This_offset_alpha.w ;
+    o.VertexColor.w = This_offset_alpha.w ;
     if(tangent_xy_multiply != 0) { //启用切线框架
         this_WorldT = Quaternion_R( This_Quaternion , i.tangent0.xyz);
         this_WorldB = Quaternion_R( This_Quaternion , i.binormal0.xyz);
@@ -223,7 +222,7 @@ VS_H_output  VS_H_skincomplex (VS_H_softskin_input  i)  //1-2 bone skin, with or
     float3 that_WorldN = Quaternion_R( That_Quaternion , i.normal1.xyz);
     o.WorldP = lerp( that_WorldP , this_WorldP , i.blendweight.x) ;
     o.WorldN = lerp( that_WorldN , this_WorldN , i.blendweight.x) ;
-    o.VertexColor.w *= lerp(That_offset_alpha.w , This_offset_alpha.w , i.blendweight.x) ; 
+    o.VertexColor.w = lerp(That_offset_alpha.w , This_offset_alpha.w , i.blendweight.x) ; 
     if(tangent_xy_multiply != 0) { //启用切线框架
         that_WorldT = Quaternion_R( That_Quaternion , i.tangent1.xyz);
         that_WorldB = Quaternion_R( That_Quaternion , i.binormal1.xyz);
@@ -235,7 +234,6 @@ VS_H_output  VS_H_skincomplex (VS_H_softskin_input  i)  //1-2 bone skin, with or
     //以上是物体到世界空间相关的代码，以下保留======
 
     WorldPosition.xyz = o.WorldP  ; //四维世界坐标
-    o.WorldV = helper_eye_relative(WorldPosition.xyz); //最后在ps里 xyz/w 就能normalize 视线
     o.MainTexUV = i.texcoord ; //直接转存贴图UV
     if(HasWarfog) { o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;};
     if(HasCloud)  { o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;};
@@ -257,17 +255,19 @@ VS_H_output VSforMAX(VS_H_noskin_input i)
 
     float3 MAXtangent = i.tangent.xyz ;
     float3 MAXbinormal = i.binormal.xyz ;
-    if(exchange_tangent_in3dsmax)  {
+
+    #ifdef EXCHANGE_MAX_TANGENT
     MAXtangent = i.binormal.xyz ;
-    MAXbinormal = i.tangent.xyz ;  };
+    MAXbinormal = i.tangent.xyz ;  
+    #endif
 
     // 从object space 到 world space===========
 
     o.WorldP = mul(i.position.xyzw , (float4x3)MAXworld);
     o.WorldN = mul(i.normal.xyz, (float3x3)MAXworld);
-    //#ifdef USE_TANGENT_FRAME //macro条件编译 是否启用切线框架（支持法线图）
     o.WorldT = mul(MAXtangent, (float3x3)MAXworld);
     o.WorldB = mul(MAXbinormal, (float3x3)MAXworld);
+    //#ifdef USE_TANGENT_FRAME //macro条件编译 是否启用切线框架（支持法线图）
     // #endif
     
     WorldPosition.xyz = o.WorldP ; //世界坐标
@@ -286,16 +286,17 @@ VS_H_output VSforMAX(VS_H_noskin_input i)
 
 
 // 不启用切线空间的VS，可以用作中低画质的
+// 但无法线图的高画质或许并不能用这个output，semantic对不上
+// 说不定能用？编译一个试试
 struct VS_notgt_output  //
 {
     float4 Position : POSITION;   //VS一定要输出的clip space渲染坐标
     float4 VertexColor : COLOR0;  //顶点颜色
-    float4 MainTexUV : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
+    float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
     float3 ShadowPROJ : TEXCOORD1; //阴影空间投影
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
-    float3 WorldP : TEXCOORD3;  //世界空间位置
-    float4 WorldV : TEXCOORD4;  //视线相对矢量，XYZ/W 可以normalize
-    float3 WorldN : TEXCOORD5_centroid; //世界法线Z
+    float3 WorldP : TEXCOORD3;  //世界空间位置    
+    float3 WorldN : TEXCOORD4;  //_centroid; //世界法线
 };
 
 

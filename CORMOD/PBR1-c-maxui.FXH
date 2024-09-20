@@ -110,7 +110,7 @@ sampler2D NormalMapSampler
 
 float tangent_xy_multiply //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。
 <string UIName = "tangent_xy_multiply"; float UIMax = 2; float UIMin = -2; float UIStep = 0.25; > 
-={ -1 }; 
+={ -1.25 }; 
 
 float GlowAmplitude //最大发光倍数
 <string UIName = "GlowAmplitude"; float UIMax = 8; float UIMin = 0; float UIStep = 0.25; > 

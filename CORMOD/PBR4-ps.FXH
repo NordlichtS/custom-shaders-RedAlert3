@@ -51,19 +51,23 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     if(base_texture_gamma) {dif.xyz = pow(dif.xyz, 2) ;}; 
     if(HasRecolorColors)   {dif.xyz = mixHC (dif.xyz, spm.z) ;};
  
-    float3 glowmap = dif.xyz * spm.w * GlowAmplitude ; //发光图层，可能要加个闪烁
     float  metalness = spm.y ;
     
     float  roughness = lerp(1, MinRoughness, spm.x ) ;
     float  glossiness = 1 / roughness ; //OOA? SPECPEAK?
 
     float  dielectric_reflectivity = saturate(spm.x / reflectivity_cutoff) ;
-    float3 speccolor = lerp((float3(1,1,1) * dielectric_reflectivity), dif.xyz, metalness);
-  
+    float3 speccolor = lerp( dielectric_reflectivity.xxx, dif.xyz, metalness);
     float  F0 = lerp(FresnelF0 , FresnelMetalF0, metalness);
-
     float3 difcolor = dif.xyz * (1 - metalness) ;
+    //float3 speccolor = (metalness < 0.5 )? dielectric_reflectivity.xxx : dif.xyz ;
+    //float  F0 = (metalness < 0.5 )? FresnelF0 : FresnelMetalF0 ;
+    //float3  difcolor = (metalness < 0.5 )? dif.xyz : float3(0,0,0) ;
+
     float  AOchannel = nrm.w ;
+    float  CAVITYychannel = (GlowAmplitude ==0)? 1 : (1- spm.w) ;
+    float3 GLOWchannel = dif.xyz * spm.w ; //发光图层，可能要加个闪烁
+
 
   //世界法线
     float3 N = i.WorldN ;
@@ -76,7 +80,7 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     N = normalize(N); //长度单位化，这一步很重要
 
   //世界空间的view vector，与目光反射
-    float3 V = i.WorldV.xyz / i.WorldV.w ; //相对位置除以模长。算模长步骤优化进VS
+    float3 V = normalize(EyePosition - i.WorldP) ; //相对位置除以模长。算模长步骤优化进VS
     float  EYEtilt = dot(V , N) ; //1= perpendicular view, 0= side view , -1=back
     float3 R = reflect(-V , N) ; //input light vector is towards fragment!
     if(EYEtilt <0) {R = -V ;} ; //SHOULD I FIX IT ?
@@ -85,12 +89,14 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     float3 skybox_color = getSKYBOXcolor(R, roughness);
     float3 irradiance_color = getIRRADIANCEcolor(N);
     float  difAO = AOchannel * AOchannel ;  //环境光漫反射的AO
-    float  mirAO = lerp( 1 , AOchannel , roughness);  //天空盒镜面反射的AO
+    float  mirAO = saturate(AOchannel * glossiness);  //天空盒镜面反射的AO
 
   //环境光BRDF
-    float  ambientDIFF, ambientSPEC ;
-
-
+    float3 ambientALL = float3(0,0,0) ;
+    //ambient DIFF
+    ambientALL += irradiance_color * difAO * difcolor * ambient_diff_multiply ; 
+    //ambient SPEC
+    ambientALL += skybox_color * mirAO * speccolor * ambient_spec_multiply * helper_fresnel(R, V, F0); 
 
   //阳光相关
     float3 Lsun      = DirectionalLight[0].Direction.xyz ;
@@ -100,23 +106,68 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     sun_color = PV_SunlightColor ;
     #endif
 
+    sun_color *= sunlight_multiply ;
     float  sun_tilt  = dot(N,Lsun) ;
     sun_color *= helper_invert_shadow_density_cross(i.ShadowPROJ , sun_tilt);
-    //shadow helper also return 0 for backface
+    //shadow helper also return 0 for backface, 1 for no shadow
     if(HasCloud) { sun_color *= tex2D(CloudTextureSampler, i.FogCloudUV.zw); };
 
 
   //阳光BRDF
-
-
+    float3 sunALL = float3(0,0,0) ;
+    //sun diff
+    sunALL += difcolor * sun_tilt ;//helper_newdiffuse(sun_tilt, dielectric_reflectivity);
+    //sun spec
+    sunALL += speccolor * helper_specdist(glossiness, R, Lsun) * helper_fresnel(Lsun, V, F0) ;
+    sunALL *= sun_color ;
 
   //点光源BRDF
-    #if defined(_3DSMAX_)
+    float3 PLtotal = float3(0,0,0) ;
 
+    #if !defined(_3DSMAX_)  //预览没有点光源
+    int maxPLcount = clamp(NumPointLights, 0, 8); //JUST IN CASE
+
+    for (int countpl = 0; countpl < maxPLcount; countpl++ ) 
+    {
+      float3 PLpos = PointLight[countpl].Position - i.WorldP ;
+      float3 PLcolor = PointLight[countpl].Color ;
+      float  PLrangeMAX = PointLight[countpl].Range_Inner_Outer.y ;
+      float  PLrangeMIN = PointLight[countpl].Range_Inner_Outer.x ;
+      if(PLrangeMAX < 1) {continue;}; //排除无用的点光源
+      float  PLdist = length(PLpos) ;
+      if(PLdist >= PLrangeMAX) {continue;}; //排除太远的点光源
+      float3 PLL = PLpos / PLdist ; //normalized light vector
+      float  PLtilt = dot(PLL, N) ;
+      if(PLtilt <= 0) {continue;}; //排除背光面
+
+      float decaymult = (PLdist - PLrangeMAX) / (PLrangeMIN - PLrangeMAX);
+      //https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-smoothstep
+
+      float3 thisBRDF = float3(0,0,0) ;
+      //pl diff
+      thisBRDF += difcolor * PLtilt ; // helper_newdiffuse(PLtilt, dielectric_reflectivity);
+      //pl spec
+      thisBRDF += speccolor * helper_specdist(glossiness, R, PLL) * helper_fresnel(PLL, V, F0) ;
+      //pl color
+      thisBRDF *= PLcolor * decaymult;
+
+      PLtotal += thisBRDF ; //叠加所有点光源
+    };
+    PLtotal *= pointlight_multiply ;
     #endif
+
+  //自发光与闪烁
+    float3 glowmap = GLOWchannel * helper_glowpulse() ;
+
   //最终混色
+    out_color.xyz = ambientALL + sunALL + PLtotal ; //BRDF
+    out_color.xyz *= CAVITYychannel ;
+    if(HasWarfog){out_color.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;};
+    out_color.xyz += glowmap ;
+    out_color.xyz *= TintColor ;
 
-
+    out_color.w *= OpacityOverride ;
+    if(final_output_gamma){out_color.xyz *= out_color.xyz ;};
 
     return out_color;
 };
