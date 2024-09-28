@@ -101,7 +101,7 @@ float helper_invert_shadow_density_cross ( float3 ShadowProjection, float sun_ti
     if(sun_tilt <= 0) {return 0;};
     if(! HasShadow)   {return 1;}; 
 
-    static const int ShadowPCFlevel = 2 ;
+    const int ShadowPCFlevel = 2 ;
     float ShadowDensity = 0; int countSAMPLES = 0; //int? float?
     float ShadowDepth; float2 ThisShiftUV; float ShiftTexel ; 
     for (float countSHIFT = 0.5- ShadowPCFlevel; countSHIFT < ShadowPCFlevel; countSHIFT += 1 )
@@ -164,9 +164,23 @@ float3 mixHC (float3 basetex , float HCweighht)
 
 float3 getSKYBOXcolor (float3 R, float roughness) 
 {
+    /*
+    float  skybox_lodbias =  roughness * max_skybox_lod_bias ; 
+    if(skybox_lod_logarithmic) //根据粗糙度的对数算mipmap偏移数
+    {skybox_lod_absolute = log2(skybox_lod_absolute);};
+    float4 skyboxUV = float4(R.xyz , skybox_lodbias); 
+    float3 skybox_color ;
+    if(skybox_lod_absolute)
+    {skybox_color = texCUBElod(EnvironmentTextureSampler, skyboxUV);}
+    else //use relative bias
+    {skybox_color = texCUBEbias(EnvironmentTextureSampler, skyboxUV);};
+
+    */
+
     float  skybox_lodbias =  log2(roughness * max_skybox_lod_bias) ; // max 0 ?
     float4 skyboxUV = float4(R.xyz , skybox_lodbias); //根据粗糙度的对数算mipmap偏移数
-    float3 skybox_color = texCUBEbias(EnvironmentTextureSampler, skyboxUV);
+    float3 skybox_color = texCUBElod(EnvironmentTextureSampler, skyboxUV);
+    // texCUBEbias ?
 
     return skybox_color;
 }
@@ -174,12 +188,11 @@ float3 getSKYBOXcolor (float3 R, float roughness)
 
 float3 getIRRADIANCEcolor (float3 N) 
 {
-    if(use_irradiance_box){
-    float3 irradianceBOX = texCUBE(IrradianceTextureSampler, N);
-    return irradianceBOX ;}
+    if(use_irradiance_box)
+    { return texCUBE(IrradianceTextureSampler, N) ;};
 
     float3 nomap_irradiance = AmbientLightColor ;
-    nomap_irradiance *= saturate(N.z +1);
+    nomap_irradiance *= saturate(N.z +1); //真的要么
     return nomap_irradiance;
 }
 
@@ -231,13 +244,18 @@ float helper_fresnel_old(float3 L, float3 V, float F0)
     return fresnelLV ;
 };
 
+float helper_lambertian(float dotLN) 
+{
+    return saturate(dotLN) * diffuse_multiply ;
+}
+
 //带有菲涅尔修正的漫反射，有四种算式可选
 float helper_newdiffuse(float dotLN, float Reflectivity) 
 {
     float lambertian = saturate(dotLN) ;
     float newlambertian = lambertian ;
 
-    static const int calculate_diffuse_type = 2 ; //是否直射光漫反射要被菲涅尔修正，及其精确度
+    const int calculate_diffuse_type = 2 ; //是否直射光漫反射要被菲涅尔修正，及其精确度
 
     if(calculate_diffuse_type ==1) {
         newlambertian = lerp( lambertian , lambertian * lambertian , Reflectivity * 0.5 ) ;

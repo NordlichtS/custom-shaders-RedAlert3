@@ -57,6 +57,7 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     float  glossiness = 1 / roughness ; //OOA? SPECPEAK?
 
     float  dielectric_reflectivity = saturate(spm.x / reflectivity_cutoff) ;
+    
     float3 speccolor = lerp( dielectric_reflectivity.xxx, dif.xyz, metalness);
     float  F0 = lerp(FresnelF0 , FresnelMetalF0, metalness);
     float3 difcolor = dif.xyz * (1 - metalness) ;
@@ -65,8 +66,8 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     //float3  difcolor = (metalness < 0.5 )? dif.xyz : float3(0,0,0) ;
 
     float  AOchannel = nrm.w ;
-    float  CAVITYychannel = (GlowAmplitude ==0)? 1 : (1- spm.w) ;
-    float3 GLOWchannel = dif.xyz * spm.w ; //发光图层，可能要加个闪烁
+    float  CAVITYchannel = (GlowAmplitude <= 0)? 1 : (1- spm.w) ;
+    float3 GLOWchannel =   (GlowAmplitude <= 0)? 0 : (dif.xyz * spm.w) ; //发光图层，可能要加个闪烁
 
 
   //世界法线
@@ -116,7 +117,7 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
   //阳光BRDF
     float3 sunALL = float3(0,0,0) ;
     //sun diff
-    sunALL += difcolor * sun_tilt ;//helper_newdiffuse(sun_tilt, dielectric_reflectivity);
+    sunALL += difcolor * sun_tilt * diffuse_multiply ;//helper_newdiffuse(sun_tilt, dielectric_reflectivity);
     //sun spec
     sunALL += speccolor * helper_specdist(glossiness, R, Lsun) * helper_fresnel(Lsun, V, F0) ;
     sunALL *= sun_color ;
@@ -141,11 +142,11 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
       if(PLtilt <= 0) {continue;}; //排除背光面
 
       float decaymult = (PLdist - PLrangeMAX) / (PLrangeMIN - PLrangeMAX);
-      //https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-smoothstep
+      decaymult = clamp(decaymult, 0, 2);
 
       float3 thisBRDF = float3(0,0,0) ;
       //pl diff
-      thisBRDF += difcolor * PLtilt ; // helper_newdiffuse(PLtilt, dielectric_reflectivity);
+      thisBRDF += difcolor * PLtilt * diffuse_multiply ; 
       //pl spec
       thisBRDF += speccolor * helper_specdist(glossiness, R, PLL) * helper_fresnel(PLL, V, F0) ;
       //pl color
@@ -161,13 +162,17 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
 
   //最终混色
     out_color.xyz = ambientALL + sunALL + PLtotal ; //BRDF
-    out_color.xyz *= CAVITYychannel ;
-    if(HasWarfog){out_color.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;};
+    out_color.xyz *= CAVITYchannel ;
+    if(HasWarfog)
+    {out_color.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;};
     out_color.xyz += glowmap ;
     out_color.xyz *= TintColor ;
 
     out_color.w *= OpacityOverride ;
+
     if(final_output_gamma){out_color.xyz *= out_color.xyz ;};
 
     return out_color;
 };
+
+//高画质PBR pixel shader结束

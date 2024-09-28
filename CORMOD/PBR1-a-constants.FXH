@@ -1,9 +1,4 @@
-//this file need to be first
 
-//#pragma warning(disable: 4008)
-string DefaultParameterScopeBlock = "material"; 
-
-//end static const==================
 
 //这有什么用？
 int _SasGlobal : SasGlobal  
@@ -15,6 +10,7 @@ int _SasGlobal : SasGlobal
     int MaxSupportedInstancingMode = 1;
 > = 0;
 //先留着吧
+
 
 //下面是引擎自己加的constant，按寄存器编号排序吧================
 
@@ -50,6 +46,7 @@ shared float3 AmbientLightColor
 = float3(0.3, 0.3, 0.3);
 
 //阳光和两个accent light
+/*
 shared struct SasDirectionalLight { float3 Color; float3 Direction;};
 SasDirectionalLight DirectionalLight[3] 
 : register(vs, c5) : register(ps, c5)
@@ -57,6 +54,14 @@ SasDirectionalLight DirectionalLight[3]
 = { 1.0, 1.0, 1.0,   0, 0, 1, 
     0.5, 0.6, 0.7,   0, 1, 0, 
     0.3, 0.2, 0.1,   1, 0, 0 };
+*/
+
+struct{ float3 Color; float3 Direction;} 
+DirectionalLight[3] : register(vs, c5) : register(ps, c5) 
+< bool unmanaged = 1;> = 
+{ 1.0, 1.0, 1.0,   0, 0, 1, 
+  0.5, 0.6, 0.7,   0, 1, 0, 
+  0.3, 0.2, 0.1,   1, 0, 0 };
 
 //用于设置战争迷雾坐标
 struct ShroudSetup {float4 ScaleUV_OffsetUV;} 
@@ -84,7 +89,7 @@ shared column_major float4x4 ShadowMapWorldToShadow
 //用来设置云的UV
 shared struct CloudSetup {float4 WorldPositionMultiplier_XYZZ; float2 CurrentOffsetUV;} 
 Cloud 
-: register(c117)
+: register(c117) 
 <    bool unmanaged = true;>;
 
 //从world到view再到projection的矩阵，最后perspective division到clip space?
@@ -290,8 +295,8 @@ float  dielectric_roughness = (RoughnessOverride <=0)? metal_roughness : Roughne
 float  dielectric_reflectivity = (ReflectivityOverride <=0)? spm.x : ReflectivityOverride ;
 float  roughness = lerp( dielectric_roughness , metal_roughness , metalness) ;
 
-static const float dielectrics_roughness =  0.66 ; //非金属的恒定粗糙度
-static const float MinRoughness =  0.125 ; //最低粗糙度，如果下面false会影响整个粗糙度的尺度
-static const bool  SimpleRoughness = false ; //如果上面那个值非常小，可以再化简光滑度函数
+const float dielectrics_roughness =  0.66 ; //非金属的恒定粗糙度
+const float MinRoughness =  0.125 ; //最低粗糙度，如果下面false会影响整个粗糙度的尺度
+const bool  SimpleRoughness = false ; //如果上面那个值非常小，可以再化简光滑度函数
 
 */

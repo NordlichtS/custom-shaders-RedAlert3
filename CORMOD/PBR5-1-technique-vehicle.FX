@@ -23,7 +23,7 @@ technique Default
     pass p0 <string ExpressionEvaluator = "Objects";>
     {
         VertexShader = VS_H_Array[VSchooser_Expr()]; 
-        PixelShader  = compile ps_3_0 PS_H_MAIN();    
+        PixelShader  = compile ps_3_0 PS_H_PBR_CORONA();    
         ZEnable = 1;
         ZFunc = 4;
         ZWriteEnable = 1;
@@ -31,7 +31,7 @@ technique Default
         SrcBlend = 5;
         DestBlend = 6;
         AlphaFunc = 7;
-        AlphaRef = 64;
+        AlphaRef = 32;
         //AlphaTestEnable = 0 ;
         //AlphaBlendEnable = (OpacityOverride < 0.99) ;
     }

@@ -93,20 +93,20 @@ float GlowPeriod //发光呼吸周期，写0为恒定发光
 // internal style parameters ======================
 
 
-static const float FresnelF0 = { 0.125 }; //绝缘体菲涅尔效应F0
-static const float FresnelMetalF0 = { 0.875 }; //金属的菲涅尔F0
-static const float MINroughness = { 0.1 }; //金属最低粗糙度
-static const float dielectrics_roughness = { 0.66 }; //非金属的恒定粗糙度
-static const float ambient_diff_multiply = { 0.5 }; //环境光与天空diffuse
-static const float ambient_spec_multiply = { 0.5 }; //环境光与天空specular
-static const float sunlight_multiply = { 0.8 }; //阳光亮度
-static const float diffuse_multiply = { 1 }; //漫反射亮度，影响阳光与点光源
-static const float specbase_multiply = { 0.75 }; //高光在最大粗糙度金属下的基础峰值亮度，影响阳光与点光源
-static const float pointlight_multiply = { 1 }; //点光源整体亮度
-static const float ambient_reflectivity_loss = { 0.4 }; //环境光被菲涅尔效应分走的能量比例（算下球体积分?）
-static const float direct_reflectivity_loss = { 0.75 }; //直射光被菲涅尔效应分走的能量比例（暂时没用）
-static const float direct_fresnel_cutoff = { 1.75 }; //拟合上面那个用的，1-2之间越小越显著（暂时没用）
-static const bool  spm_w_glow_invert = 0 ; //SPM发光通道反转？
+const float FresnelF0 = { 0.125 }; //绝缘体菲涅尔效应F0
+const float FresnelMetalF0 = { 0.875 }; //金属的菲涅尔F0
+const float MINroughness = { 0.1 }; //金属最低粗糙度
+const float dielectrics_roughness = { 0.66 }; //非金属的恒定粗糙度
+const float ambient_diff_multiply = { 0.5 }; //环境光与天空diffuse
+const float ambient_spec_multiply = { 0.5 }; //环境光与天空specular
+const float sunlight_multiply = { 0.8 }; //阳光亮度
+const float diffuse_multiply = { 1 }; //漫反射亮度，影响阳光与点光源
+const float specbase_multiply = { 0.75 }; //高光在最大粗糙度金属下的基础峰值亮度，影响阳光与点光源
+const float pointlight_multiply = { 1 }; //点光源整体亮度
+const float ambient_reflectivity_loss = { 0.4 }; //环境光被菲涅尔效应分走的能量比例（算下球体积分?）
+const float direct_reflectivity_loss = { 0.75 }; //直射光被菲涅尔效应分走的能量比例（暂时没用）
+const float direct_fresnel_cutoff = { 1.75 }; //拟合上面那个用的，1-2之间越小越显著（暂时没用）
+const bool  spm_w_glow_invert = 0 ; //SPM发光通道反转？
 
 //other param===================================
 

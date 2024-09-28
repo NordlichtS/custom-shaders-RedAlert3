@@ -244,40 +244,7 @@ VS_H_output  VS_H_skincomplex (VS_H_softskin_input  i)  //1-2 bone skin, with or
 };  //以上这个VS是实验性代码模板，我也不知道会有什么效果，套了两层if 有可能负优化也说不定
 
 #if defined(_3DSMAX_)
-// MAX预览用的============================
-VS_H_output VSforMAX(VS_H_noskin_input i)  
-{ 
-    VS_H_output  o;
 
-    float4 WorldPosition = float4(0,0,0,1);
-    o.ShadowPROJ = o.FogCloudUV = 0 ;
-    o.VertexColor = i.color ;  //顶点颜色，opacity 放ps里去吧
-
-    float3 MAXtangent = i.tangent.xyz ;
-    float3 MAXbinormal = i.binormal.xyz ;
-
-    #ifdef EXCHANGE_MAX_TANGENT
-    MAXtangent = i.binormal.xyz ;
-    MAXbinormal = i.tangent.xyz ;  
-    #endif
-
-    // 从object space 到 world space===========
-
-    o.WorldP = mul(i.position.xyzw , (float4x3)MAXworld);
-    o.WorldN = mul(i.normal.xyz, (float3x3)MAXworld);
-    o.WorldT = mul(MAXtangent, (float3x3)MAXworld);
-    o.WorldB = mul(MAXbinormal, (float3x3)MAXworld);
-    //#ifdef USE_TANGENT_FRAME //macro条件编译 是否启用切线框架（支持法线图）
-    // #endif
-    
-    WorldPosition.xyz = o.WorldP ; //世界坐标
-    o.WorldV = helper_eye_relative(WorldPosition.xyz); //最后在ps里 xyz/w 就能normalize 视线
-    o.MainTexUV = i.texcoord ; //直接转存贴图UV
-
-    o.Position = mul(i.position , MAXwvp); //给rasterizer的clip space坐标
-
-    return o;
-};
 #endif
 
 
