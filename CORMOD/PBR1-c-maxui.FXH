@@ -1,4 +1,4 @@
-//this file need to be first
+//MUST BE FIRST INCLUDED
 
 //#pragma warning(disable: 4008)
 string DefaultParameterScopeBlock = "material"; 
@@ -19,6 +19,49 @@ string DefaultParameterScopeBlock = "material";
 //END MAX PREVIEW
 
 
+
+#if defined(_3DSMAX_) //预览用 constant
+
+    float3 PV_FactionColor <
+	string UIName = "PV_FactionColor";
+	string UIWidget = "Color";
+	bool ExportValue = false;
+    > = {0, 0, 1};
+
+    //预览用的自定义天空盒扔到文件尾部去了
+
+    // sun light direction (world space)
+    float3 PV_SunlightDirection : Direction <  
+	string UIName = "PV_SunlightDirection"; 
+    string Space = "World";   
+	string Object = "TargetLight";
+	bool ExportValue = false;
+	> = {0, 0, 1};
+
+    //能不能把颜色和方向合并在一起啊
+    float3 PV_SunlightColor : LightColor <
+	string UIName = "PV_SunlightColor";
+	string Object = "TargetLight";
+	bool ExportValue = false;
+    > = {1, 1, 1};
+
+    //获取MAX场景里点光源位置和颜色不会装了，预览还是需要一个点光源的，谁来救一下
+
+    /*
+    float3 PV_PointLight_Position : Position <  
+	string UIName = "PV_PointLightPosition"; 
+	string Object = "OmniLight";
+	bool ExportValue = false;
+	> = {0, 0, 10};
+
+    float PV_PointLight_Range <
+	string UIName = "PV_PointLight_Range";
+	bool ExportValue = false;
+    > = 30 ;
+
+    */
+
+#endif
 
 //w3x里可以记录的参数=============================
 
@@ -78,7 +121,7 @@ float GlowAmplitude //最大发光倍数
 ={ 2 }; 
 
 float GlowPeriod //发光呼吸周期，写0为恒定发光
-<string UIName = "GlowPeriod"; float UIMax = 8; float UIMin = 0; float UIStep = 0.2; > 
+<string UIName = "GlowPeriod"; float UIMax = 8; float UIMin = -1; float UIStep = 0.2; > 
 ={ 1 }; 
 
 bool  use_irradiance_box //是否生成了用于环境光漫反射的辐照贴图

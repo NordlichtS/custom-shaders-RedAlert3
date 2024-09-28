@@ -293,7 +293,7 @@ float3 helper_normalmapper(float2 TEXtangent)
 //灯光闪烁
 float helper_glowpulse()
 {
-    if(GlowPeriod ==0){return GlowAmplitude;};
+    if(GlowPeriod <= 0){return GlowAmplitude;};
 
     float phase = frac( Time / GlowPeriod ) ; // 保留小数部分， mod 1
     phase = abs(phase *2 -1) ;//或者平方？

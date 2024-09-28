@@ -36,7 +36,7 @@ acerola
 //输入数组直接拿VS输出好了
 float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR 
 {
-  float4 out_color = i.VertexColor; //安全起见先initialize
+  float4 OUTCOLOR = i.VertexColor; //安全起见先initialize
 
   //拿出主贴图
     float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
@@ -86,47 +86,44 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     float3 R = reflect(-V , N) ; //input light vector is towards fragment!
     if(EYEtilt <0) {R = -V ;} ; //SHOULD I FIX IT ?
 
-  //天空盒相关
+  //天空盒相关 
     float3 skybox_color = getSKYBOXcolor(R, roughness);
     float3 irradiance_color = getIRRADIANCEcolor(N);
     float  difAO = AOchannel * AOchannel ;  //环境光漫反射的AO
     float  mirAO = saturate(AOchannel * glossiness);  //天空盒镜面反射的AO
 
-  //环境光BRDF
-    float3 ambientALL = float3(0,0,0) ;
+    float3 ambientALL = float3(0,0,0) ; //环境光BRDF
     //ambient DIFF
     ambientALL += irradiance_color * difAO * difcolor * ambient_diff_multiply ; 
     //ambient SPEC
     ambientALL += skybox_color * mirAO * speccolor * ambient_spec_multiply * helper_fresnel(R, V, F0); 
 
-  //阳光相关
+  //阳光相关 
     float3 Lsun      = DirectionalLight[0].Direction.xyz ;
-    float3 sun_color = DirectionalLight[0].Color.xyz ;
+    float3 SUNcolor = DirectionalLight[0].Color.xyz ;
     #if defined(_3DSMAX_)  //MAX预览阳光方向与颜色覆盖
     Lsun      = PV_SunlightDirection ; 
-    sun_color = PV_SunlightColor ;
+    SUNcolor = PV_SunlightColor ;
     #endif
 
-    sun_color *= sunlight_multiply ;
+    SUNcolor *= sunlight_multiply ;
     float  sun_tilt  = dot(N,Lsun) ;
-    sun_color *= helper_invert_shadow_density_cross(i.ShadowPROJ , sun_tilt);
+    SUNcolor *= helper_invert_shadow_density_cross(i.ShadowPROJ , sun_tilt);
     //shadow helper also return 0 for backface, 1 for no shadow
-    if(HasCloud) { sun_color *= tex2D(CloudTextureSampler, i.FogCloudUV.zw); };
+    if(HasCloud) { SUNcolor *= tex2D(CloudTextureSampler, i.FogCloudUV.zw); };
 
-
-  //阳光BRDF
-    float3 sunALL = float3(0,0,0) ;
+    float3 sunALL = float3(0,0,0) ;  //阳光BRDF
     //sun diff
     sunALL += difcolor * sun_tilt * diffuse_multiply ;//helper_newdiffuse(sun_tilt, dielectric_reflectivity);
     //sun spec
     sunALL += speccolor * helper_specdist(glossiness, R, Lsun) * helper_fresnel(Lsun, V, F0) ;
-    sunALL *= sun_color ;
+    sunALL *= SUNcolor ;
 
   //点光源BRDF
     float3 PLtotal = float3(0,0,0) ;
+    int maxPLcount = clamp(NumPointLights, 0, 8); //JUST IN CASE
 
     #if !defined(_3DSMAX_)  //预览没有点光源
-    int maxPLcount = clamp(NumPointLights, 0, 8); //JUST IN CASE
 
     for (int countpl = 0; countpl < maxPLcount; countpl++ ) 
     {
@@ -157,22 +154,20 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     PLtotal *= pointlight_multiply ;
     #endif
 
-  //自发光与闪烁
-    float3 glowmap = GLOWchannel * helper_glowpulse() ;
 
   //最终混色
-    out_color.xyz = ambientALL + sunALL + PLtotal ; //BRDF
-    out_color.xyz *= CAVITYchannel ;
+    OUTCOLOR.xyz = ambientALL + sunALL + PLtotal ; //BRDF
+    OUTCOLOR.xyz *= CAVITYchannel ;
     if(HasWarfog)
-    {out_color.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;};
-    out_color.xyz += glowmap ;
-    out_color.xyz *= TintColor ;
+    {OUTCOLOR.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;};
+    OUTCOLOR.xyz += GLOWchannel * helper_glowpulse() ;
+    OUTCOLOR.xyz *= TintColor ;
 
-    out_color.w *= OpacityOverride ;
+    OUTCOLOR.w *= OpacityOverride ;
 
-    if(final_output_gamma){out_color.xyz *= out_color.xyz ;};
+    if(final_output_gamma){OUTCOLOR.xyz *= OUTCOLOR.xyz ;};
 
-    return out_color;
+    return OUTCOLOR;
 };
 
 //高画质PBR pixel shader结束
