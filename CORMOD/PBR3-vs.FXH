@@ -168,7 +168,9 @@ VS_H_output  VS_H_softskin (VS_H_softskin_input  i)  //2 bone skin, with tangent
     o.WorldT = lerp( that_WorldT , this_WorldT , i.blendweight.x) ;
     o.WorldB = lerp( that_WorldB , this_WorldB , i.blendweight.x) ;
     o.VertexColor.w *= lerp(That_offset_alpha.w , This_offset_alpha.w , i.blendweight.x) ; 
-    o.WorldN = normalize(o.WorldN); //插值后向量会变短要拉回来
+    // o.WorldN = normalize(o.WorldN); //插值后向量会变短要拉回来
+    float TBshortenfix = saturate(dot(this_WorldN, that_WorldN));
+    o.WorldT *= TBshortenfix ; o.WorldB *= TBshortenfix ;
 
     //以上是物体到世界空间相关的代码，以下保留======
 

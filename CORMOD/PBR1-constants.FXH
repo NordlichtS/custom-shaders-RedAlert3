@@ -1,9 +1,11 @@
+//common shader global variables
+#include "PBR0-maxparser.FXH"    //最先加载max可调的参数和预览相关
 
 //这有什么用？
 int _SasGlobal : SasGlobal  
 <
     int3 SasVersion = int3(1, 0, 0);
-    string SasEffectAuthor = "EALA, lanyi, Nordlicht, Himeko, badscheen";
+    string SasEffectAuthor = "EALA, lanyi, Nordlicht, Himeko, badsheen";
     string UIWidget = "None";
     int MaxLocalLights = 8;
     int MaxSupportedInstancingMode = 1;
@@ -17,56 +19,47 @@ int _SasGlobal : SasGlobal
 //阵营色
 shared float3 RecolorColor 
 : register(vs, c0) : register(ps, c0)
-<bool unmanaged = true;> 
+<   bool unmanaged = true;> 
 = float3(1, 1, 1);
 
 //透明度整体修改
 shared float OpacityOverride 
 : register(vs, c1) : register(ps, c1)
-<bool unmanaged = true;> 
+<   bool unmanaged = true;> 
 = 1.0;
 
 //谭雅炸弹的染色，还有鼠标点击变亮
 shared float3 TintColor 
 : register(vs, c2) : register(ps, c2)
-<string SasBindAddress = "TintColor";    bool unmanaged = true;> 
+<   string SasBindAddress = "TintColor";    bool unmanaged = true;> 
 = float3(1, 1, 1);
 
-//据说是用来防止鼠标变红BUG的
+//据说是寄存器占位，用来防止鼠标颜色BUG的（原版只有dafaultw3d里有）
 shared float4 EdgeFadeOut 
 : register(c3) 
-<bool unmanaged = true;> 
+<   bool unmanaged = true;> 
 = 0;
 
 //地编环境光
 shared float3 AmbientLightColor 
 : register(vs, c4) : register(ps, c4)
-<bool unmanaged = true;> 
-= float3(0.3, 0.3, 0.3);
+<   bool unmanaged = true;> 
+= float3(0.25, 0.25, 0.25);
 
 //阳光和两个accent light
-/*
-shared struct SasDirectionalLight { float3 Color; float3 Direction;};
-SasDirectionalLight DirectionalLight[3] 
-: register(vs, c5) : register(ps, c5)
-<bool unmanaged = true;> 
-= { 1.0, 1.0, 1.0,   0, 0, 1, 
-    0.5, 0.6, 0.7,   0, 1, 0, 
-    0.3, 0.2, 0.1,   1, 0, 0 };
-*/
-
 struct{ float3 Color; float3 Direction;} 
-DirectionalLight[3] : register(vs, c5) : register(ps, c5) 
-< bool unmanaged = 1;> = 
-{ 1.0, 1.0, 1.0,   0, 0, 1, 
-  0.5, 0.6, 0.7,   0, 1, 0, 
-  0.3, 0.2, 0.1,   1, 0, 0 };
+DirectionalLight[3] 
+: register(vs, c5) : register(ps, c5) 
+<   bool unmanaged = 1;> = { 
+1.0, 1.0, 1.0,   0, 0, 1, 
+0.5, 0.6, 0.7,   0, 1, 0, 
+0.3, 0.2, 0.1,   1, 0, 0 };
 
 //用于设置战争迷雾坐标
 struct ShroudSetup {float4 ScaleUV_OffsetUV;} 
 Shroud 
 : register(vs, c11)
-<string UIWidget="None"; string SasBindAddress = "Terrain.Shroud";> 
+<   string UIWidget="None"; string SasBindAddress = "Terrain.Shroud";> 
 = { 1, 1, 0, 0 };
 
 //阴影图一个像素在阴影采样坐标里的长度，可用于模糊阴影边缘
@@ -106,13 +99,13 @@ column_major float4x3 World : World
 : register(c124);
 
 //骨骼在世界空间里的信息共64组，每两个float4记一个骨骼，按 4+3+1 记录旋转，位移，透明度
-shared float4 WorldBones[128] 
-: register(c128)
+float4 WorldBones[128] //shared  ?
+: register(vs, c128)
 <    bool unmanaged = true;>; //调用骨骼时记得index x2
 
 
 //===============================
-//下面的constant没有写定的寄存器，不过也是引擎自动设的，大概看名字吧==================
+//下面的constant没有写定的寄存器，不过也是引擎看SAS和semantic注入的
 
 
 //当前帧距离游戏开局的秒数，可以用来做呼吸灯和履带滚动
@@ -124,7 +117,7 @@ int NumJointsPerVertex
 
 //当前帧要接收几个点光源。没这个会导致有些点光源删不掉
 int NumPointLights
-<   string UIWidget="None"; string SasBindAddress = "Sas.NumPointLights";> ;
+<   string UIWidget="None"; string SasBindAddress = "Sas.NumPointLights";> = 1 ; //预览一个
 
 //全局画质是否有阴影，和每个MESH是否接受阴影
 bool HasShadow //预览没有影子，默认值0
@@ -151,7 +144,6 @@ texture ShadowMap
 sampler2D ShadowMapSampler
 <
     string Texture = "ShadowMap";
-    string UIWidget = "None";
     string SasBindAddress = "Sas.Shadow[0].ShadowMap";
 > = sampler_state {
     Texture = < ShadowMap >;
@@ -174,7 +166,6 @@ texture CloudTexture
 sampler2D CloudTextureSampler
 <
     string Texture = "CloudTexture";
-    string UIWidget = "None";
     string SasBindAddress = "Terrain.Cloud.Texture";
     string ResourceName = "ShaderPreviewCloud.dds";
 > = sampler_state {
@@ -197,7 +188,6 @@ texture ShroudTexture
 sampler2D ShroudTextureSampler
 <
     string Texture = "ShroudTexture";
-    string UIWidget = "None";
     string SasBindAddress = "Terrain.Shroud.Texture";
 > = sampler_state {
     Texture = < ShroudTexture >;
@@ -209,73 +199,6 @@ sampler2D ShroudTextureSampler
 };
 
 
-// 岚依的Irradiance贴图，开局会被scrapeo生成一张，用于漫反射环境光
-textureCUBE IrradianceTexture
-<
-    string SasBindAddress = "Lanyi.PbrIrradianceTexture";
-    string UIWidget = "None";
-    string ResourceType = "Cube";
->;
-samplerCUBE IrradianceTextureSampler
-<
-    string Texture = "IrradianceTexture";
-    string SasBindAddress = "Lanyi.PbrIrradianceTexture";
-    string ResourceType = "Cube";
-> = sampler_state {
-    Texture = < IrradianceTexture >;
-    MinFilter = Linear;
-    MagFilter = Linear;
-    MipFilter = Linear;
-    AddressU = Clamp;
-    AddressV = Clamp;
-    AddressW = Clamp;
-};
-
-
-
-//这个是环境反射图？真正的天空盒？那irradiance又是什么
-#ifdef ENV_CUSTOM
-    //  #define ENVMAP_NAME "Terrain.EnvironmentTexture"
-        #define ENVMAP_NAME "Lanyi.EnvironmentTexture"
-#else
-    #ifdef ENV_WATER
-        #define ENVMAP_NAME "Water.LightSpaceEnvironmentMap"
-    #else
-        #define ENVMAP_NAME "Objects.LightSpaceEnvironmentMap"
-    #endif
-#endif
-//在要编译的FX文件里记得  #define ENV_CUSTOM
-
-
-#if defined(_3DSMAX_) //预览天空盒
-texture EnvironmentTexture 
-<
-    string UIName = "PV_EnvironmentTexture"; 
-    string ResourceType = "Cube";
->; 
-#else  //游戏内天空盒
-texture EnvironmentTexture
-<
-    string SasBindAddress = ENVMAP_NAME;
-    string UIWidget = "None";
-    string ResourceType = "Cube";
->;
-#endif
-
-samplerCUBE EnvironmentTextureSampler
-<
-    string Texture = "EnvironmentTexture";
-    string SasBindAddress = ENVMAP_NAME;
-    string ResourceType = "Cube";
-> = sampler_state {
-    Texture = < EnvironmentTexture >;
-    MinFilter = Linear;
-    MagFilter = Linear;
-    MipFilter = Linear;
-    AddressU = Clamp;
-    AddressV = Clamp;
-    AddressW = Clamp;
-};
 
 
 /*

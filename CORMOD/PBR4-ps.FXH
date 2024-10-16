@@ -5,22 +5,6 @@
 
 
 
-/*
-//高画质下VS输出  和PS输入  都用这个数组结构
-struct PS_H_PBR_input 
-{
-    //float4 Position : POSITION;   //VS一定要输出的clip space渲染坐标
-    float4 VertexColor : COLOR0;  //顶点颜色
-    float4 MainTexUV : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
-    float3 ShadowPROJ : TEXCOORD1; //阴影空间投影
-    float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
-    float3 WorldP : TEXCOORD3;  //世界空间位置
-    float4 WorldV : TEXCOORD4;  //视线相对矢量，XYZ/W 可以normalize
-    float3 WorldN : TEXCOORD5_centroid; //世界法线Z
-    float3 WorldT : TEXCOORD6_centroid; //世界切线Y
-    float3 WorldB : TEXCOORD7_centroid; //世界切线X
-};
-*/
 
 /*
 // MAIN PBR PIXEL SHADER with tangent frame support
@@ -49,7 +33,7 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
       clip(i.VertexColor.w - 0.25); 
     };    
     if(base_texture_gamma) {dif.xyz = pow(dif.xyz, 2) ;}; 
-    if(HasRecolorColors)   {dif.xyz = mixHC (dif.xyz, spm.z) ;};
+    if(HasRecolorColors)   {dif.xyz = mixHC(dif.xyz, spm.z) ;};
  
     float  metalness = spm.y ;
     
@@ -66,8 +50,13 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     //float3  difcolor = (metalness < 0.5 )? dif.xyz : float3(0,0,0) ;
 
     float  AOchannel = nrm.w ;
-    float  CAVITYchannel = (GlowAmplitude <= 0)? 1 : (1- spm.w) ;
-    float3 GLOWchannel =   (GlowAmplitude <= 0)? 0 : (dif.xyz * spm.w) ; //发光图层，可能要加个闪烁
+    float  GLOWchannel = spm.w ; 
+    float  CAVITYchannel = 1 ;
+    // if(GlowAmplitude != 0)
+    //GLOWchannel = (GlowAmplitude > 0)? spm.w : (1- spm.w) ;
+    //CAVITYchannel = 1 - GLOWchannel ;
+    float3 GlowMapRGB = dif.xyz * GLOWchannel * GlowAmplitude ; 
+    //发光图层，可能要加个闪烁. abs(GlowAmplitude) 
 
 
   //世界法线
@@ -81,7 +70,7 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     N = normalize(N); //长度单位化，这一步很重要
 
   //世界空间的view vector，与目光反射
-    float3 V = normalize(EyePosition - i.WorldP) ; //相对位置除以模长。算模长步骤优化进VS
+    float3 V = helper_ps_getViewVector(i.WorldP) ;
     float  EYEtilt = dot(V , N) ; //1= perpendicular view, 0= side view , -1=back
     float3 R = reflect(-V , N) ; //input light vector is towards fragment!
     if(EYEtilt <0) {R = -V ;} ; //SHOULD I FIX IT ?
@@ -99,10 +88,10 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     ambientALL += skybox_color * mirAO * speccolor * ambient_spec_multiply * helper_fresnel(R, V, F0); 
 
   //阳光相关 
-    float3 Lsun      = DirectionalLight[0].Direction.xyz ;
+    float3 Lsun     = DirectionalLight[0].Direction.xyz ;
     float3 SUNcolor = DirectionalLight[0].Color.xyz ;
     #if defined(_3DSMAX_)  //MAX预览阳光方向与颜色覆盖
-    Lsun      = PV_SunlightDirection ; 
+    Lsun     = PV_SunlightDirection ; 
     SUNcolor = PV_SunlightColor ;
     #endif
 
@@ -121,16 +110,22 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
 
   //点光源BRDF
     float3 PLtotal = float3(0,0,0) ;
-    int maxPLcount = clamp(NumPointLights, 0, 8); //JUST IN CASE
+    //int maxPLcount = clamp(NumPointLights, 0, 8); //JUST IN CASE
 
-    #if !defined(_3DSMAX_)  //预览没有点光源
-
-    for (int countpl = 0; countpl < maxPLcount; countpl++ ) 
+    for (int countpl = 0; countpl < NumPointLights ; countpl++ ) 
     {
       float3 PLpos = PointLight[countpl].Position - i.WorldP ;
       float3 PLcolor = PointLight[countpl].Color ;
       float  PLrangeMAX = PointLight[countpl].Range_Inner_Outer.y ;
       float  PLrangeMIN = PointLight[countpl].Range_Inner_Outer.x ;
+
+      #ifdef _3DSMAX_ //读取预览点光源数据
+      PLpos = PV_pointlightPOS ;
+      PLcolor = PV_pointlightCOLOR ; 
+      PLrangeMAX = PV_pointlightRANGE ;
+      PLrangeMIN = 0 ;
+      #endif
+
       if(PLrangeMAX < 1) {continue;}; //排除无用的点光源
       float  PLdist = length(PLpos) ;
       if(PLdist >= PLrangeMAX) {continue;}; //排除太远的点光源
@@ -152,15 +147,12 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
       PLtotal += thisBRDF ; //叠加所有点光源
     };
     PLtotal *= pointlight_multiply ;
-    #endif
-
 
   //最终混色
     OUTCOLOR.xyz = ambientALL + sunALL + PLtotal ; //BRDF
     OUTCOLOR.xyz *= CAVITYchannel ;
-    if(HasWarfog)
-    {OUTCOLOR.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;};
-    OUTCOLOR.xyz += GLOWchannel * helper_glowpulse() ;
+    if(HasWarfog){OUTCOLOR.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;};
+    OUTCOLOR.xyz += GlowMapRGB * helper_glowpulse() ;
     OUTCOLOR.xyz *= TintColor ;
 
     OUTCOLOR.w *= OpacityOverride ;

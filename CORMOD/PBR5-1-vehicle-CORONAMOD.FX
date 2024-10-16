@@ -9,7 +9,7 @@ VertexShader VS_H_Array[3] = {
 
 
 
-int VSchooser_Expr()  //0 no skin, 1 skin
+int VSchooserExpr()  //0 noskin, 1 skin, 2 softskin
 {  
     int VSindex = clamp(NumJointsPerVertex, 0, 2) ;
     // if(tangent_xy_multiply ==0) {VSindex += 3 ;};
@@ -22,7 +22,7 @@ technique Default
 {
     pass p0 <string ExpressionEvaluator = "Objects";>
     {
-        VertexShader = VS_H_Array[VSchooser_Expr()]; 
+        VertexShader = VS_H_Array[VSchooserExpr()]; 
         PixelShader  = compile ps_3_0 PS_H_PBR_CORONA();    
         ZEnable = 1;
         ZFunc = 4;
