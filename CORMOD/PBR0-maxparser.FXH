@@ -67,31 +67,32 @@ sampler2D NormalMapSampler
     //AddressW = Wrap;
 };
 
-/*
+
 float MinRoughness //最低粗糙度（要用倒数吗？）
 <   string UIName = "MinRoughness"; //MAXglossiness
-    float UIMax = 0.50; float UIMin = 0.001; float UIStep = 0.001; 
+    float UIMax = 0.50; float UIMin = 0.005; float UIStep = 0.005; 
 > ={ 0.125 }; 
-*/
 
+/*
 float MAXglossiness //最低粗糙度的倒数
 <   string UIName = "MAXglossiness"; 
     float UIMax = 32; float UIMin = 2; float UIStep = 1; 
 > ={ 16 }; 
+*/
 
 float tangent_xy_multiply //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。RA3默认是反的
 <   string UIName = "tangent_xy_multiply"; 
     float UIMax = 2; float UIMin = -2; float UIStep = 0.25; 
 > ={ -1 }; 
 
-float GlowAmplitude //最大发光倍数，如果写负数会把发光通道反转过来读。写0依然作为cavity读
+float GlowAmplitude //最大发光倍数，如果写负数?
 <   string UIName = "GlowAmplitude"; 
-    float UIMax = 8; float UIMin = -1; float UIStep = 0.25; 
+    float UIMax = 8; float UIMin = 0; float UIStep = 0.25; 
 > ={ 2 }; 
 
 float GlowPeriod //发光呼吸周期秒数，写0为恒定发光
 <   string UIName = "GlowPeriod"; 
-    float UIMax = 8; float UIMin = -1; float UIStep = 0.2; 
+    float UIMax = 8; float UIMin = 0; float UIStep = 0.2; 
 > ={ 1 }; 
 
 bool use_irradiance_box //是否使用自动生成的环境光漫反射的辐照贴图。关闭就读原版ambient色
@@ -131,6 +132,7 @@ textureCUBE EnvironmentTexture SEMANTIC_3DSMAX(ReflectionMap)
 <
     string UIName = "PV_EnvironmentTexture"; 
     string ResourceType = "Cube";
+	bool ExportValue = false;
 >; 
 #else  //游戏内天空盒
 texture EnvironmentTexture  
@@ -180,7 +182,7 @@ samplerCUBE IrradianceTextureSampler
 
 
 
-//#if defined(_3DSMAX_) 
+#if defined(_3DSMAX_) 
 //预览用 constant ===============================
 
 
@@ -242,10 +244,11 @@ float PV_pointlightRANGE
 <
     string UIName = "PV_pointlightRANGE"; 
     float UIMax = 800; float UIMin = 0; float UIStep = 10; 
+    bool ExportValue = false;
 > = 10 ;
 
 
 
-//#endif  
+#endif  
 //预览用constant结束=============================
 

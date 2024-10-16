@@ -37,7 +37,7 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
  
     float  metalness = spm.y ;
     
-    float  roughness = lerp(1, (1 / MAXglossiness) , spm.x ) ; //  (1 / MAXglossiness)  //MinRoughness
+    float  roughness = lerp(1, MinRoughness , spm.x ) ; //  (1 / MAXglossiness)  //MinRoughness
     float  glossiness = (1 / roughness) ; //OOA? SPECPEAK?
 
     float  dielectric_reflectivity = saturate(spm.x / reflectivity_cutoff) ;
@@ -117,7 +117,7 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
       float  PLrangeMIN = PointLight[countpl].Range_Inner_Outer.x ;
 
       #ifdef _3DSMAX_ //读取预览点光源数据
-      PLpos = PV_pointlightPOS ;
+      PLpos = PV_pointlightPOS - i.WorldP; // relative!
       PLcolor = PV_pointlightCOLOR ; 
       PLrangeMAX = PV_pointlightRANGE ;
       PLrangeMIN = 0 ;

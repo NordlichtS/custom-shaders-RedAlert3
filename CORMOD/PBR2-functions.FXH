@@ -13,15 +13,13 @@
 float PIE = radians(180) ; //圆周率
 
 const bool  base_texture_gamma = true ; //是否对主贴图进行gamma修正
-const bool  double_hc_bright = true ; //像原版一样翻倍阵营色亮度
+const bool  double_hc_bright = false ; //像原版一样翻倍阵营色亮度
 const bool  exchange_tangent_in3dsmax = false ; //对MAX预览互换切线，因为似乎是反的
 const bool  final_output_gamma = false ;
 
 const float FresnelF0 =  0.125 ; //绝缘体菲涅尔效应F0，即反射角为0时高光亮度
 const float FresnelMetalF0 = 0.875 ; //金属的菲涅尔F0
-const float reflectivity_cutoff = 0.5 ; //SPM红色多长一段用来记录非金属反光度
-
-const int   max_skybox_miplevel_exp2 = 64 ; //最大粗糙度时使用的天空盒mipmap偏移
+const float reflectivity_cutoff = 0.25 ; //SPM红色多长一段用来记录非金属反光度
 
 const float ambient_diff_multiply =  1 ; //环境光与天空盒diffuse
 const float ambient_spec_multiply =  1 ; //环境光与天空盒specular
@@ -212,6 +210,7 @@ float3 getSKYBOXcolor (float3 reflectedView, float roughness, float glossiness, 
 
     float  mirAO = saturate(AOchannel * glossiness);  //天空盒镜面反射的AO
     // float  lod_before_log = pow(2, max_skybox_mip_level);
+    float max_skybox_miplevel_exp2 = 64 ; //最大粗糙度时使用的天空盒mipmap偏移
 
     float  skybox_lodbias = log2(roughness * max_skybox_miplevel_exp2) ; // max 0 ? log2 ?
     float4 skyboxUV = float4(reflectedView , skybox_lodbias); //根据粗糙度的对数算mipmap偏移数
@@ -225,6 +224,7 @@ float3 getSKYBOXcolor (float3 reflectedView, float roughness, float glossiness, 
 float3 getIRRADIANCEcolor (float3 N, float AOchannel) 
 {
     float difAO = AOchannel * AOchannel ;
+
     if(use_irradiance_box)
     { return 
     texCUBE(IrradianceTextureSampler, N) * difAO ;
