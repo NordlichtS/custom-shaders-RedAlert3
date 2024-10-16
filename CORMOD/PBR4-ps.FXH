@@ -37,8 +37,8 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
  
     float  metalness = spm.y ;
     
-    float  roughness = lerp(1, MinRoughness, spm.x ) ;
-    float  glossiness = 1 / roughness ; //OOA? SPECPEAK?
+    float  roughness = lerp(1, (1 / MAXglossiness) , spm.x ) ; //  (1 / MAXglossiness)  //MinRoughness
+    float  glossiness = (1 / roughness) ; //OOA? SPECPEAK?
 
     float  dielectric_reflectivity = saturate(spm.x / reflectivity_cutoff) ;
     
@@ -55,8 +55,7 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     // if(GlowAmplitude != 0)
     //GLOWchannel = (GlowAmplitude > 0)? spm.w : (1- spm.w) ;
     //CAVITYchannel = 1 - GLOWchannel ;
-    float3 GlowMapRGB = dif.xyz * GLOWchannel * GlowAmplitude ; 
-    //发光图层，可能要加个闪烁. abs(GlowAmplitude) 
+    float3 GlowMapRGB = dif.xyz * GLOWchannel ; //发光图层，可能要加个闪烁. abs(GlowAmplitude) 
 
 
   //世界法线
@@ -75,17 +74,15 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     float3 R = reflect(-V , N) ; //input light vector is towards fragment!
     if(EYEtilt <0) {R = -V ;} ; //SHOULD I FIX IT ?
 
-  //天空盒相关 
-    float3 skybox_color = getSKYBOXcolor(R, roughness);
-    float3 irradiance_color = getIRRADIANCEcolor(N);
-    float  difAO = AOchannel * AOchannel ;  //环境光漫反射的AO
-    float  mirAO = saturate(AOchannel * glossiness);  //天空盒镜面反射的AO
+  //环境光相关 
+    float3 skybox_color = getSKYBOXcolor(R, roughness, glossiness, AOchannel);
+    float3 irradiance_color = getIRRADIANCEcolor(N, AOchannel);
 
     float3 ambientALL = float3(0,0,0) ; //环境光BRDF
     //ambient DIFF
-    ambientALL += irradiance_color * difAO * difcolor * ambient_diff_multiply ; 
+    ambientALL += irradiance_color * difcolor * ambient_diff_multiply ; 
     //ambient SPEC
-    ambientALL += skybox_color * mirAO * speccolor * ambient_spec_multiply * helper_fresnel(R, V, F0); 
+    ambientALL += skybox_color * speccolor * ambient_spec_multiply * helper_fresnel(R, V, F0); 
 
   //阳光相关 
     float3 Lsun     = DirectionalLight[0].Direction.xyz ;
@@ -134,7 +131,7 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
       if(PLtilt <= 0) {continue;}; //排除背光面
 
       float decaymult = (PLdist - PLrangeMAX) / (PLrangeMIN - PLrangeMAX);
-      decaymult = clamp(decaymult, 0, 2);
+      // decaymult = clamp(decaymult, 0, 2); //SATURATE ?
 
       float3 thisBRDF = float3(0,0,0) ;
       //pl diff
@@ -152,10 +149,10 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     OUTCOLOR.xyz = ambientALL + sunALL + PLtotal ; //BRDF
     OUTCOLOR.xyz *= CAVITYchannel ;
     if(HasWarfog){OUTCOLOR.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;};
-    OUTCOLOR.xyz += GlowMapRGB * helper_glowpulse() ;
+    OUTCOLOR.xyz += GlowMapRGB * helper_glowpulse() * GlowAmplitude ;
     OUTCOLOR.xyz *= TintColor ;
 
-    OUTCOLOR.w *= OpacityOverride ;
+    OUTCOLOR.w *= OpacityOverride * dif.w ;
 
     if(final_output_gamma){OUTCOLOR.xyz *= OUTCOLOR.xyz ;};
 

@@ -67,7 +67,17 @@ sampler2D NormalMapSampler
     //AddressW = Wrap;
 };
 
+/*
+float MinRoughness //最低粗糙度（要用倒数吗？）
+<   string UIName = "MinRoughness"; //MAXglossiness
+    float UIMax = 0.50; float UIMin = 0.001; float UIStep = 0.001; 
+> ={ 0.125 }; 
+*/
 
+float MAXglossiness //最低粗糙度的倒数
+<   string UIName = "MAXglossiness"; 
+    float UIMax = 32; float UIMin = 2; float UIStep = 1; 
+> ={ 16 }; 
 
 float tangent_xy_multiply //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。RA3默认是反的
 <   string UIName = "tangent_xy_multiply"; 
@@ -89,6 +99,9 @@ bool use_irradiance_box //是否使用自动生成的环境光漫反射的辐照
 
 bool AlphaTestEnable //主贴图镂空
 <    string UIName = "AlphaTestEnable";> = 0;
+
+bool AlphaBlendEnable //半透明混合
+<    string UIName = "AlphaBlendEnable";> = 0;
 
 bool CullingEnable //好像是允许背面不渲染来优化？
 <    string UIName = "CullingEnable";> = 1;
@@ -113,16 +126,20 @@ bool DepthWriteEnable //写入深度buffer
 //在要编译的FX文件里记得  #define ENV_CUSTOM
 
 
-
-texture EnvironmentTexture 
+#ifdef _3DSMAX_ //预览天空盒
+textureCUBE EnvironmentTexture SEMANTIC_3DSMAX(ReflectionMap)
 <
-    #ifdef _3DSMAX_ //预览天空盒
     string UIName = "PV_EnvironmentTexture"; 
-    #else  //游戏内天空盒
-    string SasBindAddress = ENVMAP_NAME;
-    #endif
     string ResourceType = "Cube";
 >; 
+#else  //游戏内天空盒
+texture EnvironmentTexture  
+<
+    string SasBindAddress = ENVMAP_NAME;
+    string ResourceType = "Cube";
+>; 
+#endif
+
 samplerCUBE EnvironmentTextureSampler
 <
     string Texture = "EnvironmentTexture";
