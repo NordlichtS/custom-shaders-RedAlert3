@@ -43,7 +43,7 @@ VS_H_output VSforMAX(VS_H_noskin_input i)
 
 //start techniques
 
-technique Default
+technique Default3DSMAX
 {
     pass p0 <string ExpressionEvaluator = "Objects";>
     {

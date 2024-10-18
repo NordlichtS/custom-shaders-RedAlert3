@@ -13,11 +13,12 @@
 // const float PIE = radians(180) ; //圆周率，目前弃用
 
 const bool  base_texture_gamma = true ; //是否对主贴图进行gamma修正
-const bool  double_hc_bright = false ; //像原版一样翻倍阵营色亮度
+const bool  double_hc_bright = 1 ; //像原版一样翻倍阵营色亮度
 const bool  final_output_gamma = false ;
 
 const float FresnelF0 = 0.125 ; //绝缘体菲涅尔效应F0，即反射角为0时高光亮度
 const float FresnelMetalF0 = 0.875 ; //金属的菲涅尔F0
+const float metalalbedo_multiply = 1.25 ; //金属的反光亮度
 
 const float ambient_diff_multiply =  1 ; //环境光与天空盒diffuse
 const float ambient_spec_multiply =  1 ; //环境光与天空盒specular
@@ -172,7 +173,7 @@ float helper_invert_shadow_density_array ( float3 ShadowProjection, float sun_ti
     float texelX[9] = {0, -1, +1,  0,  0, -1, +1, -1, +1} ;
     float texelY[9] = {0,  0,  0, -1, +1, -1, -1, +1, +1} ;
 
-    float2 ThisShiftUV; float ShadowDepth ; float ShadowDensity ; float countSAMPLES ;
+    float2 ThisShiftUV; float ShadowDepth ; float ShadowDensity ; int countSAMPLES ;
 
     for(int sc = 0; sc <= 4; sc++) //这个用来调采样数
     {
@@ -223,10 +224,12 @@ float3 getIRRADIANCEcolor (float3 N, float AOchannel)
 {
     float difAO = AOchannel * AOchannel ;
 
+    /*
     if(use_irradiance_box)
     { return 
     texCUBE(IrradianceTextureSampler, N) * difAO ;
     };
+    */
 
     //没有辐照贴图就拟合一个
     float3 nomap_irradiance = AmbientLightColor ;

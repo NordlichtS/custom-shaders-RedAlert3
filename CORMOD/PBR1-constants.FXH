@@ -147,7 +147,7 @@ sampler2D ShadowMapSampler
     string SasBindAddress = "Sas.Shadow[0].ShadowMap";
 > = sampler_state {
     Texture = < ShadowMap >;
-    MinFilter = Point ; 
+    MinFilter = Linear ; 
     MagFilter = Linear ; // 用线性可有效防止斜面锯齿
     MipFilter = None;
     AddressU = Clamp;

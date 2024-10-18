@@ -39,7 +39,7 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
 
     float  dielectric_reflectivity = saturate(spm.x * reflectivity_cutoff) ;
     
-    float3 speccolor = lerp( dielectric_reflectivity.xxx, dif.xyz, metalness);
+    float3 speccolor = lerp( dielectric_reflectivity.xxx, (dif.xyz * metalalbedo_multiply) , metalness);
     float  F0 = lerp(FresnelF0 , FresnelMetalF0, metalness);
     float3 difcolor = dif.xyz * (1 - metalness) ;
     //float3 speccolor = (metalness < 0.5 )? dielectric_reflectivity.xxx : dif.xyz ;
@@ -97,23 +97,22 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
 
     float3 sunALL = float3(0,0,0) ;  //阳光BRDF
     //sun diff
-    sunALL += difcolor * sun_tilt * diffuse_multiply ;//helper_newdiffuse(sun_tilt, dielectric_reflectivity);
+    sunALL += difcolor * sun_tilt * diffuse_multiply ;
     //sun spec
     sunALL += speccolor * helper_specdist(glossiness, R, Lsun) * helper_fresnel(Lsun, V, F0) ;
     sunALL *= SUNcolor ;
 
   //点光源BRDF
     float3 PLtotal = float3(0,0,0) ;
-    //int maxPLcount = clamp(NumPointLights, 0, 8); //JUST IN CASE
 
-    for (int countpl = 0; countpl < 8 ; countpl++ ) 
+    for (int itpl = 0; itpl < 8 && itpl < NumPointLights; itpl++ ) 
     {
-      if(countpl >= NumPointLights ){break;};
+      //if(itpl >= NumPointLights ){break;};
 
-      float3 PLpos = PointLight[countpl].Position - i.WorldP ;
-      float3 PLcolor = PointLight[countpl].Color ;
-      float  PLrangeMAX = PointLight[countpl].Range_Inner_Outer.y ;
-      float  PLrangeMIN = PointLight[countpl].Range_Inner_Outer.x ;
+      float3 PLpos = PointLight[itpl].Position - i.WorldP ;
+      float3 PLcolor = PointLight[itpl].Color ;
+      float  PLrangeMAX = PointLight[itpl].Range_Inner_Outer.y ;
+      float  PLrangeMIN = PointLight[itpl].Range_Inner_Outer.x ;
 
       #ifdef _3DSMAX_ //读取预览点光源数据
       PLpos = PV_pointlightPOS - i.WorldP; // relative!
@@ -144,6 +143,7 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
       PLtotal += thisBRDF ; //叠加所有点光源
     };
     PLtotal *= pointlight_multiply ;
+
 
   //最终混色
     OUTCOLOR.xyz = ambientALL + sunALL + PLtotal ; //BRDF

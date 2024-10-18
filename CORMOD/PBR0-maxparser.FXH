@@ -86,7 +86,7 @@ float tangent_xy_multiply //如果法线图凹凸反了，写-1修正。完全�
 float GlowAmplitude //最大发光倍数，(如果写负数会怎样?)
 <   string UIName = "GlowAmplitude"; 
     float UIMax = 8; float UIMin = 0; float UIStep = 0.25; 
-> ={ 2 }; 
+> ={ 0 }; 
 
 float GlowPeriod //发光呼吸周期秒数，写0为恒定发光
 <   string UIName = "GlowPeriod"; 
