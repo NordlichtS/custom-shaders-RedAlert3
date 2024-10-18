@@ -10,21 +10,19 @@
 //常用常量，与确定的风格参数===================
 //并非所有都有用
 
-float PIE = radians(180) ; //圆周率
+// const float PIE = radians(180) ; //圆周率，目前弃用
 
 const bool  base_texture_gamma = true ; //是否对主贴图进行gamma修正
 const bool  double_hc_bright = false ; //像原版一样翻倍阵营色亮度
-const bool  exchange_tangent_in3dsmax = false ; //对MAX预览互换切线，因为似乎是反的
 const bool  final_output_gamma = false ;
 
-const float FresnelF0 =  0.125 ; //绝缘体菲涅尔效应F0，即反射角为0时高光亮度
+const float FresnelF0 = 0.125 ; //绝缘体菲涅尔效应F0，即反射角为0时高光亮度
 const float FresnelMetalF0 = 0.875 ; //金属的菲涅尔F0
-const float reflectivity_cutoff = 0.25 ; //SPM红色多长一段用来记录非金属反光度
 
 const float ambient_diff_multiply =  1 ; //环境光与天空盒diffuse
 const float ambient_spec_multiply =  1 ; //环境光与天空盒specular
 
-const float pointlight_multiply =  1 ; //点光源整体亮度
+const float pointlight_multiply =  2 ; //点光源整体亮度
 const float sunlight_multiply =  1 ; //阳光亮度
 const float diffuse_multiply =  1 ; //漫反射亮度，影响阳光与点光源
 const float specbase_multiply =  0.5 ; //高光在最大粗糙度金属下的基础峰值亮度，影响阳光与点光源
@@ -174,15 +172,15 @@ float helper_invert_shadow_density_array ( float3 ShadowProjection, float sun_ti
     float texelX[9] = {0, -1, +1,  0,  0, -1, +1, -1, +1} ;
     float texelY[9] = {0,  0,  0, -1, +1, -1, -1, +1, +1} ;
 
-    float2 ThisShiftUV; float ShadowDepth ; float ShadowDensity ; int countSAMPLES ;
+    float2 ThisShiftUV; float ShadowDepth ; float ShadowDensity ; float countSAMPLES ;
 
     for(int sc = 0; sc <= 4; sc++) //这个用来调采样数
     {
         ThisShiftUV = float2(texelX[sc], texelY[sc]) * 1.25
         * Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w + ShadowProjection.xy ;
 
-        ShadowDepth = tex2D(ShadowMapSampler, ThisShiftUV);
-        ShadowDensity += (ShadowDepth < ShadowProjection.z) ? +1 : +0 ;
+        ShadowDepth = tex2Dlod(ShadowMapSampler, float4(ThisShiftUV, 0, 0) );
+        ShadowDensity += (ShadowDepth < ShadowProjection.z) ? 1 : 0 ;
         countSAMPLES +=1 ;
     };
     ShadowDensity /= countSAMPLES ; //need saturate?
@@ -296,7 +294,7 @@ float3 helper_normalmapper(float2 TEXtangent)
 
 
 //灯光闪烁
-float helper_glowpulse()
+float helper_timepulse()
 {
     if(GlowPeriod <= 0){return 1;};
 

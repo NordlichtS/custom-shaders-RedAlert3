@@ -7,7 +7,7 @@
 #include "PBR4-ps.FXH"
 
 
-// MAX预览用的============================
+// MAX预览用的============================ 
 VS_H_output VSforMAX(VS_H_noskin_input i)  
 { 
     VS_H_output  o;

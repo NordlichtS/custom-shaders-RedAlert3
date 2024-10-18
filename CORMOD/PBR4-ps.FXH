@@ -28,10 +28,7 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     float4 spm = tex2D(SpecMapSampler,         i.MainTexUV.xy );
 
   //初步整理下信息
-    if(AlphaTestEnable) {
-      clip(dif.w - 0.5); 
-      clip(i.VertexColor.w - 0.25); 
-    };    
+    if(AlphaTestEnable) { clip(dif.w - 0.5);  clip(i.VertexColor.w - 0.25); };    
     if(base_texture_gamma) {dif.xyz = pow(dif.xyz, 2) ;}; 
     if(HasRecolorColors)   {dif.xyz = mixHC(dif.xyz, spm.z) ;};
  
@@ -40,7 +37,7 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     float  roughness = lerp(1, MinRoughness , spm.x ) ; //  (1 / MAXglossiness)  //MinRoughness
     float  glossiness = (1 / roughness) ; //OOA? SPECPEAK?
 
-    float  dielectric_reflectivity = saturate(spm.x / reflectivity_cutoff) ;
+    float  dielectric_reflectivity = saturate(spm.x * reflectivity_cutoff) ;
     
     float3 speccolor = lerp( dielectric_reflectivity.xxx, dif.xyz, metalness);
     float  F0 = lerp(FresnelF0 , FresnelMetalF0, metalness);
@@ -94,7 +91,7 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
 
     SUNcolor *= sunlight_multiply ;
     float  sun_tilt  = dot(N,Lsun) ;
-    SUNcolor *= helper_invert_shadow_density_cross(i.ShadowPROJ , sun_tilt);
+    SUNcolor *= helper_invert_shadow_density_array(i.ShadowPROJ , sun_tilt);
     //shadow helper also return 0 for backface, 1 for no shadow
     if(HasCloud) { SUNcolor *= tex2D(CloudTextureSampler, i.FogCloudUV.zw); };
 
@@ -109,8 +106,10 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     float3 PLtotal = float3(0,0,0) ;
     //int maxPLcount = clamp(NumPointLights, 0, 8); //JUST IN CASE
 
-    for (int countpl = 0; countpl < NumPointLights ; countpl++ ) 
+    for (int countpl = 0; countpl < 8 ; countpl++ ) 
     {
+      if(countpl >= NumPointLights ){break;};
+
       float3 PLpos = PointLight[countpl].Position - i.WorldP ;
       float3 PLcolor = PointLight[countpl].Color ;
       float  PLrangeMAX = PointLight[countpl].Range_Inner_Outer.y ;
@@ -131,6 +130,7 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
       if(PLtilt <= 0) {continue;}; //排除背光面
 
       float decaymult = (PLdist - PLrangeMAX) / (PLrangeMIN - PLrangeMAX);
+      decaymult = saturate(decaymult * decaymult); //平方衰减看起来更自然
       // decaymult = clamp(decaymult, 0, 2); //SATURATE ?
 
       float3 thisBRDF = float3(0,0,0) ;
@@ -149,12 +149,12 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     OUTCOLOR.xyz = ambientALL + sunALL + PLtotal ; //BRDF
     OUTCOLOR.xyz *= CAVITYchannel ;
     if(HasWarfog){OUTCOLOR.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;};
-    OUTCOLOR.xyz += GlowMapRGB * helper_glowpulse() * GlowAmplitude ;
+    OUTCOLOR.xyz += GlowMapRGB * helper_timepulse() * GlowAmplitude ; 
     OUTCOLOR.xyz *= TintColor ;
 
     OUTCOLOR.w *= OpacityOverride * dif.w ;
 
-    if(final_output_gamma){OUTCOLOR.xyz *= OUTCOLOR.xyz ;};
+    //if(final_output_gamma){OUTCOLOR.xyz *= OUTCOLOR.xyz ;};
 
     return OUTCOLOR;
 };

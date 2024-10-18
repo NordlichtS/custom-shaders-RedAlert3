@@ -23,7 +23,7 @@ string DefaultParameterScopeBlock = "material";
 //w3x里可以记录的参数=============================
 
 texture DiffuseTexture 
-<string UIName = "DiffuseTexture(BASE)";>; 
+<string UIName = "(BASE)DiffuseTexture";>; 
 //RGB为基础色，控制
 sampler2D DiffuseTextureSampler
 <string Texture = "DiffuseTexture";> = sampler_state {
@@ -38,7 +38,7 @@ sampler2D DiffuseTextureSampler
 };
 
 texture SpecMap 
-<string UIName = "SpecMap(SPM)";>; 
+<string UIName = "(SPM)SpecMap";>; 
 //
 sampler2D SpecMapSampler
 <string Texture = "SpecMap";> = sampler_state {
@@ -53,7 +53,7 @@ sampler2D SpecMapSampler
 };
 
 texture NormalMap SEMANTIC_3DSMAX(NormalMap)
-<string UIName = "NormalMap(NRM)";>; 
+<string UIName = "(NRM)NormalMap";>; 
 //
 sampler2D NormalMapSampler
 <string Texture = "NormalMap";> = sampler_state {
@@ -68,24 +68,22 @@ sampler2D NormalMapSampler
 };
 
 
-float MinRoughness //最低粗糙度（要用倒数吗？）
+float MinRoughness //最低粗糙度（要用倒数更精确吗？）
 <   string UIName = "MinRoughness"; //MAXglossiness
     float UIMax = 0.50; float UIMin = 0.005; float UIStep = 0.005; 
 > ={ 0.125 }; 
 
-/*
-float MAXglossiness //最低粗糙度的倒数
-<   string UIName = "MAXglossiness"; 
-    float UIMax = 32; float UIMin = 2; float UIStep = 1; 
-> ={ 16 }; 
-*/
+float reflectivity_cutoff //非金属反射度的梯度，生效范围阈值为此值倒数
+<   string UIName = "reflectivity_cutoff"; 
+    float UIMax = 8; float UIMin = 0; float UIStep = 0.25; 
+> = { 2 }  ; //小于1则对所有非金属生效，大于1则仅对很粗糙部位生效。此值越大，生效范围越窄
 
-float tangent_xy_multiply //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。RA3默认是反的
+float tangent_xy_multiply //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。
 <   string UIName = "tangent_xy_multiply"; 
     float UIMax = 2; float UIMin = -2; float UIStep = 0.25; 
-> ={ -1 }; 
+> ={ -1 };  //RA3默认是反的dx标准
 
-float GlowAmplitude //最大发光倍数，如果写负数?
+float GlowAmplitude //最大发光倍数，(如果写负数会怎样?)
 <   string UIName = "GlowAmplitude"; 
     float UIMax = 8; float UIMin = 0; float UIStep = 0.25; 
 > ={ 2 }; 
@@ -95,8 +93,9 @@ float GlowPeriod //发光呼吸周期秒数，写0为恒定发光
     float UIMax = 8; float UIMin = 0; float UIStep = 0.2; 
 > ={ 1 }; 
 
-bool use_irradiance_box //是否使用自动生成的环境光漫反射的辐照贴图。关闭就读原版ambient色
-<    string UIName = "use_irradiance_box";> = 0;
+//为了弥补岚依提到的，部分玩家会在生成irradiance贴图时游戏崩溃，保留此选项
+bool use_irradiance_box //是否使用自动生成的环境光漫反射的辐照贴图。
+<    string UIName = "use_irradiance_box";> = 0; //关闭就读原版ambient色
 
 bool AlphaTestEnable //主贴图镂空
 <    string UIName = "AlphaTestEnable";> = 0;
@@ -110,6 +109,13 @@ bool CullingEnable //好像是允许背面不渲染来优化？
 bool DepthWriteEnable //写入深度buffer
 <    string UIName = "DepthWriteEnable";> = 1;
 
+
+/*
+float MAXglossiness //最低粗糙度的倒数，即最大光滑度，已经弃用
+<   string UIName = "MAXglossiness"; 
+    float UIMax = 32; float UIMin = 2; float UIStep = 1; 
+> ={ 16 }; 
+*/
 
 #define ENV_CUSTOM
 
@@ -182,7 +188,7 @@ samplerCUBE IrradianceTextureSampler
 
 
 
-#if defined(_3DSMAX_) 
+//  #if defined(_3DSMAX_) 
 //预览用 constant ===============================
 
 
@@ -249,6 +255,6 @@ float PV_pointlightRANGE
 
 
 
-#endif  
+//  #endif  
 //预览用constant结束=============================
 
