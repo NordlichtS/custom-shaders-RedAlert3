@@ -26,18 +26,18 @@ VS_H_output VSforMAX(VS_H_noskin_input i)
 
     // 从object space 到 world space===========
 
-    o.WorldP = mul(i.position.xyzw, (float4x3)MAXworld);
+    WorldPosition = mul(i.position, MAXworld);
     o.WorldN = mul(i.normal.xyz, (float3x3)MAXworld);
     o.WorldT = mul(MAXtangent, (float3x3)MAXworld);
     o.WorldB = mul(MAXbinormal, (float3x3)MAXworld);
     // #ifdef USE_TANGENT_FRAME //macro条件编译 是否启用切线框架（支持法线图）
     // #endif
     
-    WorldPosition.xyz = o.WorldP ; //世界坐标
+    o.WorldP = WorldPosition.xyz ; //世界坐标
     o.MainTexUV = i.texcoord ; //直接转存贴图UV
     o.Position = mul(i.position , MAXwvp); //给rasterizer的clip space坐标
 
-    return o;
+    return o; 
 };
 
 

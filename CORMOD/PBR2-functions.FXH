@@ -13,7 +13,7 @@
 // const float PIE = radians(180) ; //圆周率，目前弃用
 
 const bool  base_texture_gamma = true ; //是否对主贴图进行gamma修正
-const bool  double_hc_bright = 1 ; //像原版一样翻倍阵营色亮度
+const bool  double_hc_bright = 0 ; //像原版一样翻倍阵营色亮度
 const bool  final_output_gamma = false ;
 
 const float FresnelF0 = 0.125 ; //绝缘体菲涅尔效应F0，即反射角为0时高光亮度

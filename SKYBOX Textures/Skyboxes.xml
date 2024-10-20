@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AssetDeclaration xmlns="uri:ea.com:eala:asset" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	<Texture id="EVSunset" File="1.dds" Type="CubeTexture" />
+  <Texture id="EVCloudyNight" File="2.dds" Type="CubeTexture" />
+  <Texture id="EVCloudy" File="3.dds" Type="CubeTexture" />
+  <Texture id="EVSunny" File="4.dds" Type="CubeTexture" />
+  <Texture id="EVDust" File="5.dds" Type="CubeTexture" />
+  <Texture id="EVSunset2" File="6.dds" Type="CubeTexture" />
+  <Texture id="EVSunnyCloudy" File="7.dds" Type="CubeTexture" />
+  <Texture id="EVFogs" File="8.dds" Type="CubeTexture" />
+</AssetDeclaration>
