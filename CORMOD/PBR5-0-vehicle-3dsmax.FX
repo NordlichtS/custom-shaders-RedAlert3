@@ -7,6 +7,7 @@
 #include "PBR4-ps.FXH"
 
 
+
 // MAX预览用的============================ 
 VS_H_output VSforMAX(VS_H_noskin_input i)  
 { 
@@ -37,6 +38,8 @@ VS_H_output VSforMAX(VS_H_noskin_input i)
     o.MainTexUV = i.texcoord ; //直接转存贴图UV
     o.Position = mul(i.position , MAXwvp); //给rasterizer的clip space坐标
 
+
+
     return o; 
 };
 
@@ -55,3 +58,37 @@ technique Default3DSMAX
         CullMode = 2;
     }
 }
+
+/*
+
+typedef enum D3DBLEND 
+  D3DBLEND_ZERO             = 1,
+  D3DBLEND_ONE              = 2,
+  D3DBLEND_SRCCOLOR         = 3,
+  D3DBLEND_INVSRCCOLOR      = 4,
+  D3DBLEND_SRCALPHA         = 5,
+  D3DBLEND_INVSRCALPHA      = 6,
+  D3DBLEND_DESTALPHA        = 7,
+  D3DBLEND_INVDESTALPHA     = 8,
+  D3DBLEND_DESTCOLOR        = 9,
+  D3DBLEND_INVDESTCOLOR     = 10,
+  D3DBLEND_SRCALPHASAT      = 11,
+  D3DBLEND_BOTHSRCALPHA     = 12,
+  D3DBLEND_BOTHINVSRCALPHA  = 13,
+  D3DBLEND_BLENDFACTOR      = 14,
+  D3DBLEND_INVBLENDFACTOR   = 15,
+  D3DBLEND_SRCCOLOR2        = 16,
+  D3DBLEND_INVSRCCOLOR2     = 17,
+  D3DBLEND_FORCE_DWORD      = 0x7fffffff
+source color is the color of the pixel that is being drawn,
+destination color is the color of the pixel that was behind the one drawn.
+
+typedef enum D3DCULL 
+  D3DCULL_NONE         = 1, Do not cull back faces.
+  D3DCULL_CW           = 2, Cull back faces with clockwise vertices.
+  D3DCULL_CCW          = 3, Cull back faces with counterclockwise vertices.
+default cullmode = 2
+
+
+
+*/

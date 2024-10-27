@@ -1,0 +1,26 @@
+{
+    "comments": {
+      "lineComment": "#"
+    },
+    "brackets": [
+      ["[", "]"],
+      ["(", ")"],
+      ["{", "}"]
+    ],
+    "indentationRules": {
+      "increaseIndentPattern": "^(\\s*(if|proc)\\b.*)$",
+      "decreaseIndentPattern": "^(\\s*(endif|endproc)\\b.*)$"
+    },
+    "wordPattern": "\\b\\w+\\b",
+    "folding": {
+      "markers": {
+        "start": "^\\s*(if|proc)\\b",
+        "end": "^\\s*(endif|endproc)\\b"
+      }
+    },
+    "pairs": [
+      ["if", "endif"],
+      ["proc", "endproc"]
+    ]
+}
+  

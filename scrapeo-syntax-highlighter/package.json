@@ -1,0 +1,38 @@
+{
+    "name": "scrapeo-syntax-highlighter",
+    "displayName": "SCRAPEO Syntax Highlighter",
+    "description": "Syntax highlighting for Red Alert 3 SCRAPEO files in VSCODE.",
+    "version": "1.0.0",
+    "publisher": "Nordlicht",
+    "engines": {
+        "vscode": "^1.50.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "scrapeo",
+                "aliases": [
+                    "SCRAPEO",
+                    "scrapeo"
+                ],
+                "extensions": [
+                    ".SCRAPEO"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "scrapeo",
+                "scopeName": "source.scrapeo",
+                "path": "./syntaxes/scrapeo.tmLanguage.json"
+            }
+        ]
+    },
+    "dependencies": {
+        "@vscode/vsce": "^3.2.1"
+    }
+}

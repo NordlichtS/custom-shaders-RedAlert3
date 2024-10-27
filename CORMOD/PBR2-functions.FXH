@@ -2,9 +2,9 @@
 
 
 
+//#include "PBR1-constants.FXH"  //shader通用的
 
-#include "PBR1-constants.FXH"  //shader通用的
-
+#include "PBR1-maxapi.FXH"  //可调的材质
 
 
 //常用常量，与确定的风格参数===================
@@ -23,11 +23,12 @@ const float metalalbedo_multiply = 1.25 ; //金属的反光亮度
 const float ambient_diff_multiply =  1 ; //环境光与天空盒diffuse
 const float ambient_spec_multiply =  1 ; //环境光与天空盒specular
 
-const float pointlight_multiply =  2 ; //点光源整体亮度
+const float pointlight_multiply =  1.5 ; //点光源整体亮度
 const float sunlight_multiply =  1 ; //阳光亮度
 const float diffuse_multiply =  1 ; //漫反射亮度，影响阳光与点光源
 const float specbase_multiply =  0.5 ; //高光在最大粗糙度金属下的基础峰值亮度，影响阳光与点光源
 
+const float ponitlight_maxrange_mult = 1.5 ;
 
 #if defined(_3DSMAX_) //IN PREVIEW
 
@@ -170,23 +171,40 @@ float helper_invert_shadow_density_array ( float3 ShadowProjection, float sun_ti
     if(sun_tilt <= 0) {return 0;};
     if(! HasShadow)   {return 1;}; 
 
-    float texelX[9] = {0, -1, +1,  0,  0, -1, +1, -1, +1} ;
-    float texelY[9] = {0,  0,  0, -1, +1, -1, -1, +1, +1} ;
+    const float texelX[9] = {0, -1.2, +1.2,    0,    0, -0.8, +0.8, -0.8, +0.8} ;
+    const float texelY[9] = {0,    0,    0, -1.2, +1.2, -0.8, -0.8, +0.8, +0.8} ;
 
-    float2 ThisShiftUV; float ShadowDepth ; float ShadowDensity ; int countSAMPLES ;
+    float2 ThisShiftUV; float ShadowDepth ; float ShadowDensity = 0 ; // int countSAMPLES ;
 
-    for(int sc = 0; sc <= 4; sc++) //这个用来调采样数
+    for(int sc = 0; sc < 5; sc++) //这个用来调采样数
     {
-        ThisShiftUV = float2(texelX[sc], texelY[sc]) * 1.25
-        * Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w + ShadowProjection.xy ;
+        ThisShiftUV = float2(texelX[sc], texelY[sc]) 
+        * Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w 
+        + ShadowProjection.xy ;
 
-        ShadowDepth = tex2Dlod(ShadowMapSampler, float4(ThisShiftUV, 0, 0) );
+        ShadowDepth = tex2D(ShadowMapSampler, ThisShiftUV);
+        //ShadowDepth = tex2Dlod(ShadowMapSampler, float4(ThisShiftUV, 0, 0) );
         ShadowDensity += (ShadowDepth < ShadowProjection.z) ? 1 : 0 ;
-        countSAMPLES +=1 ;
     };
-    ShadowDensity /= countSAMPLES ; //need saturate?
+    ShadowDensity /= 5 ; //这个也是采样数
     return 1- ShadowDensity;
 }
+
+
+float helper_invert_shadow_single ( float3 ShadowProjection, float sun_tilt )  
+{
+    if(sun_tilt <= 0) {return 0;};
+    if(! HasShadow)   {return 1;}; 
+
+    float ShadowDepth = tex2Dlod(ShadowMapSampler, float4(ShadowProjection.xy, 0, 0) );
+    //tex2D(ShadowMapSampler, ShadowProjection.xy);
+    //tex2Dlod(ShadowMapSampler, float4(ShadowProjection.xy, 0, 0) );
+    float NOTshadow = (ShadowDepth < ShadowProjection.z) ? 0 : 1 ;
+
+    return NOTshadow ;
+}
+
+
 
 
 float3 mixHC (float3 basetex , float HCweighht)
@@ -204,19 +222,19 @@ float3 mixHC (float3 basetex , float HCweighht)
 
 
 
-float3 getSKYBOXcolor (float3 reflectedView, float roughness, float glossiness, float AOchannel) 
+float3 getSKYBOXcolor (float3 reflectedView, float roughness, float AOchannel) 
 {
 
-    float  mirAO = saturate(AOchannel * glossiness);  //天空盒镜面反射的AO
+    // float  mirAO = saturate(AOchannel * glossiness);  //天空盒镜面反射的AO
     // float  lod_before_log = pow(2, max_skybox_mip_level);
-    float max_skybox_miplevel_exp2 = 64 ; //最大粗糙度时使用的天空盒mipmap偏移
+    //float max_skybox_miplevel_exp2 = 64 ; //最大粗糙度时使用的天空盒mipmap偏移
 
-    float  skybox_lodbias = log2(roughness * max_skybox_miplevel_exp2) ; // max 0 ? log2 ?
+    float  skybox_lodbias = log2(roughness * 64) ; // max 0 ? log2 ?
     float4 skyboxUV = float4(reflectedView , skybox_lodbias); //根据粗糙度的对数算mipmap偏移数
     float3 skybox_color = texCUBElod(EnvironmentTextureSampler, skyboxUV);
     // texCUBEbias ? texCUBElod 
 
-    return skybox_color * mirAO;
+    return skybox_color * AOchannel;
 }
 
 
@@ -226,9 +244,7 @@ float3 getIRRADIANCEcolor (float3 N, float AOchannel)
 
     /*
     if(use_irradiance_box)
-    { return 
-    texCUBE(IrradianceTextureSampler, N) * difAO ;
-    };
+    { return     texCUBE(IrradianceTextureSampler, N) * difAO ;    };
     */
 
     //没有辐照贴图就拟合一个
@@ -237,7 +253,7 @@ float3 getIRRADIANCEcolor (float3 N, float AOchannel)
     nomap_irradiance = PV_AmbientLight ;
     #endif
 
-    float downwarddecay = saturate(N.z + 1.25) ;
+    float downwarddecay = saturate(N.z + 1.2) ;
     nomap_irradiance *= min(difAO , downwarddecay) ; //真的要么
     return nomap_irradiance;
 }
@@ -274,12 +290,6 @@ float helper_fresnel_old(float3 L, float3 V, float F0)
     return fresnelLV ;
 };
 
-float helper_lambertian(float dotLN) 
-{
-    return saturate(dotLN) * diffuse_multiply ;
-}
-
-
 
 
 //用法线图XY算出Z向量
@@ -297,14 +307,13 @@ float3 helper_normalmapper(float2 TEXtangent)
 
 
 //灯光闪烁
-float helper_timepulse()
+float helper_secondpulse()
 {
-    if(GlowPeriod <= 0){return 1;};
-
-    float phase = frac( Time / GlowPeriod ) ; // 保留小数部分， mod 1
-    phase = abs(phase *2 -1) ;//或者平方？
+    float phase = abs( frac(Time) *2 -1) ;
     return phase ;
 };
+
+static float phase = abs( frac(Time) *2 -1) ; //有用吗
 
 
 // smoothstep(min, max, x)  for point light range compute

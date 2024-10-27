@@ -18,7 +18,23 @@ acerola
 */
 
 //输入数组直接拿VS输出好了
-float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR 
+//不行，保险起见抄一遍再去掉position吧
+
+struct PS_H_input
+{
+    //float4 Position : POSITION;   //VS一定要输出的clip space渲染坐标
+    float4 VertexColor : COLOR0;  //顶点颜色
+    float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
+    float3 ShadowPROJ : TEXCOORD1; //阴影空间投影
+    float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
+    float3 WorldP : TEXCOORD3;  //世界空间位置
+    float3 WorldN : TEXCOORD4_centroid; //世界法线Z
+    float3 WorldT : TEXCOORD5_centroid; //世界切线Y
+    float3 WorldB : TEXCOORD6_centroid; //世界切线X
+};
+
+
+float4 PS_H_PBR_CORONA (PS_H_input i) : COLOR 
 {
   float4 OUTCOLOR = i.VertexColor; //安全起见先initialize
 
@@ -69,10 +85,10 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     float3 V = helper_ps_getViewVector(i.WorldP) ;
     float  EYEtilt = dot(V , N) ; //1= perpendicular view, 0= side view , -1=back
     float3 R = reflect(-V , N) ; //input light vector is towards fragment!
-    if(EYEtilt <0) {R = -V ;} ; //SHOULD I FIX IT ?
+    //if(EYEtilt <0) {R = -V ;} ; //SHOULD I FIX IT ?
 
   //环境光相关 
-    float3 skybox_color = getSKYBOXcolor(R, roughness, glossiness, AOchannel);
+    float3 skybox_color = getSKYBOXcolor(R, roughness, AOchannel);
     float3 irradiance_color = getIRRADIANCEcolor(N, AOchannel);
 
     float3 ambientALL = float3(0,0,0) ; //环境光BRDF
@@ -81,7 +97,7 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
     //ambient SPEC
     ambientALL += skybox_color * speccolor * ambient_spec_multiply * helper_fresnel(R, V, F0); 
 
-  //阳光相关 
+  //阳光相关  
     float3 Lsun     = DirectionalLight[0].Direction.xyz ;
     float3 SUNcolor = DirectionalLight[0].Color.xyz ;
     #if defined(_3DSMAX_)  //MAX预览阳光方向与颜色覆盖
@@ -111,7 +127,7 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
 
       float3 PLpos = PointLight[itpl].Position - i.WorldP ;
       float3 PLcolor = PointLight[itpl].Color ;
-      float  PLrangeMAX = PointLight[itpl].Range_Inner_Outer.y ;
+      float  PLrangeMAX = PointLight[itpl].Range_Inner_Outer.y * ponitlight_maxrange_mult ;
       float  PLrangeMIN = PointLight[itpl].Range_Inner_Outer.x ;
 
       #ifdef _3DSMAX_ //读取预览点光源数据
@@ -129,7 +145,7 @@ float4 PS_H_PBR_CORONA (VS_H_output i) : COLOR
       if(PLtilt <= 0) {continue;}; //排除背光面
 
       float decaymult = (PLdist - PLrangeMAX) / (PLrangeMIN - PLrangeMAX);
-      decaymult = saturate(decaymult * decaymult); //平方衰减看起来更自然
+      // decaymult = saturate(decaymult * decaymult); //平方衰减看起来更自然
       // decaymult = clamp(decaymult, 0, 2); //SATURATE ?
 
       float3 thisBRDF = float3(0,0,0) ;

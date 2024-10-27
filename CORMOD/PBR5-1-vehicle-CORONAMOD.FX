@@ -36,3 +36,4 @@ technique Default
         //AlphaBlendEnable = (OpacityOverride < 0.99) ;
     }
 }
+

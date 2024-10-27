@@ -39,7 +39,7 @@ struct VS_H_noskin_input
 
 VS_H_output  VS_H_noskin (VS_H_noskin_input  i)  //no bone skin
 {
-    VS_H_output o;
+    VS_H_output o; //声明下输出数组的结构缩写
 
     float4 WorldPosition = float4(0,0,0,1);
     o.ShadowPROJ = o.FogCloudUV = 0 ;
@@ -75,11 +75,11 @@ struct VS_H_hardskin_input
     float4 blendindices : BLENDINDICES;
     float4 texcoord : TEXCOORD;
     float4 color : COLOR;
-};
+}; 
 
 VS_H_output  VS_H_hardskin (VS_H_hardskin_input  i)  //1 bone skin
 {
-    VS_H_output o;
+    VS_H_output o; //声明下输出数组的结构缩写
 
     float4 WorldPosition = float4(0,0,0,1);
     o.ShadowPROJ = o.FogCloudUV = 0 ;
@@ -132,7 +132,8 @@ struct VS_H_softskin_input
 
 VS_H_output  VS_H_softskin (VS_H_softskin_input  i)  //2 bone skin, with tangentframe
 {
-    VS_H_output o;
+    VS_H_output o; //声明下输出数组的结构缩写
+
     float4 WorldPosition = float4(0,0,0,1);
     o.ShadowPROJ = o.FogCloudUV = 0 ;
     o.VertexColor = i.color ;  
@@ -185,6 +186,74 @@ VS_H_output  VS_H_softskin (VS_H_softskin_input  i)  //2 bone skin, with tangent
 };
 
 
+
+
+#if defined(_3DSMAX_)
+
+#endif
+
+
+//=============================================
+
+
+
+// 不启用切线空间的VS，可以用作步兵的？
+// 但无法线图的高画质或许并不能用这个output，semantic对不上
+// 说不定能用？编译一个试试
+struct VS_notgt_output  //
+{
+    float4 Position : POSITION;   //VS一定要输出的clip space渲染坐标
+    float4 VertexColor : COLOR0;  //顶点颜色
+    float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
+    float3 ShadowPROJ : TEXCOORD1; //阴影空间投影
+    float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
+    float3 WorldP : TEXCOORD3;  //世界空间位置    
+    float3 WorldN : TEXCOORD4;  //_centroid; //世界法线
+};
+
+//下面是没有切线空间的高画质VS
+
+
+struct VS_noskin_notgt_input
+{
+    float4 position : POSITION;
+    float4 normal : NORMAL;
+
+    float4 texcoord : TEXCOORD;
+    float4 color : COLOR;
+};
+
+
+struct VS_hardskin_notgt_input
+{
+    float4 position : POSITION;
+    float4 normal : NORMAL;
+
+    float4 blendindices : BLENDINDICES;
+    float4 texcoord : TEXCOORD;
+    float4 color : COLOR;
+}; 
+
+
+struct VS_softskin_notgt_input
+{
+    float4 blendindices : BLENDINDICES;
+    float4 blendweight : BLENDWEIGHT;
+    float4 position0 : POSITION0;
+    float4 position1 : POSITION1;
+    float4 normal0 : NORMAL0;
+    float4 normal1 : NORMAL1;
+
+    float4 texcoord : TEXCOORD;
+    float4 color : COLOR;
+};
+
+
+
+
+//废弃代码
+
+/*
 
 //下面的是多用途VS实验型，可以根据全局constant自动开关第二骨骼和切线框架，或许能优化（或许不能,IF太多了）
 VS_H_output  VS_H_skincomplex (VS_H_softskin_input  i)  //1-2 bone skin, with or no tangentframe
@@ -245,27 +314,5 @@ VS_H_output  VS_H_skincomplex (VS_H_softskin_input  i)  //1-2 bone skin, with or
     return o;
 };  //以上这个VS是实验性代码模板，我也不知道会有什么效果，套了两层if 有可能负优化也说不定
 
-#if defined(_3DSMAX_)
 
-#endif
-
-
-//=============================================
-
-
-
-// 不启用切线空间的VS，可以用作中低画质的
-// 但无法线图的高画质或许并不能用这个output，semantic对不上
-// 说不定能用？编译一个试试
-struct VS_notgt_output  //
-{
-    float4 Position : POSITION;   //VS一定要输出的clip space渲染坐标
-    float4 VertexColor : COLOR0;  //顶点颜色
-    float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
-    float3 ShadowPROJ : TEXCOORD1; //阴影空间投影
-    float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
-    float3 WorldP : TEXCOORD3;  //世界空间位置    
-    float3 WorldN : TEXCOORD4;  //_centroid; //世界法线
-};
-
-
+*/
