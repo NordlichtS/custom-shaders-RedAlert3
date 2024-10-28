@@ -1,0 +1,66 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "SCRAPEO",
+  "scopeName": "source.scrapeo",
+  "patterns": [
+
+    {
+      "name": "comment.line",  
+      "match": "#.*$"
+    },
+
+    {
+      "name": "keyword.control",  
+      "match": "^\\s*(if|elif|else|endif)\\b"
+    },
+    {
+      "name": "support.class",  
+      "match": "^\\s*(proc|endproc|beginevent|endevent)\\b"
+    },
+
+
+    {
+      "match": "^\\s*(var)\\b\\s+(\\w+)\\s+(\\w+)",
+      "captures": {
+        "1": { "name": "meta.tag" },
+        "2": { "name": "storage.type" },
+        "3": { "name": "variable.other" }
+      }
+    },
+
+    {
+      "match": "^\\s*(settexture|settosize|setbool|setfloat)\\b\\s+(\\w+)\\s+(\\w+)",
+      "captures": {
+        "1": { "name": "storage.type" },
+        "2": { "name": "string.jade" },
+        "3": { "name": "variable.other" }
+      }
+    },
+    
+    {
+      "name": "storage.type",  
+      "match": "^\\s*(set\\w*)\\b"
+    },
+
+
+    {
+      "name": "support.function", 
+      "match": "^\\s*(callproc|render\\w*)\\b"
+    },
+
+    {
+      "name": "constant.numeric", 
+      "match": "\\b[+-]?\\d+(\\.\\d+)?\\b"
+    },
+    {
+      "name": "constant.language.boolean",  
+      "match": "\\b(true|false|NULL)\\b"
+    },
+
+    {
+      "name": "constant.character",  
+      "match": "[$%]"
+    }
+    
+  ]
+}

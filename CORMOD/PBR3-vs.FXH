@@ -11,7 +11,7 @@ struct VS_H_output
     float4 Position : POSITION;   //VS一定要输出的clip space渲染坐标
     float4 VertexColor : COLOR0;  //顶点颜色
     float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
-    float3 ShadowPROJ : TEXCOORD1; //阴影空间投影
+    float4 ShadowPROJ : TEXCOORD1; //XYZ阴影空间投影, W顶点阴影亮度
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
     float3 WorldP : TEXCOORD3;  //世界空间位置
     float3 WorldN : TEXCOORD4_centroid; //世界法线Z
@@ -42,7 +42,7 @@ VS_H_output  VS_H_noskin (VS_H_noskin_input  i)  //no bone skin
     VS_H_output o; //声明下输出数组的结构缩写
 
     float4 WorldPosition = float4(0,0,0,1);
-    o.ShadowPROJ = o.FogCloudUV = 0 ;
+    //o.ShadowPROJ = o.FogCloudUV = 0 ;
     o.VertexColor = i.color ;  //顶点颜色，opacity 放ps里去吧
 
     // 从object space 到 world space===========
@@ -57,9 +57,9 @@ VS_H_output  VS_H_noskin (VS_H_noskin_input  i)  //no bone skin
     //以上要换成骨骼相关的代码，以下保留======
 
     o.MainTexUV = i.texcoord ; //直接转存贴图UV
-    if(HasWarfog) { o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;};
-    if(HasCloud)  { o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;};
-    if(HasShadow) { o.ShadowPROJ = getShadowMapUV( WorldPosition) ;};
+    if(HasWarfog) { o.FogCloudUV.xy  = getWarfogUV( WorldPosition) ;};
+    if(HasCloud)  { o.FogCloudUV.zw  = getCloudUV ( WorldPosition) ;};
+    if(HasShadow) { o.ShadowPROJ.xyz = getShadowMapUV( WorldPosition) ;};
 
     o.Position = mul(WorldPosition, ViewProjection); //给rasterizer的clip space坐标
 
@@ -82,7 +82,7 @@ VS_H_output  VS_H_hardskin (VS_H_hardskin_input  i)  //1 bone skin
     VS_H_output o; //声明下输出数组的结构缩写
 
     float4 WorldPosition = float4(0,0,0,1);
-    o.ShadowPROJ = o.FogCloudUV = 0 ;
+    //o.ShadowPROJ = o.FogCloudUV = 0 ;
     o.VertexColor = i.color ;  
 
     // 从object space 到 world space===========
@@ -102,9 +102,9 @@ VS_H_output  VS_H_hardskin (VS_H_hardskin_input  i)  //1 bone skin
 
     WorldPosition.xyz = o.WorldP  ; //四维世界坐标
     o.MainTexUV = i.texcoord ; //直接转存贴图UV
-    if(HasWarfog) { o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;};
-    if(HasCloud)  { o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;};
-    if(HasShadow) { o.ShadowPROJ = getShadowMapUV( WorldPosition) ;};
+    if(HasWarfog) { o.FogCloudUV.xy  = getWarfogUV( WorldPosition) ;};
+    if(HasCloud)  { o.FogCloudUV.zw  = getCloudUV ( WorldPosition) ;};
+    if(HasShadow) { o.ShadowPROJ.xyz = getShadowMapUV( WorldPosition) ;};
 
     o.Position = mul(WorldPosition, ViewProjection); //给rasterizer的clip space坐标
 
@@ -135,7 +135,7 @@ VS_H_output  VS_H_softskin (VS_H_softskin_input  i)  //2 bone skin, with tangent
     VS_H_output o; //声明下输出数组的结构缩写
 
     float4 WorldPosition = float4(0,0,0,1);
-    o.ShadowPROJ = o.FogCloudUV = 0 ;
+    //o.ShadowPROJ = o.FogCloudUV = 0 ;
     o.VertexColor = i.color ;  
 
     //先算第一骨骼
@@ -177,9 +177,9 @@ VS_H_output  VS_H_softskin (VS_H_softskin_input  i)  //2 bone skin, with tangent
 
     WorldPosition.xyz = o.WorldP  ; //四维世界坐标
     o.MainTexUV = i.texcoord ; //直接转存贴图UV
-    if(HasWarfog) { o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;};
-    if(HasCloud)  { o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;};
-    if(HasShadow) { o.ShadowPROJ = getShadowMapUV( WorldPosition) ;};
+    if(HasWarfog) { o.FogCloudUV.xy  = getWarfogUV( WorldPosition) ;};
+    if(HasCloud)  { o.FogCloudUV.zw  = getCloudUV ( WorldPosition) ;};
+    if(HasShadow) { o.ShadowPROJ.xyz = getShadowMapUV( WorldPosition) ;};
 
     o.Position = mul(WorldPosition, ViewProjection); //给rasterizer的clip space坐标
     return o;
@@ -205,13 +205,16 @@ struct VS_notgt_output  //
     float4 Position : POSITION;   //VS一定要输出的clip space渲染坐标
     float4 VertexColor : COLOR0;  //顶点颜色
     float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
-    float3 ShadowPROJ : TEXCOORD1; //阴影空间投影
+    float4 ShadowPROJ : TEXCOORD1; //XYZ阴影空间投影, W顶点阴影亮度
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
     float3 WorldP : TEXCOORD3;  //世界空间位置    
     float3 WorldN : TEXCOORD4;  //_centroid; //世界法线
 };
 
 //下面是没有切线空间的高画质VS
+//可以给中低画质用，因此不需要阴影和云。
+//但高画质的步兵要单独写，因为有云也有顶点阴影。高画质车辆无法线也可以用
+
 
 
 struct VS_noskin_notgt_input

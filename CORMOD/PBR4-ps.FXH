@@ -25,7 +25,7 @@ struct PS_H_input
     //float4 Position : POSITION;   //VS一定要输出的clip space渲染坐标
     float4 VertexColor : COLOR0;  //顶点颜色
     float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
-    float3 ShadowPROJ : TEXCOORD1; //阴影空间投影
+    float4 ShadowPROJ : TEXCOORD1; //XYZ阴影空间投影, W顶点阴影亮度
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
     float3 WorldP : TEXCOORD3;  //世界空间位置
     float3 WorldN : TEXCOORD4_centroid; //世界法线Z
@@ -107,7 +107,7 @@ float4 PS_H_PBR_CORONA (PS_H_input i) : COLOR
 
     SUNcolor *= sunlight_multiply ;
     float  sun_tilt  = dot(N,Lsun) ;
-    SUNcolor *= helper_invert_shadow_density_array(i.ShadowPROJ , sun_tilt);
+    SUNcolor *= helper_invert_shadow_density_array(i.ShadowPROJ.xyz , sun_tilt);
     //shadow helper also return 0 for backface, 1 for no shadow
     if(HasCloud) { SUNcolor *= tex2D(CloudTextureSampler, i.FogCloudUV.zw); };
 

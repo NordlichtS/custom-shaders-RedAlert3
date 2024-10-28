@@ -11,16 +11,12 @@
       "increaseIndentPattern": "^(\\s*(if|proc)\\b.*)$",
       "decreaseIndentPattern": "^(\\s*(endif|endproc)\\b.*)$"
     },
-    "wordPattern": "\\b\\w+\\b",
-    "folding": {
-      "markers": {
-        "start": "^\\s*(if|proc)\\b",
-        "end": "^\\s*(endif|endproc)\\b"
-      }
-    },
+    "wordPattern": "[A-Za-z0-9_.]+" ,
+
     "pairs": [
       ["if", "endif"],
-      ["proc", "endproc"]
+      ["proc", "endproc"],
+      ["beginevent", "endevent"]
     ]
 }
   

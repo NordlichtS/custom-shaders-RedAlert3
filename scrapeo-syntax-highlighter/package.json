@@ -1,38 +1,48 @@
 {
     "name": "scrapeo-syntax-highlighter",
     "displayName": "SCRAPEO Syntax Highlighter",
-    "description": "Syntax highlighting for Red Alert 3 SCRAPEO files in VSCODE.",
-    "version": "1.0.0",
-    "publisher": "Nordlicht",
+    "description": "for RedAlert3 SCRAPEO scripts.",
+    "version": "1.0.2",
+    "publisher": "NordlichtS",
     "engines": {
-        "vscode": "^1.50.0"
+      "vscode": "^1.50.0"
     },
     "categories": [
-        "Programming Languages"
+      "Programming Languages"
     ],
     "contributes": {
-        "languages": [
-            {
-                "id": "scrapeo",
-                "aliases": [
-                    "SCRAPEO",
-                    "scrapeo"
-                ],
-                "extensions": [
-                    ".SCRAPEO"
-                ],
-                "configuration": "./language-configuration.json"
-            }
-        ],
-        "grammars": [
-            {
-                "language": "scrapeo",
-                "scopeName": "source.scrapeo",
-                "path": "./syntaxes/scrapeo.tmLanguage.json"
-            }
-        ]
+      "languages": [
+        {
+          "id": "scrapeo",
+          "aliases": ["SCRAPEO", "scrapeo"],
+          "extensions": [".SCRAPEO"],
+          "configuration": "./language-configuration.json"
+        }
+      ],
+      "grammars": [
+        {
+          "language": "scrapeo",
+          "scopeName": "source.scrapeo",
+          "path": "./scrapeo.tmLanguage.json"
+        }
+      ]
     },
-    "dependencies": {
-        "@vscode/vsce": "^3.2.1"
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/NordlichtS/custom-shaders-RedAlert3/tree/main/scrapeo-syntax-highlighter"
+    },
+    "keywords": [
+      "SCRAPEO",
+      "syntax highlighting",
+      "shader",
+      "game development"
+    ],
+    "_USELESS_icon": "",  
+    "scripts": {
+      "package": "vsce package"
+    },
+    "devDependencies": {
+      "vsce": "^2.15.0"
     }
-}
+  }
+  
