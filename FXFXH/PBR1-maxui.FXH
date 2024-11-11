@@ -18,19 +18,28 @@
 
 //w3x里可以记录的参数=============================
 
+
+
 texture DiffuseTexture 
 <string UIName = "(BASE)DiffuseTexture";>; 
 //RGB为基础色，控制
 sampler2D DiffuseTextureSampler
 <string Texture = "DiffuseTexture";> = sampler_state {
     Texture = < DiffuseTexture >;
-    MinFilter = Anisotropic;
-    MagFilter = Linear;
-    MipFilter = Linear;
+    MinFilter = 3; //Anisotropic
+    MagFilter = 2;
+    MipFilter = 2;
     MaxAnisotropy = 8;
     AddressU = Wrap;
     AddressV = Wrap;
-    //AddressW = Clamp;
+    AddressW = Clamp;
+};
+sampler2D DiffuseEasySampler //给阴影图用的简便版
+<string Texture = "DiffuseTexture";> = sampler_state {
+    Texture = < DiffuseTexture >;
+    MinFilter = 1;
+    MagFilter = 1;
+    MipFilter = 1;
 };
 
 texture SpecMap 
@@ -39,12 +48,13 @@ texture SpecMap
 sampler2D SpecMapSampler
 <string Texture = "SpecMap";> = sampler_state {
     Texture = < SpecMap >;
-    MinFilter = Anisotropic;
-    MagFilter = Linear;
-    MipFilter = Linear;
+    MinFilter = 3; //Anisotropic
+    MagFilter = 2;
+    MipFilter = 2;
     MaxAnisotropy = 8;
     AddressU = Wrap;
     AddressV = Wrap;
+    MIPMAPLODBIAS = -1 ;
     //AddressW = Wrap;
 };
 
@@ -54,58 +64,73 @@ texture NormalMap SEMANTIC_3DSMAX(NormalMap)
 sampler2D NormalMapSampler
 <string Texture = "NormalMap";> = sampler_state {
     Texture = < NormalMap >;
-    MinFilter = Anisotropic;
-    MagFilter = Linear;
-    MipFilter = Linear;
-    MaxAnisotropy = 8;
+    MinFilter = 2; //3 
+    MagFilter = 2;
+    MipFilter = 2;
+    //MaxAnisotropy = 8;
     AddressU = Wrap;
     AddressV = Wrap;
     //AddressW = Wrap;
 };
 
+texture DamagedTexture //建筑损伤图
+<string UIWidget ="None";>; 
+sampler2D DamagedTextureSampler 
+<string Texture = "DamagedTexture";> =
+sampler_state{
+    Texture = <DamagedTexture>; 
+    MinFilter = 2;
+    MagFilter = 2;
+    MipFilter = 2;
+    AddressU = 1;
+    AddressV = 1;
+};
+sampler2D DamagedEasySampler 
+<string Texture = "DamagedTexture";> =
+sampler_state{
+    Texture = <DamagedTexture>; 
+    MinFilter = 1;
+    MagFilter = 1;
+    MipFilter = 1;
+};
 
-bool AlphaTestEnable //主贴图镂空
-<    string UIName = "Alpha Test Enable";> = 0;
-
-bool AlphaBlendEnable //半透明混合
-<    string UIName = "Alpha Blend Enable";> = 0;
-
-bool CullingEnable //好像是允许背面不渲染来优化？
-<    string UIName = "Culling Enable";> = 1;
-
-bool DepthWriteEnable //写入深度buffer
-<    string UIName = "Depth Write Enable";> = 1;
 
 
 
-float MinRoughness //最低粗糙度（要用倒数更精确吗？）
-<   string UIName = "MinRoughness"; //MAXglossiness
-    float UIMax = 0.50; float UIMin = 0.005; float UIStep = 0.005; 
-> ={ 0.125 }; 
-
-float reflectivity_cutoff //非金属反射度的梯度，生效范围阈值为此值倒数
-<   string UIName = "reflectivity_cutoff"; 
-    float UIMax = 8; float UIMin = 0; float UIStep = 0.25; 
-> = { 2 }  ; //小于1则对所有非金属生效，大于1则仅对很粗糙部位生效。此值越大，生效范围越窄
-
-float tangent_xy_multiply //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。
-<   string UIName = "tangent_xy_multiply"; 
-    float UIMax = 2; float UIMin = -2; float UIStep = 0.25; 
-> ={ -1 };  //RA3默认是反的dx标准
+float tangent_xy_mult //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。
+<   string UIName = "tangent_xy_mult"; 
+    float UIMax = 4; float UIMin = -4; float UIStep = 0.1; 
+> = -2 ;  //RA3默认是反的dx标准
 
 float GlowAmplitude //最大发光倍数，(如果写负数会怎样?)
 <   string UIName = "GlowAmplitude"; 
     float UIMax = 8; float UIMin = 0; float UIStep = 0.25; 
-> ={ 0 }; 
+> = 3 ; 
 
-float GlowPeriod //发光呼吸周期秒数，写0为恒定发光
-<   string UIName = "GlowPeriod"; 
-    float UIMax = 8; float UIMin = 0; float UIStep = 0.2; 
-> ={ 1 }; 
+
+
 
 
 
 /*
+
+float PulsePeriod //发光呼吸周期秒数，写0为恒定发光
+<   string UIName = "PulsePeriod"; 
+    float UIMax = 8; float UIMin = 0; float UIStep = 0.2; 
+> ={ 1 }; 
+
+//灯光闪烁
+float hp_timepulse()
+{   //写0为恒定发光
+    if(PulsePeriod <= 0){return 1;};
+
+    float phase = frac( Time / PulsePeriod ) ; 
+    phase = abs(phase *2 -1) ;//或者平方？
+    return phase ;
+};
+
+bool Use_CorMod_PBR //主贴图镂空
+<    string UIName = "Use_CorMod_PBR";> = 1;
 
 //为了弥补岚依提到的，部分玩家会在生成irradiance贴图时游戏崩溃，保留此选项
 bool use_irradiance_box //是否使用自动生成的环境光漫反射的辐照贴图。
@@ -118,7 +143,6 @@ float MAXglossiness //最低粗糙度的倒数，即最大光滑度，已经弃�
 > ={ 16 }; 
 */
 
-#define ENV_CUSTOM
 
 //这个是环境反射图？真正的天空盒？
 #ifdef ENV_CUSTOM
@@ -133,13 +157,15 @@ float MAXglossiness //最低粗糙度的倒数，即最大光滑度，已经弃�
 #endif
 //在要编译的FX文件里记得  #define ENV_CUSTOM
 
-
+//#ifdef ENV_CUSTOM
 #ifdef _3DSMAX_ //预览天空盒
 textureCUBE EnvironmentTexture SEMANTIC_3DSMAX(ReflectionMap)
 <
+#ifdef ENV_CUSTOM
     string UIName = "PV_EnvironmentTexture"; 
     string ResourceType = "Cube";
 	bool ExportValue = false;
+#endif
 >; 
 #else  //游戏内天空盒
 texture EnvironmentTexture  
@@ -163,7 +189,7 @@ samplerCUBE EnvironmentTextureSampler
     AddressV = 3;
     AddressW = 3;
 };
-
+//#endif
 
 // 岚依的Irradiance贴图，开局会被scrapeo生成一张，用于漫反射环境光
 textureCUBE IrradianceTexture
@@ -189,7 +215,12 @@ samplerCUBE IrradianceTextureSampler
 
 
 
-//  #if defined(_3DSMAX_) 
+//=================================
+//shader specific helper function
+
+
+
+//#if defined(_3DSMAX_) 
 //预览用 constant ===============================
 
 
@@ -198,19 +229,6 @@ float4x4 MAXworld : WORLD;
 float4x4 ViewI : VIEWINVERSE; 
 
 
-float3 PV_FactionColor 
-<
-	string UIName = "PV_FactionColor";
-	string UIWidget = "Color";
-	bool ExportValue = false;
-> = {0, 0, 1};
-
-float3 PV_AmbientLight 
-<
-	string UIName = "PV_AmbientLight";
-	string UIWidget = "Color";
-	bool ExportValue = false;
-> = {0.25, 0.25, 0.25};
 
 // sun light direction (world space)
 float3 PV_SunlightDirection : Direction 
@@ -252,22 +270,11 @@ float PV_pointlightRANGE
     string UIName = "PV_pointlightRANGE"; 
     float UIMax = 800; float UIMin = 0; float UIStep = 10; 
     bool ExportValue = false;
-> = 10 ;
+> = 100 ;
 
 
 
-//  #endif  
+//#endif  
 //预览用constant结束=============================
 
-//=================================
-//shader specific helper function
 
-//灯光闪烁
-float helper_timepulse()
-{
-    if(GlowPeriod <= 0){return 1;};
-
-    float phase = frac( Time / GlowPeriod ) ; // 保留小数部分， mod 1
-    phase = abs(phase *2 -1) ;//或者平方？
-    return phase ;
-};

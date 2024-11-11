@@ -38,8 +38,11 @@ int _SasGlobal : SasGlobal
 //阵营色
 shared float3 RecolorColor 
 : register(vs, c0) : register(ps, c0)
-<   bool unmanaged = true;> 
-= float3(1, 1, 1);
+<   bool unmanaged = true;
+	string UIName = "PV_(Faction)RecolorColor";
+	string UIWidget = "Color";
+	bool ExportValue = false;
+> = { 0, 0, 1 };
 
 //透明度整体修改
 shared float OpacityOverride 
@@ -62,29 +65,33 @@ shared float4 EdgeFadeOut
 //地编环境光
 shared float3 AmbientLightColor 
 : register(vs, c4) : register(ps, c4)
-<   bool unmanaged = true;> 
-= float3(0.25, 0.25, 0.25);
+<   bool unmanaged = true;
+	string UIName = "PV_AmbientLightColor";
+	string UIWidget = "Color";
+	bool ExportValue = false;
+> = float3(0.25, 0.25, 0.25);
 
 //阳光和两个accent light
-struct{ float3 Color; float3 Direction;} 
+shared struct{ float3 Color; float3 Direction;} 
 DirectionalLight[3] 
 : register(vs, c5) : register(ps, c5) 
 <   bool unmanaged = 1;> = { 
 1.0, 1.0, 1.0,   0, 0, 1, 
-0.5, 0.6, 0.7,   0, 1, 0, 
+0.4, 0.5, 0.6,   0, 1, 0, 
 0.3, 0.2, 0.1,   1, 0, 0 };
 
 //用于设置战争迷雾坐标
 struct ShroudSetup {float4 ScaleUV_OffsetUV;} 
-Shroud 
-: register(vs, c11)
+Shroud //为什么它有struct而不是一整个float4？
+: register(vs, c11)  //只能用于VS ！
 <   string UIWidget="None"; string SasBindAddress = "Terrain.Shroud";> 
 = { 1, 1, 0, 0 };
 
 //阴影图一个像素在阴影采样坐标里的长度，可用于模糊阴影边缘
 float4 Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize 
-: register(ps, c11)
+: register(ps, c11) //只能用于PS ！
 <   string UIWidget ="None"; string SasBindAddress = "Sas.Shadow[0].Zero_Zero_OneOverMapSize_OneOverMapSize";>;
+// #define  SMtexel  Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize //名字太长了换个短的！
 
 //可以接受最近8个武器特效的点光源
 shared struct PointLightSetup {float3 Color; float3 Position; float2 Range_Inner_Outer;} 
@@ -126,6 +133,17 @@ float4 WorldBones[128] //shared  ?
 //===============================
 //下面的constant没有写定的寄存器，不过也是引擎看SAS和semantic注入的
 
+bool AlphaTestEnable //主贴图镂空
+<    string UIName = "Alpha Test Enable";> = 1;
+
+bool AlphaBlendEnable //半透明混合
+<    string UIName = "Alpha Blend Enable";> = 0;
+
+bool CullingEnable //好像是允许背面不渲染来优化？
+<    string UIName = "Culling Enable";> = 1;
+
+bool DepthWriteEnable //写入深度buffer
+<    string UIName = "Depth Write Enable";> = 1;
 
 
 //当前帧距离游戏开局的秒数，可以用来做呼吸灯和履带滚动
@@ -152,6 +170,9 @@ float2 MapCellSize
 <   string UIWidget="None"; string SasBindAddress = "Terrain.Map.CellSize";>
 = { 10, 10 };
 
+
+
+
 //其他贴图与采样器========================================
 
 
@@ -167,8 +188,22 @@ sampler2D ShadowMapSampler
     string SasBindAddress = "Sas.Shadow[0].ShadowMap";
 > = sampler_state {
     Texture = < ShadowMap >;
+    MinFilter = 1 ; 
+    MagFilter = 1 ; // 原版的临近采样
+    MipFilter = 0;
+    AddressU = 3; //3=clamp, 4=border
+    AddressV = 3;
+    AddressW = 3;
+};
+
+sampler2D ShadowMapSamplerLinear
+<
+    string Texture = "ShadowMap";
+    string SasBindAddress = "Sas.Shadow[0].ShadowMap";
+> = sampler_state {
+    Texture = < ShadowMap >;
     MinFilter = 2 ; 
-    MagFilter = 2 ; // 用线性可有效防止斜面锯齿
+    MagFilter = 2 ; // 用线性可防止斜面锯齿?
     MipFilter = 0;
     AddressU = 3;
     AddressV = 3;
@@ -176,7 +211,7 @@ sampler2D ShadowMapSampler
 };
 
 
-// 云的贴图（讲真我不打算用这个）
+// 云的贴图
 texture CloudTexture
 <
     string UIWidget = "None";
