@@ -170,23 +170,41 @@ float hp_invshadow_bilinear ( float3 SMUV, float sun_tilt )
     float  bilinearUD = lerp(bilinearLR.x   , bilinearLR.y   , UVlerpw.y);
     float lightmid = bilinearUD ; //* bilinearUD;
     //对斜边的额外抗锯齿修复
-    /*
+    
     float lightpixin4 = dot(fourSamples, 1);
     float lightlow  = (lightpixin4 < 1.5) ? lightmid : 0 ;
-    float lighthigh = (lightpixin4 > 2.5) ? lightmid : 0 ;
+    float lighthigh = (lightpixin4 > 2.5) ? lightmid : 1 ;
     lightmid = lerp(lightlow, lighthigh, lightmid) ;
-    */
-
+    
     return lightmid ;
 }
 
 
-float hp_invshadow_dither ( float3 ShadowProjection, float sun_tilt, float2 vpos ) 
+float hp_invshadow_dither ( float3 ShadowProj, float sun_tilt, float2 vpos ) 
 {
     if(sun_tilt <= 0) {return 0;};
     if(! HasShadow)   {return 1;}; 
-    bool2 dither2x2 = frac(vpos / 2) ; // < 0.25
 
+    bool2 ditherblock = frac(vpos / 2) < 0.25 ;
+    float2 SM01T = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
+    float2 UVlerpw = frac(ShadowProj.xy / SM01T.y);
+    float object_depth = ShadowProj.z - 1.0 / 512.0 ;
+    float2 SMUV = (ditherblock)? +1 : -1 ;
+    SMUV = SMUV * SM01T.y + ShadowProj.xy ;
+
+    float4 fourSamples = float4(   //四个角的阴影图深度
+        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.xx)).x ,
+        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.xy)).x ,
+        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.yx)).x ,
+        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.yy)).x 
+    );  // LU,LD,RU,RD (00,01,10,11) 
+    bool4 fourTests = (fourSamples > object_depth) ; //阴影比物体离阳光更远，则有阳光
+    fourSamples = (float4)fourTests ;
+    //双线性插值
+    float2 bilinearLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
+    float  bilinearUD = lerp(bilinearLR.x   , bilinearLR.y   , UVlerpw.y);
+
+    return bilinearUD ;
 }
 
 float hp_invshadow_single ( float3 ShadowProjection, float sun_tilt )  
@@ -194,7 +212,7 @@ float hp_invshadow_single ( float3 ShadowProjection, float sun_tilt )
     if(sun_tilt <= 0) {return 0;};
     if(! HasShadow)   {return 1;}; 
 
-    float3 realShadowUV = float3(0.5, 0.5, -1) 
+    float3 realShadowUV = float3(0.5, 0.5, -4) 
     * Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w 
     + ShadowProjection.xyz ;
     float ShadowDepth = tex2D(ShadowMapSamplerLinear, realShadowUV.xy);
@@ -207,7 +225,7 @@ float hp_invshadow_single ( float3 ShadowProjection, float sun_tilt )
 
 float hp_invshadow_easy ( float3 ShadowProjection )  
 {
-    float3 realShadowUV = float3(0.5, 0.5, -1) 
+    float3 realShadowUV = float3(0.5, 0.5, -4) 
     * Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w 
     + ShadowProjection.xyz ;
     float ShadowDepth = tex2D(ShadowMapSamplerLinear, realShadowUV.xy);
@@ -223,7 +241,7 @@ float3 hp_dynamic_cloud_reflection(float2 pixelcloudUV, float3 R, float3 Lsun)
     UVbias += pixelcloudUV ;
     float3 cloudcolor = tex2D(CloudTextureSampler, UVbias);
     float3 skycolor_multplier = lerp( 1, cloudcolor, saturate(R.z) );
-    skycolor_multplier *= skycolor_multplier ;
+    skycolor_multplier *= skycolor_multplier ; //gamma
     return skycolor_multplier ;
 }
 
@@ -277,28 +295,25 @@ float hp_specdist(float glossiness, float3 R, float3 L)
     return  specdist ; //spec multiply is not here
 }
 
-float hp_specdist_simple(int exponent, float3 R, float3 L)
+float hp_specdist_simple(float3 R, float3 L)
 {
     float cosRL = dot(R,L) * 0.5 + 0.5 ;
-    float specdist = pow(cosRL , exponent) ;
-
+    float specdist = pow(cosRL , 8) ;
     return specdist ;
 }
 
-//基于目光与光源，而不是半程向量的菲涅尔效应，虽然不写实但更有表现力，也省一次开方
-float hp_fresnel_old(float3 L, float3 V, float F0)
+float hp_specdist_power(float exponent, float3 R, float3 L)
 {
-    float lerpw = saturate(dot(L, -V)) ;
-    float fresnelLV = lerp(F0, 1, (lerpw * lerpw) );
-    return fresnelLV ;
-};
+    float cosRL = saturate(dot(R,L));
+    float specdist = pow(cosRL , exponent) ;
+    return specdist ;
+}
 
-//另一种菲涅尔计算方式，曲线更柔和
-float hp_fresnel(float3 L, float3 V, float F0)
+//基于目光与光源，而不是半程向量的菲涅尔效应，曲线更柔和
+float hp_fresnel(float3 L, float3 V, float F0, int exponent)
 {
-    float cosLV = dot( L , V ) ;
-    float lerpw = (1- cosLV)/2 ;
-    lerpw = pow (lerpw, 6); //8 ? 6?
+    float lerpw = dot( L , -V ) * 0.5 + 0.5 ;
+    lerpw = pow (lerpw, exponent); //8 ? 6?
     float fresnelLV = lerp(F0, 1, lerpw);
     return fresnelLV ;
 };
@@ -306,18 +321,24 @@ float hp_fresnel(float3 L, float3 V, float F0)
 
 
 //用法线图XY算出Z向量
-float3 hp_normalmapper(float2 TEXtangent) 
+float3 hp_normalmapper(float2 TEXtangent, float tangent_xy_mult) 
 {
     float3 nrm = float3(TEXtangent ,1 ) ;
     nrm.xy = nrm.xy * 2 -1 ;
     nrm.xy *= tangent_xy_mult ;
-
-    float tiltradius = dot(nrm.xy, nrm.xy);
-    nrm.z = saturate(2 - tiltradius ) ; 
+    //float tiltradius = dot(nrm.xy, nrm.xy);
+    //nrm.z = saturate(2 - tiltradius ) ; 
     return nrm ;
 };
 
-
+float3 hp_getAccentLight ()
+{
+    float3 biggeraccent = max(DirectionalLight[1].Color , DirectionalLight[2].Color);
+    #if defined(_3DSMAX_)
+    biggeraccent = PV_accentlight ;
+    #endif
+    return biggeraccent ;
+}
 
 
 float3 hp_fake_irradiance( float3 groundcolor, float3 skycolor, float NZ)
@@ -332,23 +353,69 @@ float3 hp_fake_skybox( float3 groundcolor, float3 skycolor, float RZ, float glos
     return lerp(groundcolor, skycolor, lerpw);
 }
 
+//skyupcolor *= hp_dynamic_cloud_reflection(i.FogCloudUV.zw ,  R,  Lsun);
+#ifdef IS_BUILDNG
+float4 hp_new_damage_mix ( float2 dmgUV, float bonealpha)
+{
+    if(bonealpha > 0.5){return float4(0,0,1,1);};
+
+    float4 dmgtex = tex2D(DamagedTextureSampler , dmgUV);
+    //float2 burnyellow = saturate(1 - dmgtex.w * float2(1,2)) ;
+    float burnred = pow(1 - dmgtex.w , 2) ; 
+    float burngreen = saturate(burnred *2 -1)  ; 
+    float darken = pow(dmgtex.g , 2) ;
+    float alphamult = dmgtex.w ;
+
+    return float4(burnred, burngreen, darken, alphamult);
+} //clip w-0.125  -> mult z  -> plus xy, 
+#endif
+
+
+float PLdecayfactor(float rangeMIN, float rangeMAX, float rangeTHIS )
+{
+    float dist_to_outer = rangeMAX - rangeTHIS ;
+    float decayfull = dist_to_outer / rangeMAX ;
+    float decayshort = dist_to_outer / (rangeMAX - rangeMIN) ;
+    decayshort = pow( decayshort, 4);
+
+    return min(decayfull, decayshort) ;
+}
+
 float4 hp_saturation_luminance(float3 inputcolor, float margin)
 {   
     //float margin = sensitivity255 / 256 ;
     float3 colortone = inputcolor + margin ;
-    float brightness = dot(colortone , (1.0 / 3.0 ));
+    float brightness = dot(colortone , 1) / 3;
     colortone /= brightness ;
-    //brightness -= margin ;
+    brightness -= margin ;
     return float4(colortone, brightness);
 }
 
 float3 hp_getColorTone(float3 inputcolor)
 {   
-    float3 colortone = inputcolor + (8.0 / 256.0) ;
-    float brightness = dot(colortone , float(1.0 / 3.0 ));
+    float3 colortone = inputcolor + (8.0 / 256) ;
+    float brightness = dot(colortone , 1) / 3;
     colortone /= brightness ;
     return colortone;
 }
+
+
+
+float4 hp_stealthVFX (float3 V, float3 N, float3 texcolor, float otheralpha, float vpos)
+{
+    float EYEtilt = dot(N , V);
+    EYEtilt = 1- EYEtilt * EYEtilt ;
+    bool scanline = frac(vpos / 3 ) < 0.25; // + Time
+    float3 realhc = (HasRecolorColors)? RecolorColor : 1 ;
+    float3 edgemask = (scanline)? (EYEtilt * realhc) : pow(EYEtilt, 4) ;
+
+    float4 OUTCOLOR ;
+    OUTCOLOR.xyz = texcolor * 0.5 + edgemask * (1.25 - OpacityOverride) ;
+    OUTCOLOR.w = OpacityOverride * otheralpha ;
+    return OUTCOLOR ;
+}
+
+
 
 /* 
 废弃代码===========================

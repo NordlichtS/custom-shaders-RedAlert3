@@ -2,8 +2,17 @@
 //  #pragma warning(disable: 3206)
 
 #define ENV_CUSTOM
+//#define USE_IRRADIANCE_BOX
 
 #include "PBR3-vsps.FXH"
+
+
+
+float tangent_xy_mult //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。
+<   string UIName = "tangent_xy_mult"; 
+    float UIMax = 4; float UIMin = -4; float UIStep = 0.1; 
+> = -1.5 ;  //RA3默认是反的dx标准
+
 
 
 float MinRoughness //最低粗糙度（要用倒数更精确吗？）
@@ -16,7 +25,10 @@ float reflectivity_cutoff //非金属反射度的梯度，生效范围阈值为�
     float UIMax = 8; float UIMin = 0; float UIStep = 0.25; 
 > = { 2 }  ; //小于1则对所有非金属生效，大于1则仅对很粗糙部位生效。此值越大，生效范围越窄
 
-
+float GlowAmplitude //最大发光倍数，(如果写负数会怎样?)
+<   string UIName = "GlowAmplitude"; 
+    float UIMax = 8; float UIMin = 0; float UIStep = 0.25; 
+> = 3 ; 
 
 
 /*
@@ -95,12 +107,11 @@ float4 PS_H_PBR_CORONA (PS_H_input i) : COLOR
 
   //世界法线
     float3 N = i.WorldN ;
-    if(tangent_xy_mult != 0) //是否从nrm贴图获取
-    {
-    N.xyz = hp_normalmapper(nrm.xy) ;
-    float3x3 TangentSpaceToWorldMatrix = float3x3(i.WorldT, i.WorldB, i.WorldN) ;
+    //if(tangent_xy_mult != 0) { //是否从nrm贴图获取
+    N.xyz = hp_normalmapper(nrm.xy, tangent_xy_mult) ;
+    float3x3 TangentSpaceToWorldMatrix = float3x3(i.WorldB, i.WorldT, i.WorldN) ;
     N = mul(N, TangentSpaceToWorldMatrix) ;
-    };
+    //};
     N = normalize(N); //长度单位化，这一步很重要
 
   //世界空间的view vector，与目光反射
@@ -111,13 +122,14 @@ float4 PS_H_PBR_CORONA (PS_H_input i) : COLOR
 
   //环境光相关 
     float3 skybox_color = getSKYBOXcolor(R, roughness, AOchannel);
-    float3 irradiance_color = getIRRADIANCEcolor(N, AOchannel);
+    float3 irradiance_color = AmbientLightColor * AOchannel * AOchannel ; 
+    //getIRRADIANCEcolor(N, AOchannel);
 
     float3 ambientALL = float3(0,0,0) ; //环境光BRDF
     //ambient DIFF
     ambientALL += irradiance_color * difcolor * ambient_diff_mult ; 
     //ambient SPEC
-    ambientALL += skybox_color * speccolor * ambient_spec_mult * hp_fresnel(R, V, F0); 
+    ambientALL += skybox_color * speccolor * ambient_spec_mult * hp_fresnel(R, V, F0, 6); 
 
   //阳光相关  
     float3 Lsun     = DirectionalLight[0].Direction.xyz ;
@@ -131,15 +143,16 @@ float4 PS_H_PBR_CORONA (PS_H_input i) : COLOR
     float  sun_tilt  = dot(N,Lsun) ;
     SUNcolor *= hp_invshadow_single(i.ShadowPROJ.xyz , sun_tilt);
     //shadow helper also return 0 for backface, 1 for no shadow
-    #ifndef _3DSMAX_ //高画质都有云，但预览没有
-    SUNcolor *= tex2D(CloudTextureSampler, i.FogCloudUV.zw);
+    #ifndef _3DSMAX_ //高画质都有云和影子，但预览没有
+    float3 cloudcolor = tex2D(CloudTextureSampler, i.FogCloudUV.zw);
+    SUNcolor *= cloudcolor * cloudcolor ;
     #endif
 
     float3 sunALL = float3(0,0,0) ;  //阳光BRDF
     //sun diff
     sunALL += difcolor * sun_tilt * diffuse_mult ;
     //sun spec
-    sunALL += speccolor * hp_specdist(glossiness, R, Lsun) * hp_fresnel(Lsun, V, F0) * specbase_mult;
+    sunALL += speccolor * hp_specdist(glossiness, R, Lsun) * hp_fresnel(Lsun, V, F0, 4) * specbase_mult;
     sunALL *= SUNcolor ;
 
   //点光源BRDF
@@ -174,8 +187,8 @@ float4 PS_H_PBR_CORONA (PS_H_input i) : COLOR
       float3 thisBRDF = float3(0,0,0) ;
       //pl diff
       thisBRDF += difcolor * PLtilt * diffuse_mult ; 
-      //pl spec
-      thisBRDF += speccolor * hp_specdist(glossiness, R, PLL) * hp_fresnel(PLL, V, F0) * specbase_mult ;
+      //pl spec    // * hp_fresnel(PLL, V, F0, 2)
+      thisBRDF += speccolor * hp_specdist(glossiness, R, PLL)  * specbase_mult ; 
       //pl color
       thisBRDF *= PLcolor * decaymult;
 

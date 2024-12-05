@@ -24,9 +24,13 @@ string DefaultParameterScopeBlock = "material";
 int _SasGlobal : SasGlobal  
 <
     int3 SasVersion = int3(1, 0, 0);
-    string SasEffectAuthor = "EALA, lanyi, Nordlicht, Himeko, badsheen";
+    //string SasEffectAuthor = "EALA, lanyi, Nordlicht, Himeko, badsheen";
     string UIWidget = "None";
+#ifdef IS_BASIC_W3D_SHADER
+    int MaxLocalLights = 4; //3
+#else
     int MaxLocalLights = 8;
+#endif
     int MaxSupportedInstancingMode = 1;
 > = 0;
 //先留着吧
@@ -47,8 +51,11 @@ shared float3 RecolorColor
 //透明度整体修改
 shared float OpacityOverride 
 : register(vs, c1) : register(ps, c1)
-<   bool unmanaged = true;> 
-= 1.0;
+<   bool unmanaged = true;
+    string UIName = "PV_OpacityOverride"; 
+    float UIMax = 1; float UIMin = 0; float UIStep = 0.1; 
+    bool ExportValue = false;
+> = 1;
 
 //谭雅炸弹的染色，还有鼠标点击变亮
 shared float3 TintColor 
@@ -58,7 +65,7 @@ shared float3 TintColor
 
 //据说是寄存器占位，用来防止鼠标颜色BUG的（原版只有dafaultw3d里有）
 shared float4 EdgeFadeOut 
-: register(c3) 
+: register(vs, c3) : register(ps, c3)
 <   bool unmanaged = true;> 
 = 0;
 
@@ -170,6 +177,7 @@ float2 MapCellSize
 <   string UIWidget="None"; string SasBindAddress = "Terrain.Map.CellSize";>
 = { 10, 10 };
 
+//float3 NoCloudMultiplier <bool unmanaged = 1;> = { 1, 1, 1 };
 
 
 

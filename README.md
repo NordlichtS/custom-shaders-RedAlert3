@@ -42,14 +42,14 @@ up to 8 nearby point lights can be received by a single drawcall / object per fr
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/multi%20point%20lights%2003.png )
 Buildings with windows is a nice sample to observe. Notice that Fresnel effect and normal map also play big roles here.
 
-as for the specular in BRDF (bi-directional reflection distribution function) i used a tricky approach: instead of calculating Half-way vector for every light source, I calculate the single Reflection vector based on View vector (yes the same vector that you use to sample skybox cube texture for envirnmental reflection) And compare the angle between it and other Light vectors. In fact i don't even compare the angles, but its Cosine, its function curve is pretty close to parabel. This can save a lot of computation power especially as point light count increases. 
+as for the specular in BRDF (bi-directional reflection distribution function) i used a tricky approach: instead of calculating Half-way vector for every light source, I calculate the single Reflection vector based on View vector (yes the same vector that you use to sample skybox cube texture for envirnmental reflection) And compare the angle (actually cosine from dot product) between it and other Light vectors. This can save a lot of computation power especially as point light count increases. 
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/helperfunctions.png )
 Fresnel effect is also more obvious, though less realistic compared to the popular schlick approximation, i like the artstyle more.
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/fresnel.png )
 
 ====(side project)====
 
-I accidentially read across this [input semantic for pixel shader](https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-semantics#direct3d-9-vpos-and-direct3d-10-sv_position)  and realized, by using screen-space position as texture sampling coordinate, i can show the "protal to cosmos" visual effects, inspired by the "blade of no thought" vfx from genshin impact.
+I accidentially read across this [input semantic for pixel shader](https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-semantics#direct3d-9-vpos-and-direct3d-10-sv_position)  and realized, by using screen-space position as texture sampling coordinate, i can show the "protal to cosmos" visual effects, inspired by the blade of no thought vfx from a certain anime game.
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/starry%2001.png ) 
 this shader have one for objects and one for laser mesh. Named "starry" in this repo
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/starry%20laser%2001.png) 
