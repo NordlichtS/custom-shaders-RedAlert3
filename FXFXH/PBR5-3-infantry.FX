@@ -1,11 +1,19 @@
 #define IS_BASIC_W3D_SHADER
+#define ALLOW_STEALTH
+//#define ALLOW_HC_INVERT
+
+
 
 #include "PBR3-vsps.FXH"
 
-// fxc.exe /O2 /T fx_2_0 /Fo   infantry.fxo   PBR5-3-infantry.FX
+#ifdef ALLOW_HC_INVERT
+bool HC_invert <string UIName = "HC_invert";> = 0;
+#endif
 
-bool HC_invert //反转阵营色通道
-<string UIName = "HC_invert";> = 0;
+/*
+fxc.exe /O2 /T fx_2_0 /Fo   infantry.fxo   PBR5-3-infantry.FX
+*/
+
 
 /*
 bool HC_glow //阵营色发光 
@@ -39,16 +47,21 @@ float4 PS_H_infantry (PS_infantry_input i) : COLOR
 
 
   //hc mix
-    float HCchannel = (HC_invert)? (1 - texcolor.w) : texcolor.w ;
-    HCchannel = (HasRecolorColors)? HCchannel : 0 ;
+    float HCchannel = texcolor.w ;
+  #ifdef ALLOW_HC_INVERT
+    HCchannel = (HC_invert)? (1 - texcolor.w) : texcolor.w ;
+  #endif
+    //HCchannel = (HasRecolorColors)? HCchannel : 0 ;
     float3 hcmask = lerp( float3(1,1,1), RecolorColor, HCchannel);
     texcolor.xyz *= lerp(texcolor.xyz , 1 , HCchannel); //gamma without hc
     texcolor.xyz *= hcmask * hcmask ; //squared hc mix
 
+  #ifdef ALLOW_STEALTH
     if(OpacityOverride < 0.985){
         float3 V = hp_ps_getViewVector(i.WorldP) ;
-        return hp_stealthVFX(V, N, texcolor.xyz , 1, i.vpos.y);
+        return hp_stealthVFX(dot(V,N), texcolor.xyz , 1, i.vpos.y, RecolorColor);
     };
+  #endif
 
   //about ambient
     float3 groundcolor = AmbientLightColor;
@@ -166,6 +179,18 @@ technique INFANTRYmax
         AlphaBlendEnable = 0 ;
         AlphaTestEnable = 0 ;
     }
+    pass p1 //outline
+    {
+        VertexShader = compile vs_3_0 VS_outline_3dsmax(); 
+        PixelShader  = compile ps_3_0 PS_outline();    
+        ZEnable = 1;
+        ZFunc = 4;
+        ZWriteEnable = 0;
+        CullMode = 3; // reverse
+        AlphaBlendEnable = 1 ;
+        AlphaTestEnable = 1 ;
+    }
+
 }
 #endif
 
@@ -193,7 +218,7 @@ technique _CreateShadowMap
     ZEnable = 1;
     ZFunc = 4;
     ZWriteEnable = 1;
-    CullMode = 3; //only render far face
+    CullMode = 3 ; //only render far face
     AlphaBlendEnable = 0;
     AlphaTestEnable = 0;
     } 

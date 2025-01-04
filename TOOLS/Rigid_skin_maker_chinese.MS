@@ -51,7 +51,7 @@ fn copyAndPrepareGeometry = (
 
 -- 第三步，在世界坐标中心创建一个base小方块，转成可编辑多边形
 fn createBaseSkinWithDummy = (
-    local dummy = Box width:1 length:1 height:0.25 wirecolor:green
+    local dummy = Box width:0.0001 length:0.0001 height:0.0001 wirecolor:green
     convertToPoly dummy
     dummy.name = "NEWSKIN"
     dummy  -- Return the base object with dummy geometry retained

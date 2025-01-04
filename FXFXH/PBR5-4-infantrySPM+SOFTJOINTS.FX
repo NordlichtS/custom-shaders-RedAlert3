@@ -1,10 +1,9 @@
 //#define _3DSMAX_
-#define IS_BUILDNG
-//#define PULSE_GLOW
-//#define HAS_GLOW  //FORBID THIS ALSO REMOVE GLASS
+//#define IS_BUILDNG
+//#define HAS_GLOW  
 //#define IGNORE_NRM
 /*
-fxc.exe /O2 /T fx_2_0 /Fo   BUILDING.fxo   PBR5-2-vehicle-GEN2MOD.FX
+fxc.exe /O2 /T fx_2_0 /Fo   buildingsgeneric.fxo   PBR5-2-vehicle-GEN2MOD.FX
 */
 #pragma warning(disable: 3206)
 
@@ -37,11 +36,10 @@ struct PS_H_input
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
     float3 WorldP : TEXCOORD3;  //世界空间位置
     float3 WorldN : TEXCOORD4_centroid; //世界法线Z
-    float3 WorldT : TEXCOORD5_centroid; //世界切线Y
-    float3 WorldB : TEXCOORD6_centroid; //世界切线X
+
 };
 
-float4 PS_H_GEN2MOD_SKETCH (PS_H_input i) : COLOR 
+float4 PS_H_GEN2MOD_NOTGT (PS_H_input i) : COLOR 
 {
   float4 OUTCOLOR = i.VertexColor; //安全起见先initialize
 
@@ -65,35 +63,19 @@ float4 PS_H_GEN2MOD_SKETCH (PS_H_input i) : COLOR
 
   //拿出主贴图 (GEN 2 MOD )
     float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
-    float4 nrm = tex2D(NormalMapSampler,       i.MainTexUV.xy );
     float4 spm = tex2D(SpecMapSampler,         i.MainTexUV.xy );
     clip(dif.w - 0.5); 
-    #ifdef IGNORE_NRM
-    nrm = float4(0,0,1,1);
-    #endif
+
+    //float4 nrm = tex2D(NormalMapSampler,       i.MainTexUV.xy );
 
   //兼容原版
-
-    #ifndef HAS_GLOW //G2MOD
+    #ifndef HAS_GLOW
     spm.g = 0 ;
     #endif
 
 
-    float4 buildingDMG = float4(0,0,1,1);
-    #ifdef IS_BUILDNG //建筑损伤
-    buildingDMG = hp_new_damage_mix(i.MainTexUV.zw , i.VertexColor.w );
-    #endif
-
   //有用的向量
-    float3 N = float3(0,0,1); //i.WorldN ;
-    N.xy = (nrm.xy * 2 - 1 ) * tangent_mult ;
-    float3x3 TangentSpaceToWorldMatrix = float3x3(i.WorldB, i.WorldT, i.WorldN) ; //T B exchanged!
-    N = mul(N, TangentSpaceToWorldMatrix) ;
-    N = normalize(N); //长度单位化，这一步很重要
-    #ifdef IGNORE_NRM
-    N = normalize(i.WorldN);
-    #endif
-
+    float3 N = normalize(i.WorldN);
     float3 V = hp_ps_getViewVector(i.WorldP) ;
     float3 R = reflect(-V , N) ; //input light vector is towards fragment!
     float  EYEtilt = dot(V , N) ;
@@ -106,8 +88,7 @@ float4 PS_H_GEN2MOD_SKETCH (PS_H_input i) : COLOR
     dif.xyz *= lerp(dif.xyz , 1 , HCchannel); //gamma without hc
     dif.xyz *= hcmask ;//* hcmask ; //squared hc mix
 
-    //if(OpacityOverride < 0.985) //stealth
-    //{return hp_stealthVFX(EYEtilt, dif.xyz , 1, i.vpos.y, realHC);}; 
+
 
     float4 colortone = hp_saturation_luminance(dif.xyz, 1.0/16 );
 
@@ -142,9 +123,9 @@ float4 PS_H_GEN2MOD_SKETCH (PS_H_input i) : COLOR
     #endif
 
     float  sun_tilt  = dot(N,Lsun) ;
+    //SUNcolor *= hp_invshadow_dither(i.ShadowPROJ.xyz , sun_tilt, i.vpos);
     SUNcolor *= hp_invshadow_bilinear(i.ShadowPROJ.xyz , sun_tilt) ;
-    // hp_invshadow_dither(i.ShadowPROJ.xyz , sun_tilt, i.vpos);
-    //shadow helper also return 0 for backface, 1 for no shadow
+
     #ifndef _3DSMAX_ //高画质都有云，但预览没有
     float3 cloudcolor = tex2D(CloudTextureSampler, i.FogCloudUV.zw);
     SUNcolor *= cloudcolor * cloudcolor ;
@@ -210,7 +191,7 @@ float4 PS_H_GEN2MOD_SKETCH (PS_H_input i) : COLOR
       //pl diff
       thisBRDF += diffcolor * PLtilt  ; 
       //pl spec  
-      thisBRDF += speccolor * hp_specdist(glossiness, R, PLL) * specbase_mult * hp_fresnel(PLL, V, spmLowPart, 4) ;
+      thisBRDF += speccolor * hp_specdist(glossiness, R, PLL) * specbase_mult ;//* hp_fresnel(PLL, V, spmLowPart, 4) ;
       //pl color
       thisBRDF *= PLcolor * PLdecayfactor(PLrangeMIN, PLrangeMAX, PLdist);
 
@@ -222,17 +203,16 @@ float4 PS_H_GEN2MOD_SKETCH (PS_H_input i) : COLOR
   //最终混色
     OUTCOLOR.xyz = ambientALL + sunALL + PLtotal ; //BRDF
     OUTCOLOR.xyz *= dif.w ; //make alpha edge darker
-    OUTCOLOR.xyz *= buildingDMG.b ;
-    OUTCOLOR.xy  += buildingDMG.xy ;
-    OUTCOLOR.xyz *= TintColor ;
 
     #ifndef _3DSMAX_ //预览没有迷雾
     OUTCOLOR.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;
     #endif
+    
     #ifdef HAS_GLOW
     OUTCOLOR.xyz += GlowMapRGB ; //原版可能要删了这个
     #endif
 
+    OUTCOLOR.xyz *= TintColor ;
 
     OUTCOLOR.w = 1 ; // i.VertexColor.w * OpacityOverride ;
 
@@ -242,36 +222,27 @@ float4 PS_H_GEN2MOD_SKETCH (PS_H_input i) : COLOR
 //高画质PBR pixel shader结束====================
 
 int VSchooserExpr() 
-{ return clamp(NumJointsPerVertex, 0, 1) ; }
+{ return clamp(NumJointsPerVertex, 0, 2) ; }
 
-VertexShader VS_H_Array[2] = {
-    compile vs_3_0 VS_H_00skin(), 
-    compile vs_3_0 VS_H_11skin(), 
-    //compile vs_3_0 VS_L_22skin(), //NO TGT
+
+VertexShader VS_infantry_Array[3] = {
+    compile vs_3_0 VS_L_00skin(), 
+    compile vs_3_0 VS_L_11skin(), 
+    compile vs_3_0 VS_L_22skin(), 
 };
 
-VertexShader VS_Shadow_Array[2] = {
+VertexShader VS_Shadow_Array[3] = {
     compile vs_2_0 VS_ShadowMaker_00skin(), 
     compile vs_2_0 VS_ShadowMaker_11skin(), 
-    //compile vs_2_0 VS_ShadowMaker_22skin(), 
+    compile vs_2_0 VS_ShadowMaker_22skin(), 
 };
-
-/*
-int PSstealthExpr()
-{  return (OpacityOverride < 0.985 )? 1 : 0 ; }
-
-PixelShader PS_H_Array[2] = {
-    compile ps_3_0 PS_H_GEN2MOD_SKETCH(),
-    compile ps_3_0 PS_vfx_stealth(),
-};
-*/
 
 #ifdef _3DSMAX_ //预览
 technique GEN2max
-{    pass p0 <string ExpressionEvaluator = "Objects";>
+{    pass p0 
     {
         VertexShader = compile vs_3_0 VSforMAX(); 
-        PixelShader = compile ps_3_0 PS_H_GEN2MOD_SKETCH();
+        PixelShader = compile ps_3_0 PS_H_GEN2MOD_NOTGT();
         ZEnable = 1;
         ZFunc = 4;
         ZWriteEnable = 1;
@@ -286,7 +257,7 @@ technique Default
 {    pass p0 <string ExpressionEvaluator = "Objects";>
   {
     VertexShader = VS_H_Array[ VSchooserExpr() ]; 
-    PixelShader  = compile ps_3_0 PS_H_GEN2MOD_SKETCH(); 
+    PixelShader  = compile ps_3_0 PS_H_GEN2MOD_NOTGT(); 
     ZEnable = 1;
     ZFunc = 4;
     ZWriteEnable = 1;
@@ -301,13 +272,11 @@ technique Default
 technique _CreateShadowMap
 {    pass p0    {
     VertexShader = VS_Shadow_Array[ VSchooserExpr()  ]; 
-
     PixelShader = compile ps_2_0 PS_ShadowMaker_NoAlphaTest();
-
     ZEnable = 1;
     ZFunc = 4;
     ZWriteEnable = 1;
-    CullMode = 3;
+    CullMode = 2;
     AlphaBlendEnable = 0;
     AlphaTestEnable = 0;
 } }

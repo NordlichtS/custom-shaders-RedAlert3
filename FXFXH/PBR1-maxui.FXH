@@ -66,10 +66,10 @@ sampler2D DiffuseTextureSampler
     MinFilter = 3; //Anisotropic
     MagFilter = 2;
     MipFilter = 2;
-    MaxAnisotropy = 8;
+    MaxAnisotropy = 4;
     AddressU = Wrap;
     AddressV = Wrap;
-    AddressW = Clamp;
+    //AddressW = Clamp;
 };
 sampler2D DiffuseEasySampler //给阴影图用的简便版
 <string Texture = "DiffuseTexture";> = sampler_state {
@@ -88,7 +88,7 @@ sampler2D SpecMapSampler
     MinFilter = 3; //Anisotropic
     MagFilter = 2;
     MipFilter = 2;
-    MaxAnisotropy = 8;
+    MaxAnisotropy = 4;
     AddressU = Wrap;
     AddressV = Wrap;
     //MIPMAPLODBIAS = -1 ;
@@ -109,6 +109,7 @@ sampler2D NormalMapSampler
     AddressV = Wrap;
 };
 
+#ifdef IS_BUILDNG
 texture DamagedTexture //建筑损伤图
 <string UIWidget ="None";>; 
 sampler2D DamagedTextureSampler 
@@ -129,6 +130,7 @@ sampler_state{
     MagFilter = 2;
     MipFilter = 1;
 };
+#endif
 
 #endif
 

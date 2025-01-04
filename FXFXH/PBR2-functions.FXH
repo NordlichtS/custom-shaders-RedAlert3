@@ -155,7 +155,7 @@ float hp_invshadow_bilinear ( float3 SMUV, float sun_tilt )
 
     float2 SM01T = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
     float2 UVlerpw = frac(SMUV.xy / SM01T.y);
-    float object_depth = SMUV.z - 1.0 / 512.0 ;
+    float object_depth = SMUV.z - SM01T.y ; //  1.0 / 512.0 ;
 
     float4 fourSamples = float4(   //四个角的阴影图深度
         tex2D(ShadowMapSampler, (SMUV.xy + SM01T.xx)).x ,
@@ -169,12 +169,18 @@ float hp_invshadow_bilinear ( float3 SMUV, float sun_tilt )
     float2 bilinearLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
     float  bilinearUD = lerp(bilinearLR.x   , bilinearLR.y   , UVlerpw.y);
     float lightmid = bilinearUD ; //* bilinearUD;
+
+    /*
     //对斜边的额外抗锯齿修复
-    
     float lightpixin4 = dot(fourSamples, 1);
     float lightlow  = (lightpixin4 < 1.5) ? lightmid : 0 ;
     float lighthigh = (lightpixin4 > 2.5) ? lightmid : 1 ;
     lightmid = lerp(lightlow, lighthigh, lightmid) ;
+    
+    lightmid = lightmid *2 -1 ;
+    lightmid = lightmid * lightmid * lightmid ;
+    lightmid = lightmid *0.5 + 0.5 ;
+    */
     
     return lightmid ;
 }
@@ -212,7 +218,7 @@ float hp_invshadow_single ( float3 ShadowProjection, float sun_tilt )
     if(sun_tilt <= 0) {return 0;};
     if(! HasShadow)   {return 1;}; 
 
-    float3 realShadowUV = float3(0.5, 0.5, -4) 
+    float3 realShadowUV = float3(0.5, 0.5, -2) 
     * Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w 
     + ShadowProjection.xyz ;
     float ShadowDepth = tex2D(ShadowMapSamplerLinear, realShadowUV.xy);
@@ -237,6 +243,9 @@ float hp_invshadow_easy ( float3 ShadowProjection )
 
 float3 hp_dynamic_cloud_reflection(float2 pixelcloudUV, float3 R, float3 Lsun)
 {
+  #ifdef _3DSMAX_
+    return float3(1,1,1);
+  #endif
     float2 UVbias = R.xy / R.z -  Lsun.xy / Lsun.z ;
     UVbias += pixelcloudUV ;
     float3 cloudcolor = tex2D(CloudTextureSampler, UVbias);
@@ -295,6 +304,15 @@ float hp_specdist(float glossiness, float3 R, float3 L)
     return  specdist ; //spec multiply is not here
 }
 
+float hp_specdist_patch(float glossiness, float3 R, float3 L)
+{
+    float specdist = dot(R,L) * glossiness - glossiness + 1 ;
+    specdist = saturate(specdist);
+    specdist = pow(specdist, 2) ; //smooth tail
+    specdist *= glossiness ; 
+    return  specdist ; //spec multiply is not here
+}
+
 float hp_specdist_simple(float3 R, float3 L)
 {
     float cosRL = dot(R,L) * 0.5 + 0.5 ;
@@ -302,7 +320,7 @@ float hp_specdist_simple(float3 R, float3 L)
     return specdist ;
 }
 
-float hp_specdist_power(float exponent, float3 R, float3 L)
+float hp_specdist_power(int exponent, float3 R, float3 L)
 {
     float cosRL = saturate(dot(R,L));
     float specdist = pow(cosRL , exponent) ;
@@ -352,23 +370,28 @@ float3 hp_fake_skybox( float3 groundcolor, float3 skycolor, float RZ, float glos
     float lerpw = saturate(RZ * glossiness  + 0.5 ); // * 0.8 ?
     return lerp(groundcolor, skycolor, lerpw);
 }
+    
+    
 
-//skyupcolor *= hp_dynamic_cloud_reflection(i.FogCloudUV.zw ,  R,  Lsun);
-#ifdef IS_BUILDNG
 float4 hp_new_damage_mix ( float2 dmgUV, float bonealpha)
 {
     if(bonealpha > 0.5){return float4(0,0,1,1);};
 
-    float4 dmgtex = tex2D(DamagedTextureSampler , dmgUV);
-    //float2 burnyellow = saturate(1 - dmgtex.w * float2(1,2)) ;
-    float burnred = pow(1 - dmgtex.w , 2) ; 
-    float burngreen = saturate(burnred *2 -1)  ; 
-    float darken = pow(dmgtex.g , 2) ;
-    float alphamult = dmgtex.w ;
+    float4 dmgtex = 1;
+  #ifdef IS_BUILDNG
+    dmgtex = tex2D(DamagedTextureSampler , dmgUV);
+  #endif
+    dmgtex = lerp(dmgtex, 1, bonealpha) ;
 
-    return float4(burnred, burngreen, darken, alphamult);
+    float burnred = 1 - dmgtex.w  ; 
+    float burngreen = saturate(burnred *2 -1)  ; 
+    float darken = dmgtex.g ;
+    float alphamult = (dmgtex.w > 0.125)? 1 : 0 ;
+    float4 alldmg = float4(burnred, burngreen, darken, alphamult);
+    alldmg.rgb *= alldmg.rgb ;
+
+    return alldmg ;
 } //clip w-0.125  -> mult z  -> plus xy, 
-#endif
 
 
 float PLdecayfactor(float rangeMIN, float rangeMAX, float rangeTHIS )
@@ -383,11 +406,10 @@ float PLdecayfactor(float rangeMIN, float rangeMAX, float rangeTHIS )
 
 float4 hp_saturation_luminance(float3 inputcolor, float margin)
 {   
-    //float margin = sensitivity255 / 256 ;
     float3 colortone = inputcolor + margin ;
     float brightness = dot(colortone , 1) / 3;
     colortone /= brightness ;
-    brightness -= margin ;
+    //brightness -= margin ;
     return float4(colortone, brightness);
 }
 
@@ -401,13 +423,12 @@ float3 hp_getColorTone(float3 inputcolor)
 
 
 
-float4 hp_stealthVFX (float3 V, float3 N, float3 texcolor, float otheralpha, float vpos)
+float4 hp_stealthVFX (float EYEtilt, float3 texcolor, float otheralpha, float vpos, float3 realHC)
 {
-    float EYEtilt = dot(N , V);
-    EYEtilt = 1- EYEtilt * EYEtilt ;
+    EYEtilt = saturate(1- EYEtilt)  ;
     bool scanline = frac(vpos / 3 ) < 0.25; // + Time
-    float3 realhc = (HasRecolorColors)? RecolorColor : 1 ;
-    float3 edgemask = (scanline)? (EYEtilt * realhc) : pow(EYEtilt, 4) ;
+    float3 edgemask = (scanline)? 1 : pow(EYEtilt, 3) ;
+    edgemask *= realHC * EYEtilt ;
 
     float4 OUTCOLOR ;
     OUTCOLOR.xyz = texcolor * 0.5 + edgemask * (1.25 - OpacityOverride) ;
@@ -415,7 +436,20 @@ float4 hp_stealthVFX (float3 V, float3 N, float3 texcolor, float otheralpha, flo
     return OUTCOLOR ;
 }
 
+float hp_nano_build(float bonealpha, float2 texUV)
+{
+    float2 gridint = abs(texUV) * 32 ;
+    float2 gridfrac = frac(gridint);
+    gridint -= gridfrac ;
+    gridfrac = abs(gridfrac -0.5) ;
 
+    float dist2grid = gridfrac.x + gridfrac.y ;
+    float currentscan = (1- bonealpha) * 32 * 32;
+    float lineup = dist2grid * 32 + gridint.y * 32 + gridint.x;
+    float scanalpha = (lineup - currentscan) /32  ;
+    //scanalpha = max(saturate(scanalpha), saturate(1 - dist2grid * 16));
+    return saturate(scanalpha) ;
+}
 
 /* 
 废弃代码===========================

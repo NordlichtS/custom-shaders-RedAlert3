@@ -22,6 +22,8 @@ struct VS_H_output
     float3 WorldN : TEXCOORD4_centroid; //世界法线Z
     float3 WorldT : TEXCOORD5_centroid; //世界切线Y
     float3 WorldB : TEXCOORD6_centroid; //世界切线X
+    //float4 CoordCLIP : TEXCOORD7;
+    //float4 CoordOBJ  : TEXCOORD8;
 };
 //如果PS不接受position或者需要别的变量比如VPOS，就在PS文件里新建一个结构
 //另外，_centroid modifier会导致贴图采样时gradient不准确，此处影响天空盒，可能得删了
@@ -248,7 +250,9 @@ struct VS_notgt_output  //
     float3 ShadowPROJ : TEXCOORD1; //XYZ阴影空间投影, （W 是顶点阴影的阳光？还是用Z存）
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
     float3 WorldP : TEXCOORD3;  //世界空间位置    
-    float3 WorldN : TEXCOORD4_centroid; //世界法线
+    float3 WorldN : TEXCOORD4;//_centroid; //世界法线
+    //float4 CoordCLIP : TEXCOORD7;
+    //float4 CoordOBJ  : TEXCOORD8;
 };
 
 //下面是没有切线空间的高画质VS。用uniform切换要不要阴影和云。
@@ -393,7 +397,7 @@ struct PS_notgt_input
     float3 ShadowPROJ : TEXCOORD1; //XYZ阴影空间投影, W弃用
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
     float3 WorldP : TEXCOORD3;  //世界空间位置
-    float3 WorldN : TEXCOORD4_centroid; //世界法线Z
+    float3 WorldN : TEXCOORD4;//_centroid; //世界法线Z
 };
 
 /*
@@ -556,20 +560,16 @@ float4 PS_ShadowMaker_Simple(PS_ShadowMaker_input i) : COLOR
 
 float4 PS_ShadowMaker_AlphaTest(PS_ShadowMaker_input i) : COLOR 
 {  
-  float alpha = tex2D(DiffuseEasySampler , i.MainTexUV.xy).w ;
-  alpha *= i.Valpha ;
-  clip(alpha - 0.5);
+  float alpha0 = tex2D(DiffuseEasySampler , i.MainTexUV.xy).w ;
+  float alpha1 = i.Valpha ;
+  #ifdef IS_BUILDNG
+  alpha1 = tex2D(DamagedEasySampler, i.MainTexUV.zw).w ;
+  alpha1 = lerp(1 , alpha1 , i.Valpha);
+  #endif
+  clip( min(alpha0, alpha1) - 0.5);
   return i.Sdepth ; 
 }
 
-float4 PS_ShadowMaker_DamageTest(PS_ShadowMaker_input i) : COLOR 
-{  
-  float alpha0 = tex2D(DiffuseEasySampler, i.MainTexUV.xy).w ;
-  float alpha1 = tex2D(DamagedEasySampler, i.MainTexUV.zw).w ;
-  alpha0 *= lerp(1 , alpha1 , i.Valpha);
-  clip(alpha0 - 0.5);
-  return i.Sdepth ; 
-}
 
 #endif 
 
@@ -578,15 +578,23 @@ float4 PS_ShadowMaker_DamageTest(PS_ShadowMaker_input i) : COLOR
 float4 VS_outline_3dsmax (VS_3dsmax_input  i) : POSITION 
 {
     float3 ObjSpaceLine = i.position.xyz + i.normal.xyz ;
-
+    //  物体空间到世界空间，再投影到clip space
     float4 ClipMesh = mul(float4(i.position.xyz , 1) , MAXwvp); 
     float4 ClipLine = mul(float4(ObjSpaceLine   , 1) , MAXwvp); 
-    float2 outline = normalize(ClipLine - ClipMesh) * ClipMesh.w ;
-    ClipMesh.xy += outline / 256 ;
+    ClipMesh.xyz /= ClipMesh.w ;
+    ClipLine.xyz /= ClipLine.w ;
+    float2 outline = normalize(ClipLine.xy  - ClipMesh.xy )  ;
+    ClipMesh.xy += outline / 128 ;
+    ClipMesh.xyz *= ClipMesh.w ; //从NDC空间转回clip space
 
     return ClipMesh;
-}
+};
 #endif
+
+/*
+    float2 outline = normalize(ClipLine - ClipMesh) * ClipMesh.w ;
+    ClipMesh.xy += outline / 512 ;
+*/
 
 float4 VS_outline_00skin (VS_00skin_notgt_input  i) : POSITION 
 {
@@ -598,8 +606,11 @@ float4 VS_outline_00skin (VS_00skin_notgt_input  i) : POSITION
     float3 WorldLine = WorldP + WorldN ;
     float4 ClipMesh = mul(float4(WorldP   , 1) , ViewProjection); 
     float4 ClipLine = mul(float4(WorldLine, 1) , ViewProjection); 
-    float2 outline = normalize(ClipLine - ClipMesh) * ClipMesh.w ;
-    ClipMesh.xy += outline / 512 ;
+    ClipMesh.xyz /= ClipMesh.w ;
+    ClipLine.xyz /= ClipLine.w ;
+    float2 outline = normalize(ClipLine.xy  - ClipMesh.xy )  ;
+    ClipMesh.xy += outline / 128 ;
+    ClipMesh.xyz *= ClipMesh.w ;
 
     return ClipMesh;
 };
@@ -618,8 +629,11 @@ float4 VS_outline_11skin (VS_11skin_notgt_input  i) : POSITION
     float3 WorldLine = WorldP + WorldN ;
     float4 ClipMesh = mul(float4(WorldP   , 1) , ViewProjection); 
     float4 ClipLine = mul(float4(WorldLine, 1) , ViewProjection); 
-    float2 outline = normalize(ClipLine - ClipMesh) * ClipMesh.w ;
-    ClipMesh.xy += outline / 512 ;
+    ClipMesh.xyz /= ClipMesh.w ;
+    ClipLine.xyz /= ClipLine.w ;
+    float2 outline = normalize(ClipLine.xy  - ClipMesh.xy )  ;
+    ClipMesh.xy += outline / 128 ;
+    ClipMesh.xyz *= ClipMesh.w ;
 
     return ClipMesh;
 };
@@ -646,8 +660,11 @@ float4 VS_outline_22skin (VS_22skin_notgt_input  i) : POSITION
     float3 WorldLine = WorldP + WorldN ;
     float4 ClipMesh = mul(float4(WorldP   , 1) , ViewProjection); 
     float4 ClipLine = mul(float4(WorldLine, 1) , ViewProjection); 
-    float2 outline = normalize(ClipLine - ClipMesh) * ClipMesh.w ;
-    ClipMesh.xy += outline / 512 ;
+    ClipMesh.xyz /= ClipMesh.w ;
+    ClipLine.xyz /= ClipLine.w ;
+    float2 outline = normalize(ClipLine.xy  - ClipMesh.xy )  ;
+    ClipMesh.xy += outline / 128 ;
+    ClipMesh.xyz *= ClipMesh.w ;
 
     return ClipMesh;
 };

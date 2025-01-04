@@ -256,7 +256,7 @@ sampler2D ShroudTextureSampler
     Texture = < ShroudTexture >;
     MinFilter = 2;
     MagFilter = 2;
-    MipFilter = 2;
+    MipFilter = 1;
     AddressU = 3;
     AddressV = 3;
 };
