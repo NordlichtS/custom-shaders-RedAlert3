@@ -29,16 +29,16 @@ struct PS_infantry_input
     float3 ShadowPROJ : TEXCOORD1; //XYZ阴影空间投影, W弃用
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
     float3 WorldP : TEXCOORD3;  //世界空间位置 ( no use ?)
-    float3 WorldN : TEXCOORD4_centroid; //世界法线Z
+    float3 WorldN : TEXCOORD4; //世界法线Z
 };
 
 float4 PS_H_infantry (PS_infantry_input i) : COLOR 
 {
-    clip(i.VertexColor.w - 0.25);
+    clip(i.VertexColor.w - 0.375);
     float4 OUTCOLOR = float4(0,0,0,1); 
 
     const float ambient_mult =  0.75 ; //环境光与天空盒diffuse
-    const float pointlight_mult =  1 ; //点光源整体亮度
+    //const float pointlight_mult =  1 ; //点光源整体亮度
     const float sunlight_mult =  1 ; //阳光亮度
 
     float3 N = normalize(i.WorldN) ; //!!!
@@ -120,7 +120,7 @@ float4 PS_H_infantry (PS_infantry_input i) : COLOR
 
       PLtotal += thisBRDF ; //叠加所有点光源
     };
-    PLtotal *= pointlight_mult ;
+    PLtotal *= 2 ;
 
     OUTCOLOR.xyz = ambientALL + sunALL + PLtotal ; //ALL REFLECTION (DIFF)
     OUTCOLOR.xyz *= texcolor ; //!!!
@@ -128,7 +128,7 @@ float4 PS_H_infantry (PS_infantry_input i) : COLOR
     #ifndef _3DSMAX_ //预览没有迷雾
     OUTCOLOR.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;
     #endif
-    OUTCOLOR.w = 1 ; // OpacityOverride * i.VertexColor.w ;
+    OUTCOLOR.w = 1; //i.VertexColor.w ; // OpacityOverride * i.VertexColor.w ;
 
     return OUTCOLOR;
 }
@@ -205,8 +205,9 @@ technique Default
         ZWriteEnable = 1; //
         CullMode = 2;
         AlphaFunc = 7;
-        AlphaTestEnable = 0;
-        //AlphaRef = 64;
+        AlphaTestEnable = 1;
+        //AlphaBlendEnable = 1;
+        AlphaRef = 64;
     }
 }
 
@@ -214,11 +215,11 @@ technique _CreateShadowMap
 {    pass p0    
     {
     VertexShader = VS_Shadow_Array[ VSchooserExpr()  ]; 
-    PixelShader  = compile ps_2_0 PS_ShadowMaker_NoAlphaTest();
+    PixelShader  = compile ps_2_0 PS_ShadowMaker_NoTexture();
     ZEnable = 1;
     ZFunc = 4;
     ZWriteEnable = 1;
-    CullMode = 3 ; //only render far face
+    CullMode = 2 ; //must cull front face, used to make depth buffer!
     AlphaBlendEnable = 0;
     AlphaTestEnable = 0;
     } 

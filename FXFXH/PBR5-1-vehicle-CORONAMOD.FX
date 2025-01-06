@@ -8,13 +8,6 @@
 
 
 
-float tangent_xy_mult //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。
-<   string UIName = "tangent_xy_mult"; 
-    float UIMax = 4; float UIMin = -4; float UIStep = 0.1; 
-> = -1.5 ;  //RA3默认是反的dx标准
-
-
-
 float MinRoughness //最低粗糙度（要用倒数更精确吗？）
 <   string UIName = "MinRoughness"; //MAXglossiness
     float UIMax = 0.50; float UIMin = 0.005; float UIStep = 0.005; 
@@ -108,7 +101,7 @@ float4 PS_H_PBR_CORONA (PS_H_input i) : COLOR
   //世界法线
     float3 N = i.WorldN ;
     //if(tangent_xy_mult != 0) { //是否从nrm贴图获取
-    N.xyz = hp_normalmapper(nrm.xy, tangent_xy_mult) ;
+    N.xyz = hp_normalmapper(nrm.xy, (-BumpScale)) ;
     float3x3 TangentSpaceToWorldMatrix = float3x3(i.WorldB, i.WorldT, i.WorldN) ;
     N = mul(N, TangentSpaceToWorldMatrix) ;
     //};

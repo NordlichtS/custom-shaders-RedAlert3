@@ -88,7 +88,7 @@ sampler2D SpecMapSampler
     MinFilter = 3; //Anisotropic
     MagFilter = 2;
     MipFilter = 2;
-    MaxAnisotropy = 4;
+    MaxAnisotropy = 8;
     AddressU = Wrap;
     AddressV = Wrap;
     //MIPMAPLODBIAS = -1 ;
@@ -104,10 +104,17 @@ sampler2D NormalMapSampler
     MinFilter = 2; //3 
     MagFilter = 2;
     MipFilter = 2;
-    MaxAnisotropy = 8;
+    MaxAnisotropy = 4;
     AddressU = Wrap;
     AddressV = Wrap;
 };
+
+float BumpScale //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。
+<   string UIName = "BumpScale(NRM strength)"; 
+    string UIWidget = "Slider"; 
+    float UIMin = 0; float UIMax = 8; 
+    float UIStep = 0.25;
+> =  2 ;
 
 #ifdef IS_BUILDNG
 texture DamagedTexture //建筑损伤图

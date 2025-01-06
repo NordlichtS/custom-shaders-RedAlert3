@@ -15,6 +15,8 @@ struct VS_H_output
 {
     float4 Position : POSITION;   //VS一定要输出的clip space渲染坐标
     float4 VertexColor : COLOR0;  //顶点颜色
+    float3 CoordOBJ  : COLOR1;   //物体或骨骼空间坐标， w= index
+    //float4 CoordCLIP : COLOR2;
     float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV, ZW是建筑损伤图 (并没有反)
     float3 ShadowPROJ : TEXCOORD1; //XYZ阴影空间投影, W弃用
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
@@ -22,8 +24,8 @@ struct VS_H_output
     float3 WorldN : TEXCOORD4_centroid; //世界法线Z
     float3 WorldT : TEXCOORD5_centroid; //世界切线Y
     float3 WorldB : TEXCOORD6_centroid; //世界切线X
-    //float4 CoordCLIP : TEXCOORD7;
-    //float4 CoordOBJ  : TEXCOORD8;
+
+
 };
 //如果PS不接受position或者需要别的变量比如VPOS，就在PS文件里新建一个结构
 //另外，_centroid modifier会导致贴图采样时gradient不准确，此处影响天空盒，可能得删了
@@ -54,6 +56,7 @@ VS_H_output VSforMAX(VS_3dsmax_input i)
     float4 WorldPosition = float4(0,0,0,1);
     o.ShadowPROJ = o.FogCloudUV = 0 ;
     o.VertexColor = i.color ;  //顶点颜色，opacity 放ps里去吧
+    o.CoordOBJ.xyz = i.position.xyz; //o.CoordOBJ.w = -1;
 
     float3 MAXtangent = i.tangent.xyz ;
     float3 MAXbinormal = i.binormal.xyz ;
@@ -97,7 +100,9 @@ VS_H_output  VS_H_00skin (VS_H_00skin_input  i)  //no bone skin
 
     float4 WorldPosition = float4(0,0,0,1);
     o.ShadowPROJ = o.FogCloudUV = 0 ;
-    o.VertexColor = i.color ;  //顶点颜色，opacity 放ps里去吧
+    o.VertexColor = i.color ;  
+    o.CoordOBJ.xyz = i.position.xyz; //o.CoordOBJ.w = -1;
+
 
     // 从object space 到 world space===========
 
@@ -136,6 +141,8 @@ VS_H_output  VS_H_11skin (VS_H_11skin_input  i)  //1 bone skin
     float4 WorldPosition = float4(0,0,0,1);
     o.ShadowPROJ = o.FogCloudUV = 0 ;
     o.VertexColor = i.color ;  
+    o.CoordOBJ.xyz = i.position.xyz; //o.CoordOBJ.w = i.blendindices.x;
+
 
     // 从object space 到 world space===========
 
@@ -224,6 +231,8 @@ VS_H_output  VS_H_22skin (VS_H_22skin_input  i)  //2 bone skin, with tangentfram
     o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;
 
     o.Position = mul(WorldPosition, ViewProjection); //给rasterizer的clip space坐标
+    o.CoordOBJ.xyz = WorldPosition.xyz - WorldBones[1].xyz ; //o.CoordOBJ.w = -1;
+
     return o;
 };
 
@@ -246,13 +255,14 @@ struct VS_notgt_output  //
 {
     float4 Position : POSITION;   //VS一定要输出的clip space渲染坐标
     float4 VertexColor : COLOR0;  //顶点颜色 
+    float3 CoordOBJ  : COLOR1;
+    //float4 CoordCLIP : COLOR2;
     float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
     float3 ShadowPROJ : TEXCOORD1; //XYZ阴影空间投影, （W 是顶点阴影的阳光？还是用Z存）
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
     float3 WorldP : TEXCOORD3;  //世界空间位置    
     float3 WorldN : TEXCOORD4;//_centroid; //世界法线
-    //float4 CoordCLIP : TEXCOORD7;
-    //float4 CoordOBJ  : TEXCOORD8;
+
 };
 
 //下面是没有切线空间的高画质VS。用uniform切换要不要阴影和云。
@@ -302,6 +312,8 @@ VS_notgt_output  VS_L_00skin (VS_00skin_notgt_input  i)//, uniform bool UseShado
     float4 WorldPosition = float4(0,0,0,1);
     o.ShadowPROJ = o.FogCloudUV = 0 ;
     o.VertexColor = i.color ;  //顶点颜色，opacity 放ps里去吧
+    o.CoordOBJ.xyz = i.position.xyz; //o.CoordOBJ.w = i.blendindices.x;
+
 
     // 从object space 到 world space===========
     o.WorldP = mul(float4(i.position.xyz, 1), World);
@@ -329,6 +341,8 @@ VS_notgt_output  VS_L_11skin (VS_11skin_notgt_input  i)//, uniform bool UseShado
     float4 WorldPosition = float4(0,0,0,1);
     o.ShadowPROJ = o.FogCloudUV = 0 ;
     o.VertexColor = i.color ;  
+    o.CoordOBJ.xyz = i.position.xyz; //o.CoordOBJ.w = i.blendindices.x;
+
 
     // 从object space 到 world space===========
     float4 This_Quaternion   = WorldBones[i.blendindices.x * 2 ];
@@ -383,6 +397,8 @@ VS_notgt_output  VS_L_22skin (VS_22skin_notgt_input  i)//, uniform bool UseShado
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
     o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;
     o.ShadowPROJ = getShadowMapUV( WorldPosition) ;
+
+    o.CoordOBJ.xyz = WorldPosition.xyz - WorldBones[1].xyz ; //o.CoordOBJ.w = -1;
     
     o.Position = mul(WorldPosition, ViewProjection); //给rasterizer的clip space坐标
     return o;
@@ -391,7 +407,6 @@ VS_notgt_output  VS_L_22skin (VS_22skin_notgt_input  i)//, uniform bool UseShado
 //中低画质的PS ====================
 struct PS_notgt_input
 {
-    //float4 Position : POSITION;   //VS一定要输出的clip space渲染坐标
     float4 VertexColor : COLOR0;  //顶点颜色
     float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
     float3 ShadowPROJ : TEXCOORD1; //XYZ阴影空间投影, W弃用
@@ -399,44 +414,6 @@ struct PS_notgt_input
     float3 WorldP : TEXCOORD3;  //世界空间位置
     float3 WorldN : TEXCOORD4;//_centroid; //世界法线Z
 };
-
-/*
-float4 PS_Objects_Low(PS_notgt_input i, uniform bool UseShadowAndCloud) : COLOR 
-{ 
-    float4 OUTCOLOR = i.VertexColor;
-    OUTCOLOR.a *= OpacityOverride ;
-
-    //拿出主贴图
-    float4 dif = tex2D(DiffuseTextureSampler, i.MainTexUV.xy );
-    float4 spm = tex2D(SpecMapSampler,        i.MainTexUV.xy );
-    float  HCchannel = (HasRecolorColors)? spm.b : 0 ;
-    float  GLOWchannel = spm.g ;
-
-    //初步整理下信息
-    if(AlphaTestEnable) { clip(dif.w - 0.5);  clip(i.VertexColor.w - 0.25); };    
-    //force enable main texture alpha
-    dif.xyz *= lerp(1 , RecolorColor , HCchannel);
-    float3 N = normalize(i.WorldN);
-
-    float3 sunlight = DirectionalLight[0].Color ;
-    sunlight *= dot(DirectionalLight[0].Direction , N);
-    sunlight = max(sunlight, 0);
-    if(UseShadowAndCloud)//低画质没影子？我能不能强行装上
-    {
-    sunlight *= hp_invshadow_easy(i.ShadowPROJ);
-    sunlight *= tex2D(CloudTextureSampler, i.FogCloudUV.zw);
-    };
-
-    OUTCOLOR.rgb = AmbientLightColor.rgb + sunlight.rgb  ; 
-    OUTCOLOR.rgb *= dif.xyz ; //乘上主贴图
-    OUTCOLOR.rgb *= TintColor ;
-    OUTCOLOR.rgb *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;
-
-    OUTCOLOR.rgb = lerp(OUTCOLOR.rgb, dif.xyz, GLOWchannel) ; //将军日冕 发光不一样
-
-    return OUTCOLOR;
-}
-*/
 
 
 
@@ -449,7 +426,7 @@ struct VS_ShadowMaker_output  //
     float4 Position : POSITION;   //VS一定要输出的clip space渲染坐标
     float  Sdepth : COLOR0;  //阴影空间里的深度
     float  Valpha : COLOR1;  //顶点alpha
-    float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
+    half4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
 };
 
 
@@ -488,7 +465,7 @@ VS_ShadowMaker_output VS_ShadowMaker_00skin(VS_ShadowMaker_00skin_input i)
     o.MainTexUV = float4(i.texcoord.xy , i.texcoordNEW.xy) ;
 
     WorldPosition.xyz = mul(float4(i.position.xyz, 1), World);
-    o.Valpha = i.color.w * OpacityOverride ;
+    o.Valpha = 1;//(OpacityOverride < 0.375)? 0 : 1 ;
     //以下是阴影空间投影
     o.Position = mul(WorldPosition, ViewProjection);
     o.Sdepth = o.Position.z / o.Position.w;
@@ -505,7 +482,7 @@ VS_ShadowMaker_output VS_ShadowMaker_11skin(VS_ShadowMaker_11skin_input i)
     float4 This_Quaternion   = WorldBones[i.blendindices.x * 2 ];
     float4 This_offset_alpha = WorldBones[i.blendindices.x * 2 + 1];
     WorldPosition.xyz = Quaternion_R( This_Quaternion , i.position.xyz) + This_offset_alpha.xyz ;
-    o.Valpha = This_offset_alpha.w * OpacityOverride ;
+    o.Valpha = This_offset_alpha.w;// * OpacityOverride ;
     //以下是阴影空间投影
     o.Position = mul(WorldPosition, ViewProjection);
     o.Sdepth = o.Position.z / o.Position.w;
@@ -527,7 +504,7 @@ VS_ShadowMaker_output VS_ShadowMaker_22skin(VS_ShadowMaker_22skin_input i)
     float4 That_offset_alpha = WorldBones[BoneIndex.y + 1];
     float3 that_WorldP = Quaternion_R( That_Quaternion , i.position1.xyz) + That_offset_alpha.xyz ;
     WorldPosition.xyz = lerp( that_WorldP , this_WorldP , i.blendweight.x) ;
-    o.Valpha = lerp(That_offset_alpha.w , This_offset_alpha.w , i.blendweight.x) * OpacityOverride ; 
+    o.Valpha = lerp(That_offset_alpha.w , This_offset_alpha.w , i.blendweight.x) ;//* OpacityOverride ; 
     //以下是阴影空间投影
     o.Position = mul(WorldPosition, ViewProjection);
     o.Sdepth = o.Position.z / o.Position.w;
@@ -544,32 +521,48 @@ struct PS_ShadowMaker_input  //
 {
     float  Sdepth : COLOR0;  //阴影空间里的深度
     float  Valpha : COLOR1;  //顶点alpha
-    float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
+    half4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
 };
 
 float4 PS_ShadowMaker_NoAlphaTest(PS_ShadowMaker_input i) : COLOR 
 {    return i.Sdepth ; }
 
-float4 PS_ShadowMaker_Simple(PS_ShadowMaker_input i) : COLOR 
-{  
-  clip(i.Valpha - 0.75);
-  return i.Sdepth ; 
+
+float4 PS_ShadowMaker_NoTexture(PS_ShadowMaker_input i) : COLOR 
+{  //for no textures, infantry or nano build
+    float realalpha = i.Valpha;
+  #ifdef IS_NANO_BUILDUP
+    realalpha = hp_nano_build(i.Valpha, i.MainTexUV.xy);
+  #endif
+    clip(realalpha - 0.375);
+    return i.Sdepth ; 
 }
 
 #ifndef IS_BASIC_W3D_SHADER
 
 float4 PS_ShadowMaker_AlphaTest(PS_ShadowMaker_input i) : COLOR 
 {  
-  float alpha0 = tex2D(DiffuseEasySampler , i.MainTexUV.xy).w ;
-  float alpha1 = i.Valpha ;
-  #ifdef IS_BUILDNG
-  alpha1 = tex2D(DamagedEasySampler, i.MainTexUV.zw).w ;
-  alpha1 = lerp(1 , alpha1 , i.Valpha);
-  #endif
-  clip( min(alpha0, alpha1) - 0.5);
-  return i.Sdepth ; 
-}
+    float realalpha = 1 ;
 
+    #ifdef ALLOW_CLIP_VERTEX_ALPHA
+    realalpha *= i.Valpha;
+    #endif
+
+    #ifdef ALLOW_CLIP_TEXTURE_ALPHA
+    realalpha *= tex2D(DiffuseEasySampler , i.MainTexUV.xy).w ;
+    #endif
+
+    #ifdef IS_BUILDNG
+    float dmgalpha = tex2D(DamagedEasySampler , i.MainTexUV.zw).w ;
+    //    dmgtex = (bonealpha < 0.375)? dmgtex : 1 ;
+    // max(bonealpha, dmgalpha)
+    dmgalpha = (i.Valpha < 0.375)? dmgalpha : 1;
+    realalpha *= dmgalpha ;
+    #endif
+
+    clip(realalpha - 0.375);
+    return i.Sdepth ; 
+}
 
 #endif 
 

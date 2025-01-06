@@ -1,29 +1,34 @@
 //#define _3DSMAX_
  #define DYNAMIC_CLOUD_REF
 // #define IGNORE_NRM
+// #define FORBID_PIPELINE_CONSTANT
+ #define ALLOW_CLIP_TEXTURE_ALPHA //always on except buildup
 
-// #define IS_BUILDNG
+ #define ALLOW_CLIP_VERTEX_ALPHA //all objects shader
+// #define IS_BUILDNG //only damage
 // #define SPMG_GLOWPULSE
- #define CAN_HAVE_HC
- #define ALLOW_STEALTH
-// #define IS_NANO_BUILDUP  //need disable depth write !
+// #define CAN_HAVE_HC
+// #define ALLOW_STEALTH
+// #define IS_NANO_BUILDUP  
 
 
 /*
 fxc.exe /O2 /T fx_2_0 /Fo   objectsgeneric.fxo   PBR5-6-objects-PATCH.FX
 fxc.exe /O2 /T fx_2_0 /Fo   buildingsgeneric.fxo   PBR5-6-objects-PATCH.FX
+
 fxc.exe /O2 /T fx_2_0 /Fo   buildingsjapanbuildup.fxo   PBR5-6-objects-PATCH.FX
 
 fxc.exe /O2 /T fx_2_0 /Fo   buildingsallied.fxo   PBR5-6-objects-PATCH.FX
-fxc.exe /O2 /T fx_2_0 /Fo   objectsallied.fxo   PBR5-6-objects-PATCH.FX
+fxc.exe /O2 /T fx_2_0 /Fo   buildingsjapan.fxo   PBR5-6-objects-PATCH.FX
+fxc.exe /O2 /T fx_2_0 /Fo   buildingssoviet.fxo   PBR5-6-objects-PATCH.FX
 
-buildingsjapan
-buildingssoviet
-objectsjapan
-objectssoviet
+fxc.exe /O2 /T fx_2_0 /Fo   objectsallied.fxo   PBR5-6-objects-PATCH.FX
+fxc.exe /O2 /T fx_2_0 /Fo   objectsjapan.fxo   PBR5-6-objects-PATCH.FX
+fxc.exe /O2 /T fx_2_0 /Fo   objectssoviet.fxo   PBR5-6-objects-PATCH.FX
+
 
 */
-#pragma warning(disable: 3206)
+//#pragma warning(disable: 3206)
 
 #include "PBR3-vsps.FXH" //WILL INCLUDE EVERYTHING
 
@@ -32,6 +37,7 @@ struct PS_H_input
 {
     float2 vpos : VPOS ; //screen pixel 
     float4 VertexColor : COLOR0;  //顶点颜色
+    float3 CoordOBJ  : COLOR1; 
     float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
     float3 ShadowPROJ : TEXCOORD1; //XYZ阴影空间投影, W弃用
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
@@ -43,14 +49,13 @@ struct PS_H_input
 
 float4 PS_H_PATCH (PS_H_input i) : COLOR 
 {
-  float4 OUTCOLOR = i.VertexColor; //安全起见先initialize
+  float4 OUTCOLOR = float4(0,0,0,1); //安全起见先initialize
+  
 
   //风格常数，编译前确定
 
     const float ambient_diff_mult =  0.5 ; //环境光与天空盒diffuse
     const float ambient_spec_mult =  1 ; //环境光与天空盒specular
-    const float tangent_mult = -2 ; 
-    const float maxglow = 4 ;
 
     float  temp1 ;
     float2 temp2 ;
@@ -67,15 +72,16 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
     float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
     float4 nrm = tex2D(NormalMapSampler,       i.MainTexUV.xy );
     float4 spm = tex2D(SpecMapSampler,         i.MainTexUV.xy );
-    //clip(dif.w - 0.5); 
+    //if(AlphaTestEnable) {clip(dif.w - 0.375); };
 
 
   //有用的向量
-    float3 N = float3(0,0,1); //i.WorldN ;
+    float3 N = float3(0,0,1); 
   #ifdef IGNORE_NRM
     N = i.WorldN;
   #else
-    N.xy = (nrm.xy * 2 - 1 ) * tangent_mult ;
+    N.xy = (nrm.xy * 2 - 1 )  ;
+    N.xy *= -BumpScale ;
     float3x3 TangentSpaceToWorldMatrix = float3x3(i.WorldB, i.WorldT, i.WorldN) ; //T B exchanged!
     N = mul(N, TangentSpaceToWorldMatrix) ;
   #endif
@@ -84,7 +90,8 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
     float3 V = hp_ps_getViewVector(i.WorldP) ;
     float3 R = reflect(-V , N) ; //input light vector is towards fragment!
     float  EYEtilt = dot(V , N) ;
-    if(EYEtilt <0) {R = -V ;} ;
+    R = (EYEtilt <0) ? -V : R ;
+    //if(EYEtilt <0) {R = -V ;} ;
 
 
   //条件编译功能
@@ -102,30 +109,55 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
   #ifdef SPMG_GLOWPULSE
     GlowMapRGB = RecolorColor * spm.g  ;
     GlowMapRGB *= (HasRecolorColors)? 2 : 0;
-    float GlowAmplitude = frac(Time /2 + i.MainTexUV.x) * 2 -1 ;
-    GlowMapRGB *= pow(GlowAmplitude, 8) ;
+    float GlowAmplitude = Time /2 + i.MainTexUV.x * dot(TintColor, 1) ;
+    GlowAmplitude = abs(frac(GlowAmplitude) * 2 -1) ;
+    GlowMapRGB *= saturate(GlowAmplitude *8 -7); //pow(GlowAmplitude, 8) ;
+  #endif
+
+    //clipping affected ! ===========
+  #ifdef ALLOW_CLIP_VERTEX_ALPHA
+    OUTCOLOR.w *= i.VertexColor.w ;
+  #endif
+
+  #ifdef ALLOW_CLIP_TEXTURE_ALPHA
+    OUTCOLOR.w *= dif.w ;
   #endif
 
     float4 buildingDMG = float4(0,0,1,1);
   #ifdef IS_BUILDNG //建筑损伤
     buildingDMG = hp_new_damage_mix(i.MainTexUV.zw , i.VertexColor.w );
+    OUTCOLOR.w *= buildingDMG.w ;
   #endif
 
   #ifdef ALLOW_STEALTH
+    //float4 stealthoutput = hp_stealthVFX(EYEtilt, dif.xyz , 1, i.vpos.y, realHC);
     if(OpacityOverride < 0.985) //stealth
     {return hp_stealthVFX(EYEtilt, dif.xyz , 1, i.vpos.y, realHC);};
+  #else
+    OUTCOLOR.w *= OpacityOverride ;
   #endif
 
-  //还原通道信息
-    float glossiness = spm.r * 8 + 1  ; //
-    float specbase_mult = 0.125 ;
+    half nanobuildupMASK = 1;
+  #ifdef IS_NANO_BUILDUP
+    nanobuildupMASK = hp_nano_build(i.VertexColor.w, i.MainTexUV.xy);
+    clip(nanobuildupMASK - 0.375); 
+  #else
+    if(AlphaTestEnable){clip(OUTCOLOR.w - 0.375);}
+  #endif
+
+
+  //还原通道信息 ========================
+    float glossiness = spm.r * 7 + 1  ; //
+    float specbase_mult = 1.5 / 8.0;
 
     float metalness = smoothstep(0.5 , 0.75 , (spm.r + spm.g)) ;
-    float4 colortone = hp_saturation_luminance(dif.xyz, 0.125 );
+    float4 colortone = hp_saturation_luminance(dif.xyz, 0.0625 );
 
     float3 diffcolor = dif.xyz * (1 - metalness);
-    float3 speccolor = lerp(1, colortone.rgb, metalness ) * spm.r ; //?
-    //float dir_f0 = lerp( 0.125, 1 , metalness);
+    float3 speccolor = lerp(1, colortone.rgb, metalness )  ; //?
+
+    float f0_dir = saturate(spm.r + spm.g) ;
+    float f0_env = colortone.w * metalness ;
 
   //阳光相关  
     float3 Lsun     = DirectionalLight[0].Direction.xyz ;
@@ -148,32 +180,29 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
     //sun diff
     sunALL += diffcolor * sun_tilt ; //* diffuse_mult ;
     //sun spec
-    sunALL += speccolor * hp_specdist(glossiness, R, Lsun) * specbase_mult;
+    sunALL += speccolor * hp_specdist(glossiness, R, Lsun) * specbase_mult * hp_fresnel(Lsun, V, f0_dir, 4);
     sunALL *= SUNcolor ; //*= sunlight_mult ;
-    //sunALL *= hcmask ;
 
   //环境光相关 
-    float3 cloudReflectionMultipler = 1;
-    #ifdef DYNAMIC_CLOUD_REF
-    cloudReflectionMultipler = hp_dynamic_cloud_reflection(i.FogCloudUV.zw, R, Lsun)  ; //需要阳光信息
+    float3 cloudReflectionMultipler = hp_dynamic_cloud_reflection(i.FogCloudUV.zw, R, Lsun)  ; //需要阳光信息
     cloudReflectionMultipler = lerp(1 , cloudReflectionMultipler, metalness ) ;
-    #endif
 
     //float3 groundcolor = AmbientLightColor;
     float3 skycolor  = hp_getAccentLight() ;
 
     float3 irradi_color = hp_fake_irradiance(0, skycolor , N.z) + AmbientLightColor ;
-    float3 skybox_color = hp_fake_skybox(0 , skycolor , R.z , glossiness) + AmbientLightColor ; 
+    float3 skybox_color = hp_fake_skybox(0 , skycolor , R.z , (glossiness * 0.5)) + AmbientLightColor ; 
+  #ifdef DYNAMIC_CLOUD_REF
     skybox_color *= cloudReflectionMultipler ;
+  #endif
 
-    float env_f_term = hp_fresnel(R, V, (colortone.w * metalness), 6);  ;
+    float env_f_term = hp_fresnel(R, V, f0_env, 6);  ;
  
     float3 ambientALL = float3(0,0,0) ; //环境光BRDF
     //ambient DIFF
     ambientALL += irradi_color * diffcolor * ambient_diff_mult ; 
     //ambient SPEC
-    ambientALL += skybox_color * speccolor * ambient_spec_mult * env_f_term ; 
-    //ambientALL *= hcmask ;
+    ambientALL += skybox_color * speccolor * ambient_spec_mult * env_f_term * max(spm.r, spm.g); 
 
   //点光源BRDF
     float3 PLtotal = float3(0,0,0) ;
@@ -204,34 +233,30 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
       //pl diff
       thisBRDF += diffcolor * PLtilt  ; 
       //pl spec  
-      thisBRDF += speccolor * hp_specdist(glossiness, R, PLL) * specbase_mult  ;
+      thisBRDF += speccolor * hp_specdist(glossiness, R, PLL) * specbase_mult * hp_fresnel(PLL, V, f0_dir, 2) ;
       //pl color
       thisBRDF *= PLcolor * PLdecayfactor(PLrangeMIN, PLrangeMAX, PLdist);
 
       PLtotal += thisBRDF ; //叠加所有点光源
     };
-    PLtotal *= 2 ;
+    PLtotal *= 1.5 ;
 
 
   //最终混色
-    OUTCOLOR.xyz = ambientALL + sunALL + PLtotal ; //BRDF
+    OUTCOLOR.xyz += ambientALL + sunALL ; //BRDF
     //OUTCOLOR.xyz *= hcmask ; //increase hc saturation
-    OUTCOLOR.xyz *= dif.w ; //make alpha edge darker
     OUTCOLOR.xyz *= buildingDMG.b ;
-    OUTCOLOR.xy  += buildingDMG.xy ;
+    OUTCOLOR.xy  += buildingDMG.rg ;
     OUTCOLOR.xyz *= TintColor ;
+    OUTCOLOR.xyz += PLtotal ; //thus pl unaffected
+    OUTCOLOR.xyz += GlowMapRGB ; //原版可能要删了这个
 
   #ifndef _3DSMAX_ //预览没有迷雾
     OUTCOLOR.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;
   #endif
 
-    OUTCOLOR.xyz += GlowMapRGB ; //原版可能要删了这个
-
-    OUTCOLOR.w = dif.w * buildingDMG.w ; //OpacityOverride , VERTEXCOLOR
-
-  #ifdef IS_NANO_BUILDUP
-    OUTCOLOR.w = hp_nano_build(i.VertexColor.w, i.MainTexUV.xy);
-  #endif
+    //alpha clipping is in macro function stage
+    OUTCOLOR.w =1;
 
     return OUTCOLOR;
 };
@@ -249,6 +274,11 @@ VertexShader VS_H_Array[2] = {
 VertexShader VS_Shadow_Array[2] = {
     compile vs_2_0 VS_ShadowMaker_00skin(), 
     compile vs_2_0 VS_ShadowMaker_11skin(), 
+};
+
+PixelShader PS_Shadow_Array[2] = {
+  compile ps_2_0 PS_ShadowMaker_NoAlphaTest(),
+  compile ps_2_0 PS_ShadowMaker_AlphaTest(),
 };
 
 
@@ -278,9 +308,10 @@ technique Default
     ZWriteEnable = 1;
     CullMode = 2;
     AlphaFunc = 7;
-    AlphaRef = 64;
-    //AlphaBlendEnable = (AlphaBlendEnable);
-    //AlphaTestEnable = 0;
+    AlphaRef = 64; //96
+    AlphaBlendEnable = 0;
+    AlphaTestEnable = 1;
+    //DepthBias = -1.0f / 4096 ;
 
   } 
 }
@@ -288,11 +319,13 @@ technique Default
 technique _CreateShadowMap
 {    pass p0    {
     VertexShader = VS_Shadow_Array[ VSchooserExpr()  ]; 
-#ifdef IS_BUILDNG
-    PixelShader = compile ps_2_0 PS_ShadowMaker_AlphaTest();
-#else
-    PixelShader = compile ps_2_0 PS_ShadowMaker_Simple();
-#endif
+
+  #ifdef IS_NANO_BUILDUP
+    PixelShader = compile ps_2_0 PS_ShadowMaker_NoTexture() ;
+  #else
+    PixelShader = PS_Shadow_Array[ int(AlphaTestEnable) ];
+  #endif
+
     ZEnable = 1;
     ZFunc = 4;
     ZWriteEnable = 1;

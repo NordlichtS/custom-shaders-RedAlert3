@@ -367,28 +367,27 @@ float3 hp_fake_irradiance( float3 groundcolor, float3 skycolor, float NZ)
 
 float3 hp_fake_skybox( float3 groundcolor, float3 skycolor, float RZ, float glossiness)
 {
-    float lerpw = saturate(RZ * glossiness  + 0.5 ); // * 0.8 ?
+    float lerpw = saturate(RZ * glossiness  + 0.5 ); 
     return lerp(groundcolor, skycolor, lerpw);
 }
     
     
 
-float4 hp_new_damage_mix ( float2 dmgUV, float bonealpha)
+float4 hp_new_damage_mix( float2 dmgUV, float bonealpha)
 {
-    if(bonealpha > 0.5){return float4(0,0,1,1);};
+    //if(bonealpha > 0.5){return float4(0,0,1,1);};
 
     float4 dmgtex = 1;
   #ifdef IS_BUILDNG
     dmgtex = tex2D(DamagedTextureSampler , dmgUV);
   #endif
-    dmgtex = lerp(dmgtex, 1, bonealpha) ;
+    dmgtex = (bonealpha < 0.375)? dmgtex : 1 ;
 
-    float burnred = 1 - dmgtex.w  ; 
-    float burngreen = saturate(burnred *2 -1)  ; 
-    float darken = dmgtex.g ;
-    float alphamult = (dmgtex.w > 0.125)? 1 : 0 ;
+    float burnred = 1 - dmgtex.w  ; //max 0.625
+    float burngreen = pow(burnred, 3) *2 ; 
+    float darken = dmgtex.r * dmgtex.g ;
+    float alphamult = dmgtex.w ;//(dmgtex.w > 0.375)? 1 : dmgtex.w ;
     float4 alldmg = float4(burnred, burngreen, darken, alphamult);
-    alldmg.rgb *= alldmg.rgb ;
 
     return alldmg ;
 } //clip w-0.125  -> mult z  -> plus xy, 
@@ -399,7 +398,7 @@ float PLdecayfactor(float rangeMIN, float rangeMAX, float rangeTHIS )
     float dist_to_outer = rangeMAX - rangeTHIS ;
     float decayfull = dist_to_outer / rangeMAX ;
     float decayshort = dist_to_outer / (rangeMAX - rangeMIN) ;
-    decayshort = pow( decayshort, 4);
+    decayshort = pow( decayshort, 3);
 
     return min(decayfull, decayshort) ;
 }
@@ -425,30 +424,30 @@ float3 hp_getColorTone(float3 inputcolor)
 
 float4 hp_stealthVFX (float EYEtilt, float3 texcolor, float otheralpha, float vpos, float3 realHC)
 {
-    EYEtilt = saturate(1- EYEtilt)  ;
+    float fresnel = saturate(1- EYEtilt)  ;
     bool scanline = frac(vpos / 3 ) < 0.25; // + Time
-    float3 edgemask = (scanline)? 1 : pow(EYEtilt, 3) ;
-    edgemask *= realHC * EYEtilt ;
+    float3 edgemask = (scanline)? fresnel : pow(fresnel, 4) ;
+    edgemask *= realHC ;
 
     float4 OUTCOLOR ;
-    OUTCOLOR.xyz = texcolor * 0.5 + edgemask * (1.25 - OpacityOverride) ;
-    OUTCOLOR.w = OpacityOverride * otheralpha ;
+    OUTCOLOR.xyz = texcolor * 0.5 + edgemask * (1.5 - OpacityOverride) ;
+    OUTCOLOR.w = OpacityOverride;// * otheralpha ;
     return OUTCOLOR ;
 }
 
-float hp_nano_build(float bonealpha, float2 texUV)
+half hp_nano_build(float bonealpha, half2 texUV)
 {
-    float2 gridint = abs(texUV) * 32 ;
-    float2 gridfrac = frac(gridint);
+    half2 gridint = abs(texUV) * 32 ;
+    half2 gridfrac = frac(gridint);
     gridint -= gridfrac ;
     gridfrac = abs(gridfrac -0.5) ;
 
     float dist2grid = gridfrac.x + gridfrac.y ;
     float currentscan = (1- bonealpha) * 32 * 32;
-    float lineup = dist2grid * 32 + gridint.y * 32 + gridint.x;
-    float scanalpha = (lineup - currentscan) /32  ;
+    float lineup =  gridint.y * 32 + gridint.x + dist2grid * 16 ;
+    float scanalpha = (lineup - currentscan) /16  ;
     //scanalpha = max(saturate(scanalpha), saturate(1 - dist2grid * 16));
-    return saturate(scanalpha) ;
+    return saturate(scanalpha ) ;
 }
 
 /* 

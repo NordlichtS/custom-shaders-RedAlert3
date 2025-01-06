@@ -140,17 +140,21 @@ float4 WorldBones[128] //shared  ?
 //===============================
 //下面的constant没有写定的寄存器，不过也是引擎看SAS和semantic注入的
 
+#ifndef FORBID_PIPELINE_CONSTANT
+
 bool AlphaTestEnable //主贴图镂空
 <    string UIName = "Alpha Test Enable";> = 1;
 
 bool AlphaBlendEnable //半透明混合
-<    string UIName = "Alpha Blend Enable";> = 0;
+<    string UIName = "Alpha Blend Enable";> ;//= 0;
 
 bool CullingEnable //好像是允许背面不渲染来优化？
 <    string UIName = "Culling Enable";> = 1;
 
 bool DepthWriteEnable //写入深度buffer
 <    string UIName = "Depth Write Enable";> = 1;
+
+#endif
 
 
 //当前帧距离游戏开局的秒数，可以用来做呼吸灯和履带滚动
