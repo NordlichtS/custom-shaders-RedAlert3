@@ -147,18 +147,22 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
 
 
   //还原通道信息 ========================
-    float glossiness = spm.r * 7 + 1  ; //
+    float roughness = saturate(1 - spm.r + 0.125);
+    float glossiness = 1/ roughness ;
+    //spm.r * 7 + 1  ; //
     float specbase_mult = 1.5 / 8.0;
 
     float metalness = smoothstep(0.5 , 0.75 , (spm.r + spm.g)) ;
     float4 colortone = hp_saturation_luminance(dif.xyz, 0.0625 );
 
     float3 diffcolor = dif.xyz * (1 - metalness);
+    diffcolor *= buildingDMG.b ; //haha
     float3 speccolor = lerp(1, colortone.rgb, metalness )  ; //?
 
-    float f0_dir = saturate(spm.r + spm.g) ;
+    float f0_dir = saturate(spm.r *2 + spm.g) ;
     float f0_env = colortone.w * metalness ;
 
+  //BRDF=========================================
   //阳光相关  
     float3 Lsun     = DirectionalLight[0].Direction.xyz ;
     float3 SUNcolor = DirectionalLight[0].Color.xyz ;
@@ -191,7 +195,7 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
     float3 skycolor  = hp_getAccentLight() ;
 
     float3 irradi_color = hp_fake_irradiance(0, skycolor , N.z) + AmbientLightColor ;
-    float3 skybox_color = hp_fake_skybox(0 , skycolor , R.z , (glossiness * 0.5)) + AmbientLightColor ; 
+    float3 skybox_color = hp_fake_skybox(0 , skycolor , R.z , (glossiness * 0.75)) + AmbientLightColor ; 
   #ifdef DYNAMIC_CLOUD_REF
     skybox_color *= cloudReflectionMultipler ;
   #endif
@@ -245,7 +249,7 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
   //最终混色
     OUTCOLOR.xyz += ambientALL + sunALL ; //BRDF
     //OUTCOLOR.xyz *= hcmask ; //increase hc saturation
-    OUTCOLOR.xyz *= buildingDMG.b ;
+    OUTCOLOR.xyz *= buildingDMG.b ; //only half, other half in diffcolor
     OUTCOLOR.xy  += buildingDMG.rg ;
     OUTCOLOR.xyz *= TintColor ;
     OUTCOLOR.xyz += PLtotal ; //thus pl unaffected

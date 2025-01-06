@@ -281,6 +281,13 @@ float3 PV_accentlight
 	bool ExportValue = false;
 > = { 0.2, 0.3, 0.4 };
 
+float PV_vertexALPHA
+<
+    string UIName = "PV_vertexALPHA"; 
+    float UIMax = 1; float UIMin = 0; float UIStep = 0.1; 
+    bool ExportValue = false;
+> = 1 ;
+
 #endif  
 //预览用constant结束=============================
 

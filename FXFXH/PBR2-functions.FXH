@@ -385,7 +385,7 @@ float4 hp_new_damage_mix( float2 dmgUV, float bonealpha)
 
     float burnred = 1 - dmgtex.w  ; //max 0.625
     float burngreen = pow(burnred, 3) *2 ; 
-    float darken = dmgtex.r * dmgtex.g ;
+    float darken = dmgtex.g ;//no square
     float alphamult = dmgtex.w ;//(dmgtex.w > 0.375)? 1 : dmgtex.w ;
     float4 alldmg = float4(burnred, burngreen, darken, alphamult);
 
