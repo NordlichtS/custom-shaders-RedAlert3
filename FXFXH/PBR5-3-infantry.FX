@@ -58,8 +58,8 @@ float4 PS_H_infantry (PS_infantry_input i) : COLOR
 
   #ifdef ALLOW_STEALTH
     if(OpacityOverride < 0.985){
-        float3 V = hp_ps_getViewVector(i.WorldP) ;
-        return hp_stealthVFX(dot(V,N), texcolor.xyz , 1, i.vpos.y, RecolorColor);
+        //float3 V = hp_ps_getViewVector(i.WorldP) ; //dot(V,N)
+        return hp_stealthVFX(0.5, texcolor.xyz , 1, i.vpos.y, RecolorColor);
     };
   #endif
 

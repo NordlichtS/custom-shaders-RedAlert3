@@ -98,7 +98,7 @@ float hp_ReverseLerp(float sidemin, float sidemax, float invalue)
 
 float hp_cubic_hermit(float invalue)
 {
-    float inx = invalue ; // saturate(invalue);
+    float inx = invalue ; // saturate(invalue); no saturate!
     return ( (3.0 - 2 * inx) * inx * inx );
 };
 
@@ -123,30 +123,6 @@ float hp_round_transition( float invalue, float centerpoint, float margin)
 
 //柔和阴影
 
-/*
-float hp_invshadow_bilinear ( float3 ShadowProjection, float sun_tilt ) 
-{ 
-    if(sun_tilt <= 0) {return 0;};
-    if(! HasShadow)   {return 1;}; 
-
-    float2 SM01T = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
-    float2 UVlerpw = frac(ShadowProjection.xy / SM01T.y);
-    float4 realSMUV = float4(ShadowProjection.xyz , 0) + float4(0,0, (-1.0/512), 0); 
-
-    float4 fourSamples = float4(   //似乎必须用邻近采样，否则颜色会神必跳变
-        tex2Dlod(ShadowMapSampler, (realSMUV + SM01T.xxxx)).x ,
-        tex2Dlod(ShadowMapSampler, (realSMUV + SM01T.xyxx)).x ,
-        tex2Dlod(ShadowMapSampler, (realSMUV + SM01T.yxxx)).x ,
-        tex2Dlod(ShadowMapSampler, (realSMUV + SM01T.yyxx)).x 
-    );  // LU,LD,RU,RD (00,01,10,11) 
-    bool4 fourTests = (fourSamples > realSMUV.z) ; //阴影比物体离阳光更远，则有阳光
-    fourSamples = (float4)fourTests ;
-    //遥遥领先的双线性插值（迫真）其实显卡内部支持但RA3没用上得手写
-    float2 bilinearLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
-    float  bilinearUD = lerp(bilinearLR.x   , bilinearLR.y   , UVlerpw.y);
-    return bilinearUD ;
-}
-*/
 
 float hp_invshadow_bilinear ( float3 SMUV, float sun_tilt ) 
 { 
@@ -155,7 +131,8 @@ float hp_invshadow_bilinear ( float3 SMUV, float sun_tilt )
 
     float2 SM01T = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
     float2 UVlerpw = frac(SMUV.xy / SM01T.y);
-    float object_depth = SMUV.z - SM01T.y ; //  1.0 / 512.0 ;
+    float object_depth = SMUV.z - SM01T.y * 2;//(3- 2* sun_tilt) ; //  1.0 / 512.0 ;
+    //tbd : use suntilt to fix side offset
 
     float4 fourSamples = float4(   //四个角的阴影图深度
         tex2D(ShadowMapSampler, (SMUV.xy + SM01T.xx)).x ,
@@ -168,20 +145,8 @@ float hp_invshadow_bilinear ( float3 SMUV, float sun_tilt )
     //双线性插值
     float2 bilinearLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
     float  bilinearUD = lerp(bilinearLR.x   , bilinearLR.y   , UVlerpw.y);
-    float lightmid = bilinearUD ; //* bilinearUD;
+    float lightmid = hp_cubic_hermit(bilinearUD) ; //* bilinearUD;
 
-    /*
-    //对斜边的额外抗锯齿修复
-    float lightpixin4 = dot(fourSamples, 1);
-    float lightlow  = (lightpixin4 < 1.5) ? lightmid : 0 ;
-    float lighthigh = (lightpixin4 > 2.5) ? lightmid : 1 ;
-    lightmid = lerp(lightlow, lighthigh, lightmid) ;
-    
-    lightmid = lightmid *2 -1 ;
-    lightmid = lightmid * lightmid * lightmid ;
-    lightmid = lightmid *0.5 + 0.5 ;
-    */
-    
     return lightmid ;
 }
 

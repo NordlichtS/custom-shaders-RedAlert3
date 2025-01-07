@@ -203,8 +203,8 @@ sampler2D ShadowMapSampler
     MinFilter = 1 ; 
     MagFilter = 1 ; // 原版的临近采样
     MipFilter = 0;
-    AddressU = 3; //3=clamp, 4=border
-    AddressV = 3;
+    AddressU = 4; //3=clamp, 4=border
+    AddressV = 4;
     AddressW = 3;
 };
 
@@ -217,8 +217,8 @@ sampler2D ShadowMapSamplerLinear
     MinFilter = 2 ; 
     MagFilter = 2 ; // 用线性可防止斜面锯齿?
     MipFilter = 0;
-    AddressU = 3;
-    AddressV = 3;
+    AddressU = 4;
+    AddressV = 4;
     AddressW = 3;
 };
 

@@ -2,7 +2,9 @@
  #define DYNAMIC_CLOUD_REF
 // #define IGNORE_NRM
 // #define FORBID_PIPELINE_CONSTANT
- #define ALLOW_CLIP_TEXTURE_ALPHA //always on except buildup
+// #define USE_ROUGHNESS_CURVE
+// #define ALLOW_CLIP_TEXTURE_ALPHA //always on except nano buildup
+// dont change any above
 
  #define ALLOW_CLIP_VERTEX_ALPHA //all objects shader
 // #define IS_BUILDNG //only damage
@@ -93,6 +95,13 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
     R = (EYEtilt <0) ? -V : R ;
     //if(EYEtilt <0) {R = -V ;} ;
 
+    float3 Lsun     = DirectionalLight[0].Direction.xyz ;
+    float3 SUNcolor = DirectionalLight[0].Color.xyz ;
+  #ifdef _3DSMAX_  //MAX预览阳光方向与颜色覆盖
+    Lsun     = PV_SunlightDirection ; 
+    SUNcolor = PV_SunlightColor ;
+  #endif
+
 
   //条件编译功能
     float3 realHC = (HasRecolorColors)? RecolorColor : 1 ;
@@ -109,13 +118,15 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
   #ifdef SPMG_GLOWPULSE
     GlowMapRGB = RecolorColor * spm.g  ;
     GlowMapRGB *= (HasRecolorColors)? 2 : 0;
-    float GlowAmplitude = Time /2 + i.MainTexUV.x * dot(TintColor, 1) ;
+    float GlowAmplitude = Time /2 + i.MainTexUV.x ;//* dot(TintColor, 1) ;
     GlowAmplitude = abs(frac(GlowAmplitude) * 2 -1) ;
     GlowMapRGB *= saturate(GlowAmplitude *8 -7); //pow(GlowAmplitude, 8) ;
+    GlowMapRGB *= dot(TintColor, TintColor);
   #endif
 
     //clipping affected ! ===========
-  #ifdef ALLOW_CLIP_VERTEX_ALPHA
+  #ifndef IS_NANO_BUILDUP
+  //#ifdef ALLOW_CLIP_VERTEX_ALPHA
     OUTCOLOR.w *= i.VertexColor.w ;
   #endif
 
@@ -147,10 +158,10 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
 
 
   //还原通道信息 ========================
-    float roughness = saturate(1 - spm.r + 0.125);
-    float glossiness = 1/ roughness ;
-    //spm.r * 7 + 1  ; //
-    float specbase_mult = 1.5 / 8.0;
+    
+    float glossiness = spm.r * 7 + 1  ; //
+    float specbase_mult = 0.25; //1.5 * 0.125 ?
+    float horizon_extra_sharp = 0.5 ;
 
     float metalness = smoothstep(0.5 , 0.75 , (spm.r + spm.g)) ;
     float4 colortone = hp_saturation_luminance(dif.xyz, 0.0625 );
@@ -159,17 +170,39 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
     diffcolor *= buildingDMG.b ; //haha
     float3 speccolor = lerp(1, colortone.rgb, metalness )  ; //?
 
-    float f0_dir = saturate(spm.r *2 + spm.g) ;
+    float f0_dir = spm.r ;
     float f0_env = colortone.w * metalness ;
 
+  #ifdef USE_ROUGHNESS_CURVE
+    glossiness = 1/ saturate(1 - spm.r + 0.125) ; //one over roughness
+    f0_dir = saturate(spm.r *1.5 + spm.g) ;
+    horizon_extra_sharp = 0.75 ;
+  #endif 
+
   //BRDF=========================================
-  //阳光相关  
-    float3 Lsun     = DirectionalLight[0].Direction.xyz ;
-    float3 SUNcolor = DirectionalLight[0].Color.xyz ;
-  #ifdef _3DSMAX_  //MAX预览阳光方向与颜色覆盖
-    Lsun     = PV_SunlightDirection ; 
-    SUNcolor = PV_SunlightColor ;
+
+  //环境光相关 
+    float3 cloudReflectionMultipler = hp_dynamic_cloud_reflection(i.FogCloudUV.zw, R, Lsun)  ; //需要阳光信息
+    cloudReflectionMultipler = lerp(1 , cloudReflectionMultipler, metalness ) ;
+
+    //float3 groundcolor = AmbientLightColor;
+    float3 skycolor  = hp_getAccentLight() ;
+
+    float3 irradi_color = hp_fake_irradiance(0, skycolor , N.z) + AmbientLightColor ;
+    float3 skybox_color = hp_fake_skybox(0 , skycolor , R.z , (glossiness * horizon_extra_sharp)) + AmbientLightColor ; 
+  #ifdef DYNAMIC_CLOUD_REF
+    skybox_color *= cloudReflectionMultipler ;
   #endif
+
+    float env_f_term = hp_fresnel(R, V, f0_env, 6);  
+ 
+    float3 ambientALL = float3(0,0,0) ; //环境光BRDF
+    //ambient DIFF
+    ambientALL += irradi_color * diffcolor * ambient_diff_mult ; 
+    //ambient SPEC
+    ambientALL += skybox_color * speccolor * ambient_spec_mult * env_f_term * max(spm.r, spm.g); 
+
+  //阳光相关  
 
     float  sun_tilt  = dot(N,Lsun) ;
     SUNcolor *= hp_invshadow_bilinear(i.ShadowPROJ.xyz , sun_tilt) ;
@@ -187,26 +220,6 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
     sunALL += speccolor * hp_specdist(glossiness, R, Lsun) * specbase_mult * hp_fresnel(Lsun, V, f0_dir, 4);
     sunALL *= SUNcolor ; //*= sunlight_mult ;
 
-  //环境光相关 
-    float3 cloudReflectionMultipler = hp_dynamic_cloud_reflection(i.FogCloudUV.zw, R, Lsun)  ; //需要阳光信息
-    cloudReflectionMultipler = lerp(1 , cloudReflectionMultipler, metalness ) ;
-
-    //float3 groundcolor = AmbientLightColor;
-    float3 skycolor  = hp_getAccentLight() ;
-
-    float3 irradi_color = hp_fake_irradiance(0, skycolor , N.z) + AmbientLightColor ;
-    float3 skybox_color = hp_fake_skybox(0 , skycolor , R.z , (glossiness * 0.75)) + AmbientLightColor ; 
-  #ifdef DYNAMIC_CLOUD_REF
-    skybox_color *= cloudReflectionMultipler ;
-  #endif
-
-    float env_f_term = hp_fresnel(R, V, f0_env, 6);  ;
- 
-    float3 ambientALL = float3(0,0,0) ; //环境光BRDF
-    //ambient DIFF
-    ambientALL += irradi_color * diffcolor * ambient_diff_mult ; 
-    //ambient SPEC
-    ambientALL += skybox_color * speccolor * ambient_spec_mult * env_f_term * max(spm.r, spm.g); 
 
   //点光源BRDF
     float3 PLtotal = float3(0,0,0) ;
@@ -243,7 +256,7 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
 
       PLtotal += thisBRDF ; //叠加所有点光源
     };
-    PLtotal *= 1.5 ;
+    PLtotal *= 1 ;
 
 
   //最终混色
