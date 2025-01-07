@@ -6,7 +6,7 @@ also with a little help from [https://github.com/lanyizi/DXDecompiler](https://g
 the main project here is PBR (physical based render) shader. It should be used to replace Objects and Buildings shaders in the game 
 (after compile! Don't try to let the game itself compile it, its compiler is too outdated. Use FXC.EXE from legacy microsoft direct x sdk. BUT 3dsmax requires uncompiled version. I recommand 3dsmax2023 with the exporter plugin in TOOLS folder)
 
-Compiled+packed game-ready patch, download it here: (updated on 2025.01.04) https://www.moddb.com/mods/psysonic-omega/addons/next-gen-shader-patch-20
+Compiled+packed game-ready patch, download it here: (updated on 2025.01.06) https://www.moddb.com/mods/psysonic-omega/addons/next-gen-shader-patch-20
 
 To compile your own shader: find "fxc.exe" in TOOLS folder (or from microsoft's official website), place it in the same folder with your FX and FXH files, open a command prompt here by type CMD on the path bar and use following command: ` fxc.exe /O2 /T fx_2_0 /Fo  OutputFileName.fxo   SourceFileName.fx  `
 
