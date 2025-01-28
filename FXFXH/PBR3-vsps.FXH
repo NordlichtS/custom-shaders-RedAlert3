@@ -25,7 +25,6 @@ struct VS_H_output
     float3 WorldT : TEXCOORD5_centroid; //世界切线Y
     float3 WorldB : TEXCOORD6_centroid; //世界切线X
 
-
 };
 //如果PS不接受position或者需要别的变量比如VPOS，就在PS文件里新建一个结构
 //另外，_centroid modifier会导致贴图采样时gradient不准确，此处影响天空盒，可能得删了
@@ -102,11 +101,13 @@ VS_H_output  VS_H_00skin (VS_H_00skin_input  i)  //no bone skin
     float4 WorldPosition = float4(0,0,0,1);
     o.ShadowPROJ = o.FogCloudUV = 0 ;
     o.VertexColor = i.color ;  
+    o.MainTexUV = float4(i.texcoord.xy , i.texcoordNEW.xy) ; //直接转存贴图UV
     o.CoordOBJ.xyz = i.position.xyz; //o.CoordOBJ.w = -1;
 
 
     // 从object space 到 world space===========
 
+    //float3 offset = mul(float4(0,0,0,1) , World);
     o.WorldP = mul(float4(i.position.xyz, 1), World);
     o.WorldN = mul(i.normal.xyz, (float3x3)World);
     o.WorldT = mul(i.tangent.xyz, (float3x3)World);
@@ -114,7 +115,6 @@ VS_H_output  VS_H_00skin (VS_H_00skin_input  i)  //no bone skin
     //以上要换成骨骼相关的代码，以下保留======
 
     WorldPosition.xyz = o.WorldP ; //世界坐标
-    o.MainTexUV = float4(i.texcoord.xy , i.texcoordNEW.xy) ; //直接转存贴图UV
     //if(HasShadow) 
     o.ShadowPROJ = getShadowMapUV( WorldPosition) ;
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
@@ -142,6 +142,7 @@ VS_H_output  VS_H_11skin (VS_H_11skin_input  i)  //1 bone skin
     float4 WorldPosition = float4(0,0,0,1);
     o.ShadowPROJ = o.FogCloudUV = 0 ;
     o.VertexColor = i.color ;  
+    o.MainTexUV = float4(i.texcoord.xy , i.texcoordNEW.xy) ; //直接转存贴图UV
     o.CoordOBJ.xyz = i.position.xyz; //o.CoordOBJ.w = i.blendindices.x;
 
 
@@ -149,19 +150,27 @@ VS_H_output  VS_H_11skin (VS_H_11skin_input  i)  //1 bone skin
 
     //我是不是应该用  D3DCOLORtoUBYTE4 或者 trunc 或者 floor 或者 (int)
     //但 HLSL 支持直接用 float 当作array序号去查
-    float4 This_Quaternion   = WorldBones[i.blendindices.x * 2 ];
-    float4 This_offset_alpha = WorldBones[i.blendindices.x * 2 + 1];
+    int BoneIndex = floor(i.blendindices.x * 2 );
+    float3x3 bone3x3matrix = Quaternion2Matrix( WorldBones[BoneIndex] ) ;
+    float4 bone_offset_alpha = WorldBones[BoneIndex + 1];
+    o.VertexColor.w *= bone_offset_alpha.w ; //顶点颜色乘以骨骼透明度
 
-    o.WorldP = Quaternion_R( This_Quaternion , i.position.xyz) + This_offset_alpha.xyz ;
-    o.WorldN = Quaternion_R( This_Quaternion , i.normal.xyz);
-    o.WorldT = Quaternion_R( This_Quaternion , i.tangent.xyz);
-    o.WorldB = Quaternion_R( This_Quaternion , i.binormal.xyz);
-    o.VertexColor.w *= This_offset_alpha.w ; //顶点颜色乘以骨骼透明度
+    o.WorldP = mul(i.position.xyz, bone3x3matrix) + bone_offset_alpha.xyz ;
+    o.WorldN = mul(i.normal.xyz, bone3x3matrix);
+    o.WorldT = mul(i.tangent.xyz, bone3x3matrix);
+    o.WorldB = mul(i.binormal.xyz, bone3x3matrix);
+
+    /* 
+        float4 This_Quaternion   = WorldBones[i.blendindices.x * 2 ];
+        o.WorldP = QuaternionRotate( This_Quaternion , i.position.xyz) + This_offset_alpha.xyz ;
+        o.WorldN = QuaternionRotate( This_Quaternion , i.normal.xyz);
+        o.WorldT = QuaternionRotate( This_Quaternion , i.tangent.xyz);
+        o.WorldB = QuaternionRotate( This_Quaternion , i.binormal.xyz);
+    */
 
     //以上要换成双骨骼软绑定相关的代码，以下保留======
 
     WorldPosition.xyz = o.WorldP  ; //四维世界坐标
-    o.MainTexUV = float4(i.texcoord.xy , i.texcoordNEW.xy) ; //直接转存贴图UV
     //if(HasShadow) 
     o.ShadowPROJ = getShadowMapUV( WorldPosition) ;
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
@@ -188,6 +197,7 @@ struct VS_H_22skin_input
     float4 texcoord : TEXCOORD; float4 texcoordNEW : TEXCOORD1 ;
     float4 color : COLOR;
 };
+
 VS_H_output  VS_H_22skin (VS_H_22skin_input  i)  //2 bone skin, with tangentframe
 {
     VS_H_output o; //声明下输出数组的结构缩写
@@ -195,38 +205,62 @@ VS_H_output  VS_H_22skin (VS_H_22skin_input  i)  //2 bone skin, with tangentfram
     float4 WorldPosition = float4(0,0,0,1);
     o.ShadowPROJ = o.FogCloudUV = 0 ;
     o.VertexColor = i.color ;  
+    o.MainTexUV = float4(i.texcoord.xy , i.texcoordNEW.xy) ; //直接转存贴图UV
 
-    int2 BoneIndex = floor(i.blendindices.xy * 2 );
-    //先算第一骨骼
-    float4 This_Quaternion   = WorldBones[BoneIndex.x];
-    float4 This_offset_alpha = WorldBones[BoneIndex.x + 1];
-    //     this                        this             .x         0.       this
-    float3 this_WorldP = Quaternion_R( This_Quaternion , i.position0.xyz) + This_offset_alpha.xyz ;
-    float3 this_WorldN = Quaternion_R( This_Quaternion , i.normal0.xyz);
-    float3 this_WorldT = Quaternion_R( This_Quaternion , i.tangent0.xyz);
-    float3 this_WorldB = Quaternion_R( This_Quaternion , i.binormal0.xyz);
 
-    //第二骨骼
-    float4 That_Quaternion   = WorldBones[BoneIndex.y ];
-    float4 That_offset_alpha = WorldBones[BoneIndex.y + 1];
-    //     that                        that             .y         1.       that
-    float3 that_WorldP = Quaternion_R( That_Quaternion , i.position1.xyz) + That_offset_alpha.xyz ;
-    float3 that_WorldN = Quaternion_R( That_Quaternion , i.normal1.xyz);
-    float3 that_WorldT = Quaternion_R( That_Quaternion , i.tangent1.xyz);
-    float3 that_WorldB = Quaternion_R( That_Quaternion , i.binormal1.xyz);
-    //混合结果，lerpw越大越靠近第一骨骼，所以左 that 右 this
-    o.WorldP = lerp( that_WorldP , this_WorldP , i.blendweight.x) ;
-    o.WorldN = lerp( that_WorldN , this_WorldN , i.blendweight.x) ;
-    o.WorldT = lerp( that_WorldT , this_WorldT , i.blendweight.x) ;
-    o.WorldB = lerp( that_WorldB , this_WorldB , i.blendweight.x) ;
-    o.VertexColor.w *= lerp(That_offset_alpha.w , This_offset_alpha.w , i.blendweight.x) ; 
-    o.WorldN = normalize(o.WorldN); //插值后向量会变短要拉回来
+    int2 BoneIndex = floor(i.blendindices.xy * 2)  ;
+
+    float3x3 bone_matrix_0 = Quaternion2Matrix( WorldBones[BoneIndex.x] ) ;
+    float3x3 bone_matrix_1 = Quaternion2Matrix( WorldBones[BoneIndex.y] ) ;
+    float4 bone_offset_alpha_0 = WorldBones[BoneIndex.x + 1];
+    float4 bone_offset_alpha_1 = WorldBones[BoneIndex.y + 1];
+    float3 worldP0 = mul(i.position0.xyz, bone_matrix_0) + bone_offset_alpha_0.xyz ;
+    float3 worldP1 = mul(i.position1.xyz, bone_matrix_1) + bone_offset_alpha_1.xyz ;
+    float3 worldN0 = mul(i.normal0.xyz, bone_matrix_0) ;
+    float3 worldN1 = mul(i.normal1.xyz, bone_matrix_1) ;
+    float3 worldT0 = mul(i.tangent0.xyz, bone_matrix_0) ;
+    float3 worldT1 = mul(i.tangent1.xyz, bone_matrix_1) ;
+    float3 worldB0 = mul(i.binormal0.xyz, bone_matrix_0) ;
+    float3 worldB1 = mul(i.binormal1.xyz, bone_matrix_1) ;
+
+    o.WorldP = lerp( worldP1 , worldP0 , i.blendweight.x) ;
+    o.WorldN = lerp( worldN1 , worldN0 , i.blendweight.x) ;
+    o.WorldT = lerp( worldT1 , worldT0 , i.blendweight.x) ;
+    o.WorldB = lerp( worldB1 , worldB0 , i.blendweight.x) ;
+    o.VertexColor.w *= lerp(bone_offset_alpha_1.w , bone_offset_alpha_0.w , i.blendweight.x) ; 
+    o.WorldN = normalize(o.WorldN);
+
+    /*
+        int2 BoneIndex = floor(i.blendindices.xy * 2 );
+        //先算第一骨骼
+        float4 This_Quaternion   = WorldBones[BoneIndex.x];
+        float4 This_offset_alpha = WorldBones[BoneIndex.x + 1];
+        //     this                        this             .x         0.       this
+        float3 this_WorldP = QuaternionRotate( This_Quaternion , i.position0.xyz) + This_offset_alpha.xyz ;
+        float3 this_WorldN = QuaternionRotate( This_Quaternion , i.normal0.xyz);
+        float3 this_WorldT = QuaternionRotate( This_Quaternion , i.tangent0.xyz);
+        float3 this_WorldB = QuaternionRotate( This_Quaternion , i.binormal0.xyz);
+
+        //第二骨骼
+        float4 That_Quaternion   = WorldBones[BoneIndex.y ];
+        float4 That_offset_alpha = WorldBones[BoneIndex.y + 1];
+        //     that                        that             .y         1.       that
+        float3 that_WorldP = QuaternionRotate( That_Quaternion , i.position1.xyz) + That_offset_alpha.xyz ;
+        float3 that_WorldN = QuaternionRotate( That_Quaternion , i.normal1.xyz);
+        float3 that_WorldT = QuaternionRotate( That_Quaternion , i.tangent1.xyz);
+        float3 that_WorldB = QuaternionRotate( That_Quaternion , i.binormal1.xyz);
+        //混合结果，lerpw越大越靠近第一骨骼，所以左 that 右 this
+        o.WorldP = lerp( that_WorldP , this_WorldP , i.blendweight.x) ;
+        o.WorldN = lerp( that_WorldN , this_WorldN , i.blendweight.x) ;
+        o.WorldT = lerp( that_WorldT , this_WorldT , i.blendweight.x) ;
+        o.WorldB = lerp( that_WorldB , this_WorldB , i.blendweight.x) ;
+        o.VertexColor.w *= lerp(That_offset_alpha.w , This_offset_alpha.w , i.blendweight.x) ; 
+        o.WorldN = normalize(o.WorldN); //插值后向量会变短要拉回来
+    */
 
     //以上是物体到世界空间相关的代码，以下保留======
 
     WorldPosition.xyz = o.WorldP  ; //四维世界坐标
-    o.MainTexUV = float4(i.texcoord.xy , i.texcoordNEW.xy) ; //直接转存贴图UV
-    //if(HasShadow) 
     o.ShadowPROJ = getShadowMapUV( WorldPosition) ;
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
     o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;
@@ -236,6 +270,7 @@ VS_H_output  VS_H_22skin (VS_H_22skin_input  i)  //2 bone skin, with tangentfram
 
     return o;
 };
+
 
 //高画质的 PS 在每个technique自己里面
 
@@ -315,7 +350,6 @@ VS_notgt_output  VS_L_00skin (VS_00skin_notgt_input  i)//, uniform bool UseShado
     o.VertexColor = i.color ;  //顶点颜色，opacity 放ps里去吧
     o.CoordOBJ.xyz = i.position.xyz; //o.CoordOBJ.w = i.blendindices.x;
 
-
     // 从object space 到 world space===========
     o.WorldP = mul(float4(i.position.xyz, 1), World);
     o.WorldN = mul(i.normal.xyz, (float3x3)World);
@@ -324,7 +358,6 @@ VS_notgt_output  VS_L_00skin (VS_00skin_notgt_input  i)//, uniform bool UseShado
     WorldPosition.xyz = o.WorldP ; //世界坐标
     o.MainTexUV = float4(i.texcoord.xy , i.texcoordNEW.xy) ; //直接转存贴图UV
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
-    //if(UseShadowAndCloud){     //高画质永远有云！
     o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;
     o.ShadowPROJ = getShadowMapUV( WorldPosition) ;
     
@@ -332,8 +365,6 @@ VS_notgt_output  VS_L_00skin (VS_00skin_notgt_input  i)//, uniform bool UseShado
 
     return o;
 };
-
-
 
 VS_notgt_output  VS_L_11skin (VS_11skin_notgt_input  i)//, uniform bool UseShadowAndCloud)  
 {
@@ -346,12 +377,13 @@ VS_notgt_output  VS_L_11skin (VS_11skin_notgt_input  i)//, uniform bool UseShado
 
 
     // 从object space 到 world space===========
-    float4 This_Quaternion   = WorldBones[i.blendindices.x * 2 ];
-    float4 This_offset_alpha = WorldBones[i.blendindices.x * 2 + 1];
+    int BoneIndex = floor(i.blendindices.x * 2)  ;
 
-    o.WorldP = Quaternion_R( This_Quaternion , i.position.xyz) + This_offset_alpha.xyz ;
-    o.WorldN = Quaternion_R( This_Quaternion , i.normal.xyz);
-    o.VertexColor.w *= This_offset_alpha.w ; //顶点颜色乘以骨骼透明度
+    float4 bone_Quaternion   = WorldBones[BoneIndex.x];
+    float4 bone_offset_alpha = WorldBones[BoneIndex.x + 1];
+    o.WorldP = QuaternionRotate( bone_Quaternion , i.position.xyz) + bone_offset_alpha.xyz ;
+    o.WorldN = QuaternionRotate( bone_Quaternion , i.normal.xyz);
+
     //以上要换成双骨骼软绑定相关的代码，以下保留======
 
     WorldPosition.xyz = o.WorldP  ; //四维世界坐标
@@ -365,7 +397,6 @@ VS_notgt_output  VS_L_11skin (VS_11skin_notgt_input  i)//, uniform bool UseShado
     return o;
 };
 
-
 VS_notgt_output  VS_L_22skin (VS_22skin_notgt_input  i)//, uniform bool UseShadowAndCloud)  
 {
     VS_notgt_output o; //声明下输出数组的结构缩写
@@ -374,22 +405,32 @@ VS_notgt_output  VS_L_22skin (VS_22skin_notgt_input  i)//, uniform bool UseShado
     o.ShadowPROJ = o.FogCloudUV = 0 ;
     o.VertexColor = i.color ;  
 
-    int2 BoneIndex = floor(i.blendindices.xy) * 2 ;
-    //先算第一骨骼
-    float4 This_Quaternion   = WorldBones[BoneIndex.x];
-    float4 This_offset_alpha = WorldBones[BoneIndex.x + 1];
-    float3 this_WorldP = Quaternion_R( This_Quaternion , i.position0.xyz) + This_offset_alpha.xyz ;
-    float3 this_WorldN = Quaternion_R( This_Quaternion , i.normal0.xyz);
-    //第二骨骼
-    float4 That_Quaternion   = WorldBones[BoneIndex.y];
-    float4 That_offset_alpha = WorldBones[BoneIndex.y + 1];
-    float3 that_WorldP = Quaternion_R( That_Quaternion , i.position1.xyz) + That_offset_alpha.xyz ;
-    float3 that_WorldN = Quaternion_R( That_Quaternion , i.normal1.xyz);
-    //混合结果，lerpw越大越靠近第一骨骼，所以左 that 右 this
-    o.WorldP = lerp( that_WorldP , this_WorldP , i.blendweight.x) ;
-    o.WorldN = lerp( that_WorldN , this_WorldN , i.blendweight.x) ;
-    o.VertexColor.w *= lerp(That_offset_alpha.w , This_offset_alpha.w , i.blendweight.x) ; 
-    //o.WorldN = normalize(o.WorldN); //插值后向量会变短要拉回来
+    int2 BoneIndex = floor(i.blendindices.xy * 2)  ;
+
+    /*
+        // 一个四元数旋转似乎是8个指令，而制造矩阵至少9个，矩阵乘法3个
+        float3x3 bone_matrix_0 = Quaternion2Matrix( WorldBones[BoneIndex.x] ) ;
+        float3x3 bone_matrix_1 = Quaternion2Matrix( WorldBones[BoneIndex.y] ) ;
+        float4 bone_offset_alpha_0 = WorldBones[BoneIndex.x + 1];
+        float4 bone_offset_alpha_1 = WorldBones[BoneIndex.y + 1];
+        float3 worldP0 = mul(i.position0.xyz, bone_matrix_0) + bone_offset_alpha_0.xyz ;
+        float3 worldP1 = mul(i.position1.xyz, bone_matrix_1) + bone_offset_alpha_1.xyz ;
+        float3 worldN0 = mul(i.normal0.xyz, bone_matrix_0) ;
+        float3 worldN1 = mul(i.normal1.xyz, bone_matrix_1) ;
+    */
+
+    float4 bone_Quaternion_0   = WorldBones[BoneIndex.x];
+    float4 bone_Quaternion_1   = WorldBones[BoneIndex.y];
+    float4 bone_offset_alpha_0 = WorldBones[BoneIndex.x + 1];
+    float4 bone_offset_alpha_1 = WorldBones[BoneIndex.y + 1];
+    float3 worldP0 = QuaternionRotate( bone_Quaternion_0 , i.position0.xyz) + bone_offset_alpha_0.xyz ;
+    float3 worldP1 = QuaternionRotate( bone_Quaternion_1 , i.position1.xyz) + bone_offset_alpha_1.xyz ;
+    float3 worldN0 = QuaternionRotate( bone_Quaternion_0 , i.normal0.xyz);
+    float3 worldN1 = QuaternionRotate( bone_Quaternion_1 , i.normal1.xyz);
+
+    o.WorldP = lerp( worldP1 , worldP0 , i.blendweight.x) ;
+    o.WorldN = lerp( worldN1 , worldN0 , i.blendweight.x) ;
+    o.VertexColor.w *= lerp(bone_offset_alpha_1.w , bone_offset_alpha_0.w , i.blendweight.x) ; 
 
     //以上是物体到世界空间相关的代码，以下保留======
 
@@ -406,16 +447,60 @@ VS_notgt_output  VS_L_22skin (VS_22skin_notgt_input  i)//, uniform bool UseShado
 };
 
 //中低画质的PS ====================
-struct PS_notgt_input
+struct PS_LOW_input
 {
     float4 VertexColor : COLOR0;  //顶点颜色
-    float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
-    float3 ShadowPROJ : TEXCOORD1; //XYZ阴影空间投影, W弃用
-    float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
+    float3 CoordOBJ  : COLOR1; //物体空间
+    float2 MainTexUV  : TEXCOORD0; //XY是主帖图UV
+    float2 FogCloudUV : TEXCOORD2; //迷雾UV
     float3 WorldP : TEXCOORD3;  //世界空间位置
     float3 WorldN : TEXCOORD4;//_centroid; //世界法线Z
 };
+float4 PS_LOW (PS_LOW_input i) : COLOR 
+{
+    float3 N = normalize(i.WorldN);
+    float3 IV = normalize(i.WorldP - EyePosition);
+    float3 R = reflect( IV, N);
+    float3 Lsun     = DirectionalLight[0].Direction.xyz ;
+    float3 SUNcolor = DirectionalLight[0].Color.xyz ;
+    float3 accentlight = max(DirectionalLight[1].Color , DirectionalLight[2].Color);
+    float sun_tilt = dot(N, Lsun);
+    sun_tilt = saturate(sun_tilt *2 +0.5);
+    float3 surfacediffuselight = lerp(accentlight, SUNcolor, sun_tilt);
 
+    float3 albedocolor = 1 ;
+    float  specchannel = 0 ; 
+    float  HCchannel = 0 ;
+    float  alpha = 1;
+  #ifdef IS_BASIC_W3D_SHADER
+    float4 tmp0 = tex2D(Texture_0Sampler,  i.MainTexUV.xy );
+    albedocolor = tmp0.xyz ;
+    HCchannel = tmp0.w ;
+  #else
+    float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
+    float4 spm = tex2D(SpecMapSampler,         i.MainTexUV.xy );
+    albedocolor = dif.xyz ;
+    alpha *= dif.w ;
+    HCchannel = spm.z ;
+    specchannel = spm.x + spm.y;
+  #endif
+    HCchannel = (HasRecolorColors)? HCchannel : 0 ;
+    albedocolor *= lerp(1, RecolorColor, HCchannel) ;
+    float specdist = (dot(R, Lsun) -1 )*(specchannel *32 +32) + specchannel ;
+    float3 allcolors = max( (albedocolor * surfacediffuselight) , (specdist * SUNcolor) ) ;
+
+  #ifdef IS_BUILDNG
+    float dist2dmg = saturate( dot(i.CoordOBJ, i.CoordOBJ) /32 );
+    allcolors *= (i.VertexColor.w < 0.375)? dist2dmg : 1 ;
+  #else
+    alpha *= i.VertexColor.w ;
+  #endif
+
+    allcolors *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy).xyz ;
+    allcolors *= TintColor ;
+
+    return float4(allcolors, alpha);
+};
 
 
 //===========================================
@@ -480,10 +565,10 @@ VS_ShadowMaker_output VS_ShadowMaker_11skin(VS_ShadowMaker_11skin_input i)
     float4 WorldPosition = float4(0,0,0,1);
     o.MainTexUV = float4(i.texcoord.xy , i.texcoordNEW.xy) ;
 
-    float4 This_Quaternion   = WorldBones[i.blendindices.x * 2 ];
-    float4 This_offset_alpha = WorldBones[i.blendindices.x * 2 + 1];
-    WorldPosition.xyz = Quaternion_R( This_Quaternion , i.position.xyz) + This_offset_alpha.xyz ;
-    o.Valpha = This_offset_alpha.w;// * OpacityOverride ;
+    float4 bone_Quaternion   = WorldBones[i.blendindices.x * 2 ];
+    float4 bone_offset_alpha = WorldBones[i.blendindices.x * 2 + 1];
+    WorldPosition.xyz = QuaternionRotate( bone_Quaternion , i.position.xyz) + bone_offset_alpha.xyz ;
+    o.Valpha = bone_offset_alpha.w;// * OpacityOverride ;
     //以下是阴影空间投影
     o.Position = mul(WorldPosition, ViewProjection);
     o.Sdepth = o.Position.z / o.Position.w;
@@ -498,14 +583,14 @@ VS_ShadowMaker_output VS_ShadowMaker_22skin(VS_ShadowMaker_22skin_input i)
     o.MainTexUV = float4(i.texcoord.xy , i.texcoordNEW.xy) ;
 
     int2 BoneIndex = floor(i.blendindices.xy * 2 );
-    float4 This_Quaternion   = WorldBones[BoneIndex.x];
-    float4 This_offset_alpha = WorldBones[BoneIndex.x + 1];
-    float3 this_WorldP = Quaternion_R( This_Quaternion , i.position0.xyz) + This_offset_alpha.xyz ;
-    float4 That_Quaternion   = WorldBones[BoneIndex.y];
-    float4 That_offset_alpha = WorldBones[BoneIndex.y + 1];
-    float3 that_WorldP = Quaternion_R( That_Quaternion , i.position1.xyz) + That_offset_alpha.xyz ;
-    WorldPosition.xyz = lerp( that_WorldP , this_WorldP , i.blendweight.x) ;
-    o.Valpha = lerp(That_offset_alpha.w , This_offset_alpha.w , i.blendweight.x) ;//* OpacityOverride ; 
+    float4 bone_Quaternion_0   = WorldBones[BoneIndex.x];
+    float4 bone_offset_alpha_0 = WorldBones[BoneIndex.x + 1];
+    float3 worldP0 = QuaternionRotate( bone_Quaternion_0 , i.position0.xyz) + bone_offset_alpha_0.xyz ;
+    float4 bone_Quaternion_1   = WorldBones[BoneIndex.y];
+    float4 bone_offset_alpha_1 = WorldBones[BoneIndex.y + 1];
+    float3 worldP1 = QuaternionRotate( bone_Quaternion_1 , i.position1.xyz) + bone_offset_alpha_1.xyz ;
+    WorldPosition.xyz = lerp( worldP1 , worldP0 , i.blendweight.x) ;
+    o.Valpha = lerp(bone_offset_alpha_1.w , bone_offset_alpha_0.w , i.blendweight.x) ;//* OpacityOverride ; 
     //以下是阴影空间投影
     o.Position = mul(WorldPosition, ViewProjection);
     o.Sdepth = o.Position.z / o.Position.w;
@@ -555,8 +640,6 @@ float4 PS_ShadowMaker_AlphaTest(PS_ShadowMaker_input i) : COLOR
 
     #ifdef IS_BUILDNG
     float dmgalpha = tex2D(DamagedEasySampler , i.MainTexUV.zw).w ;
-    //    dmgtex = (bonealpha < 0.375)? dmgtex : 1 ;
-    // max(bonealpha, dmgalpha)
     dmgalpha = (i.Valpha < 0.375)? dmgalpha : 1;
     realalpha *= dmgalpha ;
     #endif
@@ -616,8 +699,8 @@ float4 VS_outline_11skin (VS_11skin_notgt_input  i) : POSITION
     // 从object space 到 world space===========
     float4 This_Quaternion   = WorldBones[i.blendindices.x * 2 ];
     float4 This_offset_alpha = WorldBones[i.blendindices.x * 2 + 1];
-    float3 WorldP = Quaternion_R( This_Quaternion , i.position.xyz) + This_offset_alpha.xyz ;
-    float3 WorldN = Quaternion_R( This_Quaternion , i.normal.xyz);
+    float3 WorldP = QuaternionRotate( This_Quaternion , i.position.xyz) + This_offset_alpha.xyz ;
+    float3 WorldN = QuaternionRotate( This_Quaternion , i.normal.xyz);
     //以上要换成双骨骼软绑定相关的代码，以下保留======
 
     float3 WorldLine = WorldP + WorldN ;
@@ -639,13 +722,13 @@ float4 VS_outline_22skin (VS_22skin_notgt_input  i) : POSITION
     //第一骨骼
     float4 This_Quaternion   = WorldBones[BoneIndex.x];
     float4 This_offset_alpha = WorldBones[BoneIndex.x + 1];
-    float3 this_WorldP = Quaternion_R( This_Quaternion , i.position0.xyz) + This_offset_alpha.xyz ;
-    float3 this_WorldN = Quaternion_R( This_Quaternion , i.normal0.xyz);
+    float3 this_WorldP = QuaternionRotate( This_Quaternion , i.position0.xyz) + This_offset_alpha.xyz ;
+    float3 this_WorldN = QuaternionRotate( This_Quaternion , i.normal0.xyz);
     //第二骨骼
     float4 That_Quaternion   = WorldBones[BoneIndex.y];
     float4 That_offset_alpha = WorldBones[BoneIndex.y + 1];
-    float3 that_WorldP = Quaternion_R( That_Quaternion , i.position1.xyz) + That_offset_alpha.xyz ;
-    float3 that_WorldN = Quaternion_R( That_Quaternion , i.normal1.xyz);
+    float3 that_WorldP = QuaternionRotate( That_Quaternion , i.position1.xyz) + That_offset_alpha.xyz ;
+    float3 that_WorldN = QuaternionRotate( That_Quaternion , i.normal1.xyz);
     //混合
     float3 WorldP = lerp( that_WorldP , this_WorldP , i.blendweight.x) ;
     float3 WorldN = lerp( that_WorldN , this_WorldN , i.blendweight.x) ;
@@ -703,14 +786,14 @@ VS_H_output  VS_H_skincomplex (VS_H_22skin_input  i)  //1-2 bone skin, with or n
     float4 This_Quaternion   = WorldBones[i.blendindices.x * 2];
     float4 This_offset_alpha = WorldBones[i.blendindices.x * 2 + 1];
 
-    float3 this_WorldP = Quaternion_R( This_Quaternion , i.position0.xyz) + This_offset_alpha.xyz ;
-    float3 this_WorldN = Quaternion_R( This_Quaternion , i.normal0.xyz);
+    float3 this_WorldP = QuaternionRotate( This_Quaternion , i.position0.xyz) + This_offset_alpha.xyz ;
+    float3 this_WorldN = QuaternionRotate( This_Quaternion , i.normal0.xyz);
     o.WorldP = this_WorldP ;  
     o.WorldN = this_WorldN ;
     o.VertexColor.w = This_offset_alpha.w ;
     if(tangent_xy_mult != 0) { //启用切线框架
-        this_WorldT = Quaternion_R( This_Quaternion , i.tangent0.xyz);
-        this_WorldB = Quaternion_R( This_Quaternion , i.binormal0.xyz);
+        this_WorldT = QuaternionRotate( This_Quaternion , i.tangent0.xyz);
+        this_WorldB = QuaternionRotate( This_Quaternion , i.binormal0.xyz);
         o.WorldT = this_WorldT ;  
         o.WorldB = this_WorldB ;  
     };
@@ -720,14 +803,14 @@ VS_H_output  VS_H_skincomplex (VS_H_22skin_input  i)  //1-2 bone skin, with or n
     {
     float4 That_Quaternion   = WorldBones[i.blendindices.y * 2 ];
     float4 That_offset_alpha = WorldBones[i.blendindices.y * 2 + 1];
-    float3 that_WorldP = Quaternion_R( That_Quaternion , i.position1.xyz) + That_offset_alpha.xyz ;
-    float3 that_WorldN = Quaternion_R( That_Quaternion , i.normal1.xyz);
+    float3 that_WorldP = QuaternionRotate( That_Quaternion , i.position1.xyz) + That_offset_alpha.xyz ;
+    float3 that_WorldN = QuaternionRotate( That_Quaternion , i.normal1.xyz);
     o.WorldP = lerp( that_WorldP , this_WorldP , i.blendweight.x) ;
     o.WorldN = lerp( that_WorldN , this_WorldN , i.blendweight.x) ;
     o.VertexColor.w = lerp(That_offset_alpha.w , This_offset_alpha.w , i.blendweight.x) ; 
     if(tangent_xy_mult != 0) { //启用切线框架
-        that_WorldT = Quaternion_R( That_Quaternion , i.tangent1.xyz);
-        that_WorldB = Quaternion_R( That_Quaternion , i.binormal1.xyz);
+        that_WorldT = QuaternionRotate( That_Quaternion , i.tangent1.xyz);
+        that_WorldB = QuaternionRotate( That_Quaternion , i.binormal1.xyz);
         o.WorldT = lerp( that_WorldT , this_WorldT , i.blendweight.x) ;
         o.WorldB = lerp( that_WorldB , this_WorldB , i.blendweight.x) ;
     };
@@ -853,5 +936,19 @@ float4 PS_vfx_stealth (PS_VFX_input i) : COLOR
     return OUTCOLOR ;
 }
 
-
+        //先算第一骨骼
+        float4 This_Quaternion   = WorldBones[BoneIndex.x];
+        float4 This_offset_alpha = WorldBones[BoneIndex.x + 1];
+        float3 this_WorldP = QuaternionRotate( This_Quaternion , i.position0.xyz) + This_offset_alpha.xyz ;
+        float3 this_WorldN = QuaternionRotate( This_Quaternion , i.normal0.xyz);
+        //第二骨骼
+        float4 That_Quaternion   = WorldBones[BoneIndex.y];
+        float4 That_offset_alpha = WorldBones[BoneIndex.y + 1];
+        float3 that_WorldP = QuaternionRotate( That_Quaternion , i.position1.xyz) + That_offset_alpha.xyz ;
+        float3 that_WorldN = QuaternionRotate( That_Quaternion , i.normal1.xyz);
+        //混合结果，lerpw越大越靠近第一骨骼，所以左 that 右 this
+        o.WorldP = lerp( that_WorldP , this_WorldP , i.blendweight.x) ;
+        o.WorldN = lerp( that_WorldN , this_WorldN , i.blendweight.x) ;
+        o.VertexColor.w *= lerp(That_offset_alpha.w , This_offset_alpha.w , i.blendweight.x) ; 
+        //o.WorldN = normalize(o.WorldN); //插值后向量会变短要拉回来
 */

@@ -8,8 +8,8 @@
 
  #define ALLOW_CLIP_VERTEX_ALPHA //all objects shader
 // #define IS_BUILDNG //only damage
-// #define SPMG_GLOWPULSE
-// #define CAN_HAVE_HC
+ #define SPMG_GLOWPULSE
+ #define CAN_HAVE_HC
 // #define ALLOW_STEALTH
 // #define IS_NANO_BUILDUP  
 
@@ -93,7 +93,6 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
     float3 R = reflect(-V , N) ; //input light vector is towards fragment!
     float  EYEtilt = dot(V , N) ;
     R = (EYEtilt <0) ? -V : R ;
-    //if(EYEtilt <0) {R = -V ;} ;
 
     float3 Lsun     = DirectionalLight[0].Direction.xyz ;
     float3 SUNcolor = DirectionalLight[0].Color.xyz ;
@@ -117,11 +116,11 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
     float3 GlowMapRGB = 0 ;
   #ifdef SPMG_GLOWPULSE
     GlowMapRGB = RecolorColor * spm.g  ;
-    GlowMapRGB *= (HasRecolorColors)? 2 : 0;
-    float GlowAmplitude = Time /2 + i.MainTexUV.x ;//* dot(TintColor, 1) ;
+    GlowMapRGB *= (HasRecolorColors)? 1 : 0;
+    float GlowAmplitude = Time + i.MainTexUV.y ;//* dot(TintColor, 1) ;
     GlowAmplitude = abs(frac(GlowAmplitude) * 2 -1) ;
     GlowMapRGB *= saturate(GlowAmplitude *8 -7); //pow(GlowAmplitude, 8) ;
-    GlowMapRGB *= dot(TintColor, TintColor);
+    GlowMapRGB *= dot(TintColor, TintColor) /2;
   #endif
 
     //clipping affected ! ===========
@@ -152,8 +151,10 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
   #ifdef IS_NANO_BUILDUP
     nanobuildupMASK = hp_nano_build(i.VertexColor.w, i.MainTexUV.xy);
     clip(nanobuildupMASK - 0.375); 
+    OUTCOLOR.w =1;
   #else
-    if(AlphaTestEnable){clip(OUTCOLOR.w - 0.375);}
+    //if(AlphaTestEnable){clip(OUTCOLOR.w - 0.375);}
+    OUTCOLOR.w = OUTCOLOR.w ;
   #endif
 
 
@@ -173,7 +174,7 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
     float f0_dir = spm.r ;
     float f0_env = colortone.w * metalness ;
 
-  #ifdef USE_ROUGHNESS_CURVE
+  #ifdef USE_ROUGHNESS_CURVE //基本不会用到
     glossiness = 1/ saturate(1 - spm.r + 0.125) ; //one over roughness
     f0_dir = saturate(spm.r *1.5 + spm.g) ;
     horizon_extra_sharp = 0.75 ;
@@ -217,7 +218,7 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
     //sun diff
     sunALL += diffcolor * sun_tilt ; //* diffuse_mult ;
     //sun spec
-    sunALL += speccolor * hp_specdist(glossiness, R, Lsun) * specbase_mult * hp_fresnel(Lsun, V, f0_dir, 4);
+    sunALL += speccolor * hp_specdist_patch(glossiness, R, Lsun) * specbase_mult * hp_fresnel(Lsun, V, f0_dir, 4);
     sunALL *= SUNcolor ; //*= sunlight_mult ;
 
 
@@ -250,7 +251,7 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
       //pl diff
       thisBRDF += diffcolor * PLtilt  ; 
       //pl spec  
-      thisBRDF += speccolor * hp_specdist(glossiness, R, PLL) * specbase_mult * hp_fresnel(PLL, V, f0_dir, 2) ;
+      thisBRDF += speccolor * hp_specdist_patch(glossiness, R, PLL) * specbase_mult * hp_fresnel(PLL, V, f0_dir, 2) ;
       //pl color
       thisBRDF *= PLcolor * PLdecayfactor(PLrangeMIN, PLrangeMAX, PLdist);
 
@@ -273,7 +274,7 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
   #endif
 
     //alpha clipping is in macro function stage
-    OUTCOLOR.w =1;
+
 
     return OUTCOLOR;
 };

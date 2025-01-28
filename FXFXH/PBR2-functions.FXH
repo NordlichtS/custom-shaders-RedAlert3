@@ -22,7 +22,7 @@
 //VS==================================
 
 // 通过四元数来计算旋转的函数，来自 CNC3 的 Skinning.fxh
-float3 Quaternion_R(float4 rotation, float3 position) 
+float3 QuaternionRotate(float4 rotation, float3 position) 
 {
 	float4 a
 	= rotation.wwwx * position.xyzx 
@@ -36,6 +36,14 @@ float3 Quaternion_R(float4 rotation, float3 position)
     - rotation.zxy * a.yzx;
 	return finalvector;
 }; 
+
+float3x3 Quaternion2Matrix(float4 Quaternion)
+{
+    float3 basisX = QuaternionRotate(Quaternion, float3(1,0,0));
+    float3 basisY = QuaternionRotate(Quaternion, float3(0,1,0));
+    float3 basisZ = QuaternionRotate(Quaternion, float3(0,0,1));
+    return float3x3(basisX, basisY, basisZ);
+}
 
 
 //直接在PS里算的VIEW
@@ -76,11 +84,19 @@ float3 getShadowMapUV(float4 WorldPosition)
 };
 
 
+
+float3 intersectOnHorizon(float3 pointA, float3 pointB, float planeheight)
+{
+    float slope = (planeheight - pointA.z) / (pointB.z - pointA.z);
+    float3 intersectXYZ = pointA + slope * (pointB - pointA);
+    return intersectXYZ;
+}
+
+
+
+
 float avoidzero(float inputfloat)
 {    return max(inputfloat, (1.0/4096.0));};
-
-
-
 
 
 //灯光闪烁
@@ -150,18 +166,16 @@ float hp_invshadow_bilinear ( float3 SMUV, float sun_tilt )
     return lightmid ;
 }
 
-
-float hp_invshadow_dither ( float3 ShadowProj, float sun_tilt, float2 vpos ) 
-{
+float hp_invshadow_underground ( float3 SMUV, float sun_tilt, float MicroShadowBias , bool welledgeNoSunlight ) 
+{ 
+    if(welledgeNoSunlight) {return 0;};
     if(sun_tilt <= 0) {return 0;};
     if(! HasShadow)   {return 1;}; 
 
-    bool2 ditherblock = frac(vpos / 2) < 0.25 ;
     float2 SM01T = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
-    float2 UVlerpw = frac(ShadowProj.xy / SM01T.y);
-    float object_depth = ShadowProj.z - 1.0 / 512.0 ;
-    float2 SMUV = (ditherblock)? +1 : -1 ;
-    SMUV = SMUV * SM01T.y + ShadowProj.xy ;
+    float2 UVlerpw = frac(SMUV.xy / SM01T.y);
+    float object_depth = SMUV.z + MicroShadowBias ;
+    //tbd : use suntilt to fix side offset
 
     float4 fourSamples = float4(   //四个角的阴影图深度
         tex2D(ShadowMapSampler, (SMUV.xy + SM01T.xx)).x ,
@@ -174,9 +188,11 @@ float hp_invshadow_dither ( float3 ShadowProj, float sun_tilt, float2 vpos )
     //双线性插值
     float2 bilinearLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
     float  bilinearUD = lerp(bilinearLR.x   , bilinearLR.y   , UVlerpw.y);
+    float lightmid = hp_cubic_hermit(bilinearUD) ; //* bilinearUD;
 
-    return bilinearUD ;
+    return lightmid ;
 }
+
 
 float hp_invshadow_single ( float3 ShadowProjection, float sun_tilt )  
 {
@@ -253,6 +269,10 @@ float3 getIRRADIANCEcolor (float3 N, float AOchannel)
     return nomap_irradiance;
 }
 
+float2 alignScreenTextureUV(float2 vpos, float2 texsize)
+{    return (vpos + 0.5) / texsize ;}
+
+
 
 //高光分布
 float hp_specdist(float glossiness, float3 R, float3 L)
@@ -269,7 +289,7 @@ float hp_specdist(float glossiness, float3 R, float3 L)
     return  specdist ; //spec multiply is not here
 }
 
-float hp_specdist_patch(float glossiness, float3 R, float3 L)
+float hp_specdist_patch(float glossiness, float3 R, float3 L) //glossiness as OOA
 {
     float specdist = dot(R,L) * glossiness - glossiness + 1 ;
     specdist = saturate(specdist);
@@ -416,7 +436,37 @@ half hp_nano_build(float bonealpha, half2 texUV)
 }
 
 /* 
+==================================
 废弃代码===========================
+
+
+float hp_invshadow_dither ( float3 ShadowProj, float sun_tilt, float2 vpos ) 
+{
+    if(sun_tilt <= 0) {return 0;};
+    if(! HasShadow)   {return 1;}; 
+
+    bool2 ditherblock = frac(vpos / 2) < 0.25 ;
+    float2 SM01T = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
+    float2 UVlerpw = frac(ShadowProj.xy / SM01T.y);
+    float object_depth = ShadowProj.z - 1.0 / 512.0 ;
+    float2 SMUV = (ditherblock)? +1 : -1 ;
+    SMUV = SMUV * SM01T.y + ShadowProj.xy ;
+
+    float4 fourSamples = float4(   //四个角的阴影图深度
+        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.xx)).x ,
+        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.xy)).x ,
+        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.yx)).x ,
+        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.yy)).x 
+    );  // LU,LD,RU,RD (00,01,10,11) 
+    bool4 fourTests = (fourSamples > object_depth) ; //阴影比物体离阳光更远，则有阳光
+    fourSamples = (float4)fourTests ;
+    //双线性插值
+    float2 bilinearLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
+    float  bilinearUD = lerp(bilinearLR.x   , bilinearLR.y   , UVlerpw.y);
+
+    return bilinearUD ;
+}
+
 
 // static float phase = abs( frac(Time) *2 -1) ; //有用吗
 

@@ -6,15 +6,36 @@ also with a little help from [https://github.com/lanyizi/DXDecompiler](https://g
 the main project here is PBR (physical based render) shader. It should be used to replace Objects and Buildings shaders in the game 
 (after compile! Don't try to let the game itself compile it, its compiler is too outdated. Use FXC.EXE from legacy microsoft direct x sdk. BUT 3dsmax requires uncompiled version. I recommand 3dsmax2023 with the exporter plugin in TOOLS folder)
 
-Compiled+packed game-ready patch, download it here: (updated on 2025.01.04) https://www.moddb.com/mods/psysonic-omega/addons/next-gen-shader-patch-20
+Compiled+packed game-ready patch, download it here: (updated on 2025.01.06) https://www.moddb.com/mods/psysonic-omega/addons/next-gen-shader-patch-20
 
 To compile your own shader: find "fxc.exe" in TOOLS folder (or from microsoft's official website), place it in the same folder with your FX and FXH files, open a command prompt here by type CMD on the path bar and use following command: ` fxc.exe /O2 /T fx_2_0 /Fo  OutputFileName.fxo   SourceFileName.fx  `
 
-My latest and most complete implementation, with the ability of previewing near in-game result in 3dsmax. It was originally made for 
+My latest and most complete implementation, with the ability of previewing near in-game result in 3dsmax. It was originally made for the brilliant RiMian dev team
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/pointlightpreview.gif)
 there are these adjustable parameters: (either get them from texture, or just a constant variable, or hardcoded)
 
-diffuse color, ambient occlusion, insulent's reflectivity, fresnel effect f0, roughness, metalness, metal's reflection spectrum color, team color, emmisive color, emmisive blink frequncy, emmisive blink amplitude, shadow smoothing radius (is currently hardcoded to 2 for optimization),  transparency, and even a sub-surface scatter color for glass liquid container(currectly abandoned)
+diffuse color, ambient occlusion, insulent's reflectivity, fresnel effect f0, roughness, metalness, metal's reflection spectrum color, team color, emmissive color, emmissive blink frequncy, shadow map smoothing + anti aliasing radius (is currently hardcoded for optimization), and more flexible transparency controls.
+
+=== 2025.Jan. grand update ===
+
+The complete framework has been rewritten with more efficient functions and more perceise constant register assignment, see "FXFXH" folder. No more decompiled snippet will be used.
+
+You can compile the same source file into multiple variants of shaders, by commenting out some of these MACRO for conditional compiling, just like in C++ :
+![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/macro.png)
+
+the "allow stealth" ability means to switch the render into a semi-transparent holographic feeling with edge color enchance, once it detects the opacity override is less than 100% . This is fully automatic, no need to code it into your mod.
+(here should be a preview screenshot but i forgot to upload)
+
+here's also a magical shader i made that can show underground structures without breaking the ground. It uses optical illusion without actually mess up the screen depth buffer, but the light/shadow/reflection calculations are all correct.
+![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/undergroundlight.gif)
+
+Because the game engine limits the ability to edit terrain while the game is running, it was impossible to make models like missile silo or mine pit before. Not any more !
+![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/underground1.gif)
+
+
+
+=== 2024 older content, kept for archival purpose ===
+=== all these previous features REMAIN working in the new version too ===
 
 A special "compatible" version, for compatibility with textures from original game, is also added, a less accurate but more stylized PBR tweaking. The parameters mentioned above can be reconstructed via some hard coded functions and original game's textures.
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/20240517113152.png)
@@ -22,12 +43,6 @@ you may notice, as the reflectivity increase, diffuse lights decreases according
 Fresnel effect (darker on verticle view angle) also becomes more obvious, and disappear again once the material is considered metallic. Metal is not supposed to cause diffuse reflection or fresnel effect either, all energy goes to specular.
 if you want to edit the preview, such as adding or neglecting an in-game feature in 3dsmax, caution:
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/conditional.png)
-
-ObjectWorkflow_Compatile.fx is a variant specially fine-tuned to match the original Red Alert 3 textures and artstyle while still maintaining all BRDF. NO texture edit is needed to use them!
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/old%20verson%20demo.png)
-Left=original game shader, Right=new shader. As you may notice, the shadow's edge is also smoothed and anti-aliased.
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/pcfshadow.png)
-skybox is not needed, the shader will simulate a skybox with reflect vector and current roughness.
 
 Here's also a video demo of my latest attempt to make a more "3d printing" effect when building up an object in the game, that has starry light rays descend from sky  and morph into a new triangle, one by one they build up a new structure. DX9 doesn't have geometry shader so i used multiple passes to handle different parts. (purely shadercontrolled, no new models needed) https://www.bilibili.com/video/BV1LZ421x7rJ/?
 
@@ -47,7 +62,7 @@ as for the specular in BRDF (bi-directional reflection distribution function) i 
 Fresnel effect is also more obvious, though less realistic compared to the popular schlick approximation, i like the artstyle more.
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/fresnel.png )
 
-====(side project)====
+===(side project)===
 
 I accidentially read across this [input semantic for pixel shader](https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-semantics#direct3d-9-vpos-and-direct3d-10-sv_position)  and realized, by using screen-space position as texture sampling coordinate, i can show the "protal to cosmos" visual effects, inspired by the blade of no thought vfx from a certain anime game.
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/starry%2001.png ) 
@@ -56,19 +71,11 @@ this shader have one for objects and one for laser mesh. Named "starry" in this 
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/starry%20laser%2002.png)
 remember to register the starry sky texture in SCRAPEO so it can have standard annotation string address.
 
+=== slightly outdated content ===
 
 
-====(out dated contents below)====
-
-The older PBR implementaions have three variants: "myPBR" for original game and most mods, "myPBR_g2yw" for Generals 2 mod, "myPBR_genevo" for Generals Evolution mod.
-"3dsmax only" is for you to export the needed parameters in 3dsmax when making an w3x model file. It cannot be used in-game. The preview is crude (for now) you have to guess its in-game visuals. I'll implement a better preview in 3dsmax later.
-
-Each has 10 (maybe more) global variables to adjust, you can tweak them to get the style fitting for your skirmish map. 
-They all support up to 8 point lights (per mesh) all using microfacet BRDF to shade. You can see how the VFX cast lights on windows are way different from original game.
-
-I will upload a few preview screenshots later.
-
-terrain:  smooth shadow, RA2 style fog of war (register conflict occured, need further fixing)
-
-laserhc:  laser now glow as team color, the "color emissive" in your VFX code can only control the brightness of this laser, not its color. However the laser texture's color can still influence final color, this color will be mixed with team color.
-
+ObjectWorkflow_Compatile.fx is a variant specially fine-tuned to match the original Red Alert 3 textures and artstyle while still maintaining all BRDF. NO texture edit is needed to use them!
+![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/old%20verson%20demo.png)
+Left=original game shader, Right=new shader. As you may notice, the shadow's edge is also smoothed and anti-aliased.
+![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/pcfshadow.png)
+skybox is not needed, the shader will simulate a skybox with reflect vector and current roughness.

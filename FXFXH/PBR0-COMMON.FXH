@@ -128,7 +128,7 @@ shared float3 EyePosition
 <    bool unmanaged = true;>;
 
 //物体空间到世界空间矩阵，这个好像只能给没绑骨骼的mesh用
-column_major float4x3 World : World 
+shared column_major float4x3 World : World 
 : register(c124);
 
 //骨骼在世界空间里的信息共64组，每两个float4记一个骨骼，按 4+3+1 记录旋转，位移，透明度
@@ -258,7 +258,7 @@ sampler2D ShroudTextureSampler
     string SasBindAddress = "Terrain.Shroud.Texture";
 > = sampler_state {
     Texture = < ShroudTexture >;
-    MinFilter = 2;
+    MinFilter = 1;
     MagFilter = 2;
     MipFilter = 1;
     AddressU = 3;

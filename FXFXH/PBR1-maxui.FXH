@@ -229,7 +229,8 @@ samplerCUBE IrradianceTextureSampler
 float4x4 MAXwvp : WorldViewProjection;
 float4x4 MAXworld : WORLD;
 float4x4 ViewI : VIEWINVERSE; 
-
+float4x4 MAXView : View;         
+float4x4 MAXProjection : Projection; 
 
 
 // sun light direction (world space)
