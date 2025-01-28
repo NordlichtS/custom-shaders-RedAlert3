@@ -12,16 +12,12 @@ To compile your own shader: find "fxc.exe" in TOOLS folder (or from microsoft's 
 
 My latest and most complete implementation, with the ability of previewing near in-game result in 3dsmax. It was originally made for the brilliant RiMian dev team
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/pointlightpreview.gif)
-there are these adjustable parameters: (either get them from texture, or just a constant variable, or hardcoded)
-
+there are these adjustable parameters: (either get them from texture, or just a constant variable, or hardcoded)：
 diffuse color, ambient occlusion, insulent's reflectivity, fresnel effect f0, roughness, metalness, metal's reflection spectrum color, team color, emmissive color, emmissive blink frequncy, shadow map smoothing + anti aliasing radius (is currently hardcoded for optimization), and more flexible transparency controls.
 
-=== 2025.Jan. grand update ===
+=== 2025.Jan. grand update ==================
 
 The complete framework has been rewritten with more efficient functions and more perceise constant register assignment, see "FXFXH" folder. No more decompiled snippet will be used.
-
-You can compile the same source file into multiple variants of shaders, by commenting out some of these MACRO for conditional compiling, just like in C++ :
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/macro.png)
 
 the "allow stealth" ability means to switch the render into a semi-transparent holographic feeling with edge color enchance, once it detects the opacity override is less than 100% . This is fully automatic, no need to code it into your mod.
 (here should be a preview screenshot but i forgot to upload)
@@ -32,13 +28,17 @@ here's also a magical shader i made that can show underground structures without
 Because the game engine limits the ability to edit terrain while the game is running, it was impossible to make models like missile silo or mine pit before. Not any more !
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/underground1.gif)
 
+You can compile the same source file (example here is PBR5-6-objects-PATCH.FX) into multiple variants of shaders, by commenting out some of these MACRO for conditional compiling, just like in C++ :
+![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/macro.png)
 
 
-=== 2024 older content, kept for archival purpose ===
-=== all these previous features REMAIN working in the new version too ===
+=== 2024 older content, kept for archival purpose ===================
+
+=== all these previous features REMAIN working in the new version too =================
 
 A special "compatible" version, for compatibility with textures from original game, is also added, a less accurate but more stylized PBR tweaking. The parameters mentioned above can be reconstructed via some hard coded functions and original game's textures.
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/20240517113152.png)
+
 you may notice, as the reflectivity increase, diffuse lights decreases according to law of conservation of energy. 
 Fresnel effect (darker on verticle view angle) also becomes more obvious, and disappear again once the material is considered metallic. Metal is not supposed to cause diffuse reflection or fresnel effect either, all energy goes to specular.
 if you want to edit the preview, such as adding or neglecting an in-game feature in 3dsmax, caution:
