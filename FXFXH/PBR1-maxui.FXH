@@ -112,7 +112,7 @@ sampler2D NormalMapSampler
 float BumpScale //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。
 <   string UIName = "BumpScale(NRM strength)"; 
     string UIWidget = "Slider"; 
-    float UIMin = 0; float UIMax = 8; 
+    float UIMin = -8; float UIMax = 8; 
     float UIStep = 0.25;
 > =  2 ;
 

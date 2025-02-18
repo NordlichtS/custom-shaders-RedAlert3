@@ -409,13 +409,13 @@ float3 hp_getColorTone(float3 inputcolor)
 
 float4 hp_stealthVFX (float EYEtilt, float3 texcolor, float otheralpha, float vpos, float3 realHC)
 {
-    float fresnel = saturate(1- EYEtilt)  ;
+    float fresnel = 1- EYEtilt  ; //no more saturate
     bool scanline = frac(vpos / 3 ) < 0.25; // + Time
     float3 edgemask = (scanline)? fresnel : pow(fresnel, 4) ;
     edgemask *= realHC ;
 
     float4 OUTCOLOR ;
-    OUTCOLOR.xyz = texcolor * 0.5 + edgemask * (1.5 - OpacityOverride) ;
+    OUTCOLOR.xyz = texcolor * 0.5 + edgemask * (2 - OpacityOverride) ;
     OUTCOLOR.w = OpacityOverride;// * otheralpha ;
     return OUTCOLOR ;
 }

@@ -451,7 +451,7 @@ struct PS_LOW_input
 {
     float4 VertexColor : COLOR0;  //顶点颜色
     float3 CoordOBJ  : COLOR1; //物体空间
-    float2 MainTexUV  : TEXCOORD0; //XY是主帖图UV
+    float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV
     float2 FogCloudUV : TEXCOORD2; //迷雾UV
     float3 WorldP : TEXCOORD3;  //世界空间位置
     float3 WorldN : TEXCOORD4;//_centroid; //世界法线Z
@@ -466,32 +466,43 @@ float4 PS_LOW (PS_LOW_input i) : COLOR
     float3 accentlight = max(DirectionalLight[1].Color , DirectionalLight[2].Color);
     float sun_tilt = dot(N, Lsun);
     sun_tilt = saturate(sun_tilt *2 +0.5);
-    float3 surfacediffuselight = lerp(accentlight, SUNcolor, sun_tilt);
+    float3 surfacediffuselight = lerp(accentlight, SUNcolor, sun_tilt) ;
 
     float3 albedocolor = 1 ;
     float  specchannel = 0 ; 
     float  HCchannel = 0 ;
     float  alpha = 1;
-  #ifdef IS_BASIC_W3D_SHADER
+  #ifdef IS_BASIC_W3D_SHADER //but dont use this for infantry !
     float4 tmp0 = tex2D(Texture_0Sampler,  i.MainTexUV.xy );
     albedocolor = tmp0.xyz ;
     HCchannel = tmp0.w ;
-  #else
+  #else //above is placeholder, under is used object shader
     float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
     float4 spm = tex2D(SpecMapSampler,         i.MainTexUV.xy );
     albedocolor = dif.xyz ;
     alpha *= dif.w ;
     HCchannel = spm.z ;
-    specchannel = spm.x + spm.y;
+    specchannel = spm.x + spm.y ;
   #endif
     HCchannel = (HasRecolorColors)? HCchannel : 0 ;
     albedocolor *= lerp(1, RecolorColor, HCchannel) ;
-    float specdist = (dot(R, Lsun) -1 )*(specchannel *32 +32) + specchannel ;
-    float3 allcolors = max( (albedocolor * surfacediffuselight) , (specdist * SUNcolor) ) ;
+
+    surfacediffuselight *= albedocolor ;
+    float specdist = dot(R, Lsun);
+    specdist *= pow( specdist, 32);
+    //dot(R, Lsun) *16 -16 + specchannel;
+    //(dot(R, Lsun) -1 ) * 64 * (specchannel +1) + specchannel ; //over complicated 
+    //    max( allcolors , (specdist * SUNcolor) ) ;
+
+    float3 allcolors = 0;
+    allcolors = lerp(surfacediffuselight, SUNcolor , saturate(specdist * specchannel)) ;
+    allcolors += AmbientLightColor * albedocolor;
 
   #ifdef IS_BUILDNG
-    float dist2dmg = saturate( dot(i.CoordOBJ, i.CoordOBJ) /32 );
-    allcolors *= (i.VertexColor.w < 0.375)? dist2dmg : 1 ;
+    //float dist2dmg = saturate( dot(i.CoordOBJ, i.CoordOBJ) /32 );
+    float4 dmgtex = tex2D(DamagedTextureSampler , i.MainTexUV.zw);
+    allcolors *= (i.VertexColor.w < 0.375)? dmgtex.xyz : 1 ;
+    alpha *= dmgtex.w ;
   #else
     alpha *= i.VertexColor.w ;
   #endif
@@ -499,7 +510,38 @@ float4 PS_LOW (PS_LOW_input i) : COLOR
     allcolors *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy).xyz ;
     allcolors *= TintColor ;
 
-    return float4(allcolors, alpha);
+    return float4(allcolors.rgb , (alpha * OpacityOverride));
+};
+
+float4 PS_LOW_INFANTRY (PS_LOW_input i) : COLOR 
+{
+    float3 N = i.WorldN;
+    float3 Lsun     = DirectionalLight[0].Direction.xyz ;
+    float3 SUNcolor = DirectionalLight[0].Color.xyz ;
+    float3 accentlight = max(DirectionalLight[1].Color , DirectionalLight[2].Color);
+    float sun_tilt = dot(N, Lsun);
+    float3 surfacediffuselight = (sun_tilt > 0)? SUNcolor : accentlight ;
+
+    float3 albedocolor = 1 ;
+    float  HCchannel = 0 ;
+  #ifdef IS_BASIC_W3D_SHADER 
+    float4 tmp0 = tex2D(Texture_0Sampler,  i.MainTexUV.xy );
+    albedocolor = tmp0.xyz ;
+    HCchannel = tmp0.w ;
+  #else 
+    float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
+    albedocolor = dif.xyz ;
+  #endif
+    HCchannel = (HasRecolorColors)? HCchannel : 0 ;
+    albedocolor *= lerp(1, RecolorColor, HCchannel) ;
+
+    float3 allcolors = 0;
+    allcolors += surfacediffuselight + AmbientLightColor ;
+    allcolors *= albedocolor ;
+    allcolors *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy).xyz ;
+    allcolors *= TintColor ;
+
+    return float4(allcolors.rgb ,  OpacityOverride);
 };
 
 

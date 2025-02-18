@@ -1,4 +1,4 @@
-//#define _3DSMAX_
+// #define _3DSMAX_
 // #define IGNORE_NRM
 // #define FORBID_PIPELINE_CONSTANT
 // dont change any above
@@ -7,7 +7,9 @@
 //#pragma warning(disable: 3206)
 
 /*
-fxc.exe /O2 /T fx_2_0 /Fo   objectsunderground.fxo   PBR5-9-underground.FX
+fxc.exe /O2 /T fx_2_0 /Fo   buildingsunderground.fxo   PBR5-9-underground.FX
+fxc.exe /O1 /T fx_2_0 /Fo   buildingsundergroundMAX.fxo   PBR5-9-underground.FX
+
 */
 
 
@@ -73,7 +75,7 @@ VS_to_PS_H_UNDERGROUND  VS_H_UNDERGROUND (VS_tmp_input  i)  //no bone skin
     //o.VertexColor = i.color ;  
     o.MainTexUV = i.texcoord.xy ; 
 
-    float3 worldoffset = mul(float4(0,0,0,1) , World);
+    float3 worldoffset = World._m30_m31_m32  ; //mul(float4(0,0,0,1) , World);
     float3x3 worldrotation = (float3x3)World ;
     float3 Lsun = DirectionalLight[0].Direction.xyz ;
     float3 camera_in_world = EyePosition ;
@@ -110,6 +112,10 @@ VS_to_PS_H_UNDERGROUND  VS_H_UNDERGROUND (VS_tmp_input  i)  //no bone skin
 
 float4 PS_H_UNDERGROUND (VS_to_PS_H_UNDERGROUND i) : COLOR 
 {
+    float3 worldoffset = World._m30_m31_m32  ; 
+  #ifdef _3DSMAX_
+    worldoffset = mul(float4(0,0,0,1) , MAXworld).xyz;
+  #endif
     float wellradius_square = WellRadius * WellRadius ;
     float distsquareEYE = dot(i.HorizonRelative_eyeXY_sunXY.xy, i.HorizonRelative_eyeXY_sunXY.xy) ;
     float distsquareSUN = dot(i.HorizonRelative_eyeXY_sunXY.zw, i.HorizonRelative_eyeXY_sunXY.zw) ; 

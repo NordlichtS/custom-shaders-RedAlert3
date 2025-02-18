@@ -211,6 +211,22 @@ technique Default
     }
 }
 
+technique Default_M
+{    pass P0 <string ExpressionEvaluator = "BasicW3D";>
+    {
+        VertexShader = VS_infantry_Array[ VSchooserExpr() ]; 
+        PixelShader  = compile ps_3_0 PS_LOW_INFANTRY(); 
+        ZEnable = 1;
+        ZFunc = 4;
+        ZWriteEnable = 1; //
+        CullMode = 2;
+        AlphaFunc = 7;
+        AlphaTestEnable = 1;
+        //AlphaBlendEnable = 1;
+        AlphaRef = 64;
+    }
+}
+
 technique _CreateShadowMap
 {    pass p0    
     {

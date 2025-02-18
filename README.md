@@ -22,11 +22,11 @@ The complete framework has been rewritten with more efficient functions and more
 the "allow stealth" ability means to switch the render into a semi-transparent holographic feeling with edge color enchance, once it detects the opacity override is less than 100% . This is fully automatic, no need to code it into your mod.
 (here should be a preview screenshot but i forgot to upload)
 
-here's also a magical shader i made that can show underground structures without breaking the ground. It uses optical illusion without actually mess up the screen depth buffer, but the light/shadow/reflection calculations are all correct.
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/undergroundlight.gif)
-
-Because the game engine limits the ability to edit terrain while the game is running, it was impossible to make models like missile silo or mine pit before. Not any more !
+Here's also a magical shader i made that can show underground structures without breaking the ground. Because the game engine limits the ability to edit terrain while the game is running, it was impossible to make models like missile silo or mine pit before. Not any more !
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/underground1.gif)
+
+It uses optical illusion without actually mess up the screen depth buffer, but the light/shadow/reflection calculations are all made as if they really locates underground.
+![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/undergroundlight.gif)
 
 You can compile the same source file (example here is PBR5-6-objects-PATCH.FX) into multiple variants of shaders, by commenting out some of these MACRO for conditional compiling, just like in C++ :
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/macro.png)
