@@ -1,7 +1,9 @@
 # custom-shaders-RedAlert3
 Graphic improvements for this old dx9 game "Command Conquer Red Alert 3 " (2008) , based on hlsl code published in CnC3 Tiberium Wars MODSDK by Electronic Arts.
 
-also with a little help from [https://github.com/lanyizi/DXDecompiler](https://github.com/lanyizi/DXDecompiler) (could be experimental)
+well looks like EA finally decided to be nice once and open-sourced all shader sourcecode from SAGE engine games, no more need to decompile and reverse engineer! I'll update some better examples soon. Check official source code here:  https://github.com/electronicarts/CnC_Modding_Support/tree/main/Red%20Alert%203/Shaders
+
+old decompiler used to make our first prototype before EA open-sourced all shaders: https://github.com/lanyizi/DXDecompiler (experimental)
 
 the main project here is PBR (physical based render) shader. It should be used to replace Objects and Buildings shaders in the game 
 (after compile! Don't try to let the game itself compile it, its compiler is too outdated. Use FXC.EXE from legacy microsoft direct x sdk. BUT 3dsmax requires uncompiled version. I recommand 3dsmax2023 with the exporter plugin in TOOLS folder)
