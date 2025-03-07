@@ -164,11 +164,11 @@ float4 PS_H_UNDERGROUND (VS_to_PS_H_UNDERGROUND i) : COLOR
     float f0_env = 0 ;
 
     float  GLOWchannel = (GlowAmplitude > 0)? spm.w : ( 1- spm.w) ;
-    float3 GlowMapRGB = RecolorColor ;
-    GlowMapRGB *= GLOWchannel * abs(GlowAmplitude) ;
+    float3 glowmapRGB = RecolorColor ;
+    glowmapRGB *= GLOWchannel * abs(GlowAmplitude) ;
     float GlowAmplitude = Time + i.MainTexUV.y ;
     GlowAmplitude = frac(GlowAmplitude) * 2 -1 ;
-    GlowMapRGB *= pow(GlowAmplitude, 4); 
+    glowmapRGB *= pow(GlowAmplitude, 4); 
 
   //环境光相关 
     const float ambient_diff_mult =  0.5 ; //环境光与天空盒diffuse
@@ -243,7 +243,7 @@ float4 PS_H_UNDERGROUND (VS_to_PS_H_UNDERGROUND i) : COLOR
     OUTCOLOR.xyz += ambientALL + sunALL ; //BRDF
     OUTCOLOR.xyz *= TintColor ;
     OUTCOLOR.xyz += PLtotal ; //thus pl unaffected
-    OUTCOLOR.xyz += GlowMapRGB ; //原版可能要删了这个
+    OUTCOLOR.xyz += glowmapRGB ; //原版可能要删了这个
 
   #ifndef _3DSMAX_ //预览没有迷雾
     OUTCOLOR.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;

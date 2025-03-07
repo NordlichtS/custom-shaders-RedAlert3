@@ -1,7 +1,8 @@
 #define IS_BASIC_W3D_SHADER
 #define ALLOW_STEALTH
 //#define ALLOW_HC_INVERT
-
+//#define ALLOW_CLIP_VERTEX_ALPHA //允许骨骼透明度隐藏零件。object要。building不要。
+#define BONE_ALPHA_SHRINK //AFFECT VS. caution: still write vertex alpha
 
 
 #include "PBR3-vsps.FXH"
@@ -25,7 +26,7 @@ struct PS_infantry_input
 {
     float2 vpos : VPOS ; //screen pixel 
     float4 VertexColor : COLOR0;  //顶点颜色
-    float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
+    float2 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
     float3 ShadowPROJ : TEXCOORD1; //XYZ阴影空间投影, W弃用
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
     float3 WorldP : TEXCOORD3;  //世界空间位置 ( no use ?)
@@ -34,7 +35,9 @@ struct PS_infantry_input
 
 float4 PS_H_infantry (PS_infantry_input i) : COLOR 
 {
+    #ifdef ALLOW_CLIP_VERTEX_ALPHA
     clip(i.VertexColor.w - 0.375);
+    #endif
     float4 OUTCOLOR = float4(0,0,0,1); 
 
     const float ambient_mult =  0.75 ; //环境光与天空盒diffuse
@@ -135,11 +138,20 @@ float4 PS_H_infantry (PS_infantry_input i) : COLOR
 
 
 
-
+float4 PS_BASICW3D_NOLIGHT(PS_infantry_input i)
+{
+    float4 texcolor = tex2D(Texture_0Sampler,  i.MainTexUV.xy );
+    texcolor *= i.VertexColor ;
+    texcolor.rgb *= (HasRecolorColors)? RecolorColor : 1 ;
+    texcolor.rgb *= TintColor ;
+    texcolor.a *= OpacityOverride ;
+    return texcolor ;
+}
 
 
 int VSchooserExpr() 
 { return clamp(NumJointsPerVertex, 0, 2) ; }
+
 
 
 VertexShader VS_infantry_Array[3] = {
@@ -154,6 +166,14 @@ VertexShader VS_Shadow_Array[3] = {
     compile vs_2_0 VS_ShadowMaker_22skin(), 
 };
 
+int PSchooserExpr() 
+{ return clamp(BlendMode, 0, 1) ; }
+
+PixelShader PS_infantry_array[2] = {
+    compile ps_3_0 PS_H_infantry(),
+    compile ps_3_0 PS_BASICW3D_NOLIGHT(),
+};
+
 /*
 int PSstealthExpr()
 {  return (OpacityOverride < 0.985 )? 1 : 0 ; }
@@ -161,7 +181,7 @@ int PSstealthExpr()
 PixelShader PS_infantry_Array[2] = {
     compile ps_3_0 PS_H_infantry(),
     compile ps_3_0 PS_vfx_stealth(),
-};
+};  
 */
 
 
@@ -199,19 +219,19 @@ technique Default
 {    pass P0 <string ExpressionEvaluator = "BasicW3D";>
     {
         VertexShader = VS_infantry_Array[ VSchooserExpr() ]; 
-        PixelShader  = compile ps_3_0 PS_H_infantry(); 
+        PixelShader  = PS_infantry_array[ PSchooserExpr()];
         ZEnable = 1;
         ZFunc = 4;
         ZWriteEnable = 1; //
         CullMode = 2;
         AlphaFunc = 7;
-        AlphaTestEnable = 1;
+        AlphaTestEnable = 0;
         //AlphaBlendEnable = 1;
         AlphaRef = 64;
     }
 }
 
-technique Default_M
+technique _Default_M
 {    pass P0 <string ExpressionEvaluator = "BasicW3D";>
     {
         VertexShader = VS_infantry_Array[ VSchooserExpr() ]; 
@@ -221,7 +241,7 @@ technique Default_M
         ZWriteEnable = 1; //
         CullMode = 2;
         AlphaFunc = 7;
-        AlphaTestEnable = 1;
+        AlphaTestEnable = 0;
         //AlphaBlendEnable = 1;
         AlphaRef = 64;
     }

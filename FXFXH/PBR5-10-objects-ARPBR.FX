@@ -3,19 +3,18 @@
 //#define _3DSMAX_ 
 //编译给3DSMAX预览专用版时开启。
 //请注意 如果你直接把源码给MAX读 是不需要上面这个的。 MAX会自己加
-//你可以编译一个FXO然后后缀改成FX 给MAX读。只有装了W3X插件才能读取
+//你可以编译一个FXO然后后缀改成FX 给MAX读。
+//只有装了W3X插件才能读取
 //因为MAX 默认只能用FX源码。不能读编译后的
 //但如果给游戏用的 就不要启用。否则游戏直接崩
 
 // #define IGNORE_NRM //完全禁用法线图
 // #define FORBID_PIPELINE_CONSTANT //
-// #define USE_ROUGHNESS_CURVE //
 // 上面的最好别乱动 dont change any above 
 
 // #define FORCE_ENABLE_TEXTURE_CLIP //强制开启主贴图的ALPHA镂空。无论有没有ALPHATEST。不影响半透明
  #define ALLOW_CLIP_TEXTURE_ALPHA //允许贴图alpha镂空。帝国建造不要开。别的酌情启用
  #define DYNAMIC_CLOUD_REF //允许动态云背景反射。对金属和玻璃质感很重要
- #define SPMG_GLOWPULSE //SPM贴图的绿色为闪烁发光。看情况开关
  #define CAN_HAVE_HC //允许有阵营色。中立单位不要
  #define ALLOW_STEALTH //允许隐身时有特殊的全息投影特效
 
@@ -43,7 +42,27 @@ fxc.exe /O2 /T fx_2_0 /Fo   objectssoviet.fxo   PBR5-6-objects-PATCH.FX
 */
 //#pragma warning(disable: 3206)
 
+
+
+float4 SPM_threshold //SPM的界限
+<   string UIName = "SPM_threshold"; 	string UIWidget = "Color";
+> ={ 0.9, 0.5, 0.1, 0.5 }; //分别是：红色金属阈值，绿色金属阈值，蓝色阵营色阈值，发光倍数
+
+
+float MinRoughness //最低粗糙度（要用倒数更精确吗？）
+<   string UIName = "MinRoughness"; //MAXglossiness
+    float UIMax = 0.5; float UIMin = 0.005; float UIStep = 0.005; 
+> ={ 0.125 }; 
+
+float MaxRoughness //最大粗糙度
+<   string UIName = "MaxRoughness"; 
+    float UIMax = 1.0 ; float UIMin = 0.5; float UIStep = 0.05; 
+> ={ 1.0 }; 
+
+
 #include "PBR3-vsps.FXH" //WILL INCLUDE EVERYTHING
+
+
 
 
 struct PS_H_input
@@ -60,7 +79,7 @@ struct PS_H_input
     float3 WorldB : TEXCOORD6_centroid; //世界切线X
 };
 
-float4 PS_H_PATCH (PS_H_input i) : COLOR 
+float4 PS_H_ARPBR (PS_H_input i) : COLOR 
 {
   float4 OUTCOLOR = float4(0,0,0,1); //安全起见先initialize
   
@@ -121,6 +140,7 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
     float3 realHC = (HasRecolorColors)? RecolorColor : 1 ;
     float3 hcmask = 1 ;
   #ifdef CAN_HAVE_HC
+    spm.b = (spm.b > SPM_threshold.b )? spm.b : 0 ;
     hcmask = lerp(1 , realHC, spm.b) ;
     dif.xyz *= lerp(dif.xyz , 1 , spm.b); //gamma without hc
     dif.xyz *= hcmask * hcmask;
@@ -128,40 +148,23 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
     dif.xyz*= dif.xyz ;
   #endif
 
-    float3 glowmapRGB = 0 ;
-  #ifdef SPMG_GLOWPULSE
-    glowmapRGB =  spm.ggg  ;
-    glowmapRGB *= (HasRecolorColors)? RecolorColor : 0;
-    float GlowAmplitude = Time + i.WorldP.z /128 ;//i.MainTexUV.y
-    GlowAmplitude = abs(frac(GlowAmplitude) * 2 -1) ;
-    glowmapRGB *= saturate(GlowAmplitude *16 -15); //pow(GlowAmplitude, 8) ;
-    glowmapRGB *= dot(TintColor, TintColor) * 0.5 ; //dot 111 = 3
-  #endif
+
 
     //clipping affected ! ===========
-
-
 
   #ifdef ALLOW_CLIP_TEXTURE_ALPHA
     OUTCOLOR.w *= dif.w ;
   #endif
 
-
-
-  //#ifndef IS_NANO_BUILDUP
   #ifdef ALLOW_CLIP_VERTEX_ALPHA
     OUTCOLOR.w *= i.VertexColor.w ;
   #endif
-
-
 
     float4 buildingDMG = float4(0,0,1,1);
   #ifdef IS_BUILDNG //建筑损伤
     buildingDMG = hp_new_damage_mix(i.MainTexUV.zw , i.VertexColor.w );
     OUTCOLOR.w *= buildingDMG.w ;
   #endif
-
-
 
     float nanobuildupMASK = 1;
   #ifdef IS_NANO_BUILDUP
@@ -186,49 +189,47 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
 
   //还原通道信息 ========================
     
-    float glossiness = spm.r * 7 + 1  ; //
-    float specbase_mult = 0.25; //1.5 * 0.125 ?
-    float horizon_extra_sharp = 0.5 ;
+    float glossiness = 1 / lerp(MaxRoughness, MinRoughness, spm.r) ; //
+    float specbase_mult = 0.25; 
 
-    float metalness = smoothstep(0.5 , 0.75 , (spm.r + spm.g)) ;
-    float4 colortone = hp_saturation_luminance(dif.xyz, 0.0625 );
+    bool ismetal = (spm.r > SPM_threshold.r) || (spm.g > SPM_threshold.g)  ;
 
-    float3 diffcolor = dif.xyz * (1 - metalness);
+    float3 diffcolor = (ismetal)? 0 : dif.xyz ;
     diffcolor *= buildingDMG.b ; //haha
-    float3 speccolor = lerp(1, colortone.rgb, metalness )  ; //?
 
-    float f0_dir = spm.r ;
-    float f0_env = colortone.w * metalness ;
+    float3 speccolor = (ismetal)? dif.xyz : 0 ;
+    float4 colortone = hp_saturation_luminance(speccolor, 0.0625 );
+    speccolor = colortone.rgb  ; //?
 
-  #ifdef USE_ROUGHNESS_CURVE //基本不会用到
-    glossiness = 1/ saturate(1 - spm.r + 0.125) ; //one over roughness
-    f0_dir = saturate(spm.r *1.5 + spm.g) ;
-    horizon_extra_sharp = 0.75 ;
-  #endif 
+    float f0_dir = (ismetal)? 1 : (spm.r * colortone.w) ;
+    float f0_env = (ismetal)? colortone.w : 0 ;
+
+    float  cavitymap = spm.w ;
+    spm.w = saturate( SPM_threshold.w - spm.w);
+    float3 glowmapRGB = dif.xyz * spm.w * 4 ;
+
 
   //BRDF=========================================
 
   //环境光相关 
-    float3 cloudReflectionMultipler = hp_dynamic_cloud_reflection(i.FogCloudUV.zw, R, Lsun)  ; //需要阳光信息
-    cloudReflectionMultipler = lerp(1 , cloudReflectionMultipler, metalness ) ;
 
-    //float3 groundcolor = AmbientLightColor;
     float3 skycolor  = hp_getAccentLight() ;
-
     float3 irradi_color = hp_fake_irradiance(0, skycolor , N.z) + AmbientLightColor ;
-    float3 skybox_color = hp_fake_skybox(0 , skycolor , R.z , (glossiness * horizon_extra_sharp)) + AmbientLightColor ; 
-  #ifdef DYNAMIC_CLOUD_REF
-    skybox_color *= cloudReflectionMultipler ;
-  #endif
+    float3 skybox_color = hp_fake_skybox(0 , skycolor , R.z , (glossiness * 0.5)) + AmbientLightColor ; 
 
-    float env_f_term = pow((1- EYEtilt), 3); //hp_fresnel(R, V, f0_env, 6);  
-    env_f_term = lerp( f0_env, 1, env_f_term );
+    float rough_env_reduction = spm.r * spm.r ;
+    skybox_color *= (ismetal)? 1 : rough_env_reduction  ;
+
+  #ifdef DYNAMIC_CLOUD_REF
+    float3 cloudReflectionMultipler = hp_dynamic_cloud_reflection(i.FogCloudUV.zw, R, Lsun)  ; //需要阳光信息
+    skybox_color *= lerp(1, cloudReflectionMultipler, rough_env_reduction ) ;
+  #endif
  
     float3 ambientALL = float3(0,0,0) ; //环境光BRDF
     //ambient DIFF
     ambientALL += irradi_color * diffcolor * ambient_diff_mult ; 
     //ambient SPEC
-    ambientALL += skybox_color * speccolor * ambient_spec_mult * env_f_term * max(spm.r, spm.g); 
+    ambientALL += skybox_color * speccolor * ambient_spec_mult * hp_fresnel(R, V, f0_env, 8); 
 
   //阳光相关  
 
@@ -245,7 +246,7 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
     //sun diff
     sunALL += diffcolor * sun_tilt ; //* diffuse_mult ;
     //sun spec
-    sunALL += speccolor * hp_specdist_patch(glossiness, R, Lsun) * specbase_mult * hp_fresnel(Lsun, V, f0_dir, 4);
+    sunALL += speccolor * hp_specdist(glossiness, R, Lsun) * specbase_mult * hp_fresnel(Lsun, V, f0_dir, 4);
     sunALL *= SUNcolor ; //*= sunlight_mult ;
 
 
@@ -278,13 +279,14 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
       //pl diff
       thisBRDF += diffcolor * PLtilt  ; 
       //pl spec  
-      thisBRDF += speccolor * hp_specdist_patch(glossiness, R, PLL) * specbase_mult * hp_fresnel(PLL, V, f0_dir, 2) ;
+      thisBRDF += speccolor * hp_specdist(glossiness, R, PLL) * specbase_mult  ;
       //pl color
       thisBRDF *= PLcolor * PLdecayfactor(PLrangeMIN, PLrangeMAX, PLdist);
 
       PLtotal += thisBRDF ; //叠加所有点光源
     };
     PLtotal *= 1 ;
+
 
 
   //最终混色
@@ -294,7 +296,8 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
     OUTCOLOR.xy  += buildingDMG.rg ; //损伤炽红效果
     OUTCOLOR.xyz *= TintColor ;
     OUTCOLOR.xyz += PLtotal ; //thus pl unaffected by other color
-    OUTCOLOR.xyz += glowmapRGB ; //滚动发光
+    OUTCOLOR.xyz *= cavitymap ;
+    OUTCOLOR.xyz += glowmapRGB ; //现在是恒定发光
 
   #ifndef _3DSMAX_ //预览没有迷雾
     OUTCOLOR.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;
@@ -305,6 +308,8 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
   #ifdef _3DSMAX_
     if(AlphaTestEnable) 
     { clip(OUTCOLOR.w - 0.375) ; } ;
+
+    OUTCOLOR.xyz = sqrt(OUTCOLOR.xyz); //linear to srgb
   #endif
 
     return OUTCOLOR;
@@ -313,21 +318,24 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
 //高画质PBR pixel shader结束====================
 
 int VSchooserExpr() 
-{ return clamp(NumJointsPerVertex, 0, 1) ; }
+{ return clamp(NumJointsPerVertex, 0, 2) ; }
 
-VertexShader VS_H_Array[2] = {
+VertexShader VS_H_Array[3] = {
     compile vs_3_0 VS_H_00skin(), 
     compile vs_3_0 VS_H_11skin(), 
+    compile vs_3_0 VS_L_22skin(), //disable nrm for soft skin
 };
 
-VertexShader VS_L_Array[2] = {
+VertexShader VS_L_Array[3] = {
     compile vs_3_0 VS_L_00skin(), 
     compile vs_3_0 VS_L_11skin(), 
+    compile vs_3_0 VS_L_22skin(), 
 };
 
-VertexShader VS_Shadow_Array[2] = {
+VertexShader VS_Shadow_Array[3] = {
     compile vs_2_0 VS_ShadowMaker_00skin(), 
     compile vs_2_0 VS_ShadowMaker_11skin(), 
+    compile vs_2_0 VS_ShadowMaker_22skin(), 
 };
 
 PixelShader PS_Shadow_Array[2] = {
@@ -341,7 +349,7 @@ technique MAXPREV
 {    pass p0 <string ExpressionEvaluator = "Objects";>
     {
         VertexShader = compile vs_3_0 VSforMAX(); 
-        PixelShader = compile ps_3_0 PS_H_PATCH();
+        PixelShader = compile ps_3_0 PS_H_ARPBR();
         ZEnable = 1;
         ZFunc = 4;
         ZWriteEnable = 1;
@@ -356,7 +364,7 @@ technique Default
 {    pass p0 <string ExpressionEvaluator = "Objects";>
   {
     VertexShader = VS_H_Array[ VSchooserExpr() ]; 
-    PixelShader  = compile ps_3_0 PS_H_PATCH(); 
+    PixelShader  = compile ps_3_0 PS_H_ARPBR(); 
     ZEnable = 1;
     ZFunc = 4;
     ZWriteEnable = 1;
@@ -389,17 +397,18 @@ technique Default_M
 
 
 technique _CreateShadowMap
-{    pass p0    {
+{    pass p0    
+  {
     VertexShader = VS_Shadow_Array[ VSchooserExpr()  ]; 
     PixelShader = PS_Shadow_Array[ int(AlphaTestEnable) ];
-
     ZEnable = 1;
     ZFunc = 4;
     ZWriteEnable = 1;
     CullMode = 2; //3
     AlphaBlendEnable = 0;
     AlphaTestEnable = 0;
-} }
+  } 
+}
 
 
 

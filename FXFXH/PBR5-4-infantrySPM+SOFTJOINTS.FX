@@ -112,7 +112,7 @@ float4 PS_H_GEN2MOD_NOTGT (PS_H_input i) : COLOR
 
     float3 diffcolor = dif.xyz * (1 - metalness);
     float3 speccolor = lerp(1, colortone.rgb, metalness ); //?
-    float3 GlowMapRGB = dif.xyz * spm.g * spm.g * maxglow ;
+    float3 glowmapRGB = dif.xyz * spm.g * spm.g * maxglow ;
 
   //阳光相关  
     float3 Lsun     = DirectionalLight[0].Direction.xyz ;
@@ -209,7 +209,7 @@ float4 PS_H_GEN2MOD_NOTGT (PS_H_input i) : COLOR
     #endif
     
     #ifdef HAS_GLOW
-    OUTCOLOR.xyz += GlowMapRGB ; //原版可能要删了这个
+    OUTCOLOR.xyz += glowmapRGB ; //原版可能要删了这个
     #endif
 
     OUTCOLOR.xyz *= TintColor ;

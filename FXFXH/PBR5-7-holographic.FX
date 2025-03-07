@@ -45,12 +45,13 @@ float4 PS_H_bubble (PS_infantry_input i) : COLOR
 
     float scanline = frac(i.WorldP.z /32 - Time  );
     scanline = pow(scanline, 16);
+    //scanline = scanline *0.5 + 0.25;
 
     float alpha = i.VertexColor.w * OpacityOverride ;
     //alpha = lerp(0.125, 0.875, alpha);
     alpha = max(alpha, scanline)  ;
     alpha = min(alpha, (1- dist2grid));
-    alpha *= lerp((scanline *0.5 + 0.25), 1, saturate(fresnel));
+    alpha *= lerp((scanline *0.5 + 0.25), 1, saturate(fresnel)); //why f0 is like this
     alpha = saturate(alpha);
 
     OUTCOLOR.rgb = lerp(realHC , 1, fresnel )  ;

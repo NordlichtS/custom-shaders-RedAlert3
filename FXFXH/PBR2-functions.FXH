@@ -84,6 +84,13 @@ float3 getShadowMapUV(float4 WorldPosition)
 };
 
 
+float primeRandom(float seed)
+{
+    float4 trim = frac(seed.xxxx / float4(3, 5, 7, 11)) ;
+    trim = abs(trim *2 -1 );
+    return dot(trim, 0.25);
+}
+
 
 float3 intersectOnHorizon(float3 pointA, float3 pointB, float planeheight)
 {
@@ -420,10 +427,10 @@ float4 hp_stealthVFX (float EYEtilt, float3 texcolor, float otheralpha, float vp
     return OUTCOLOR ;
 }
 
-half hp_nano_build(float bonealpha, half2 texUV)
+float hp_nano_build(float bonealpha, float2 texUV)
 {
-    half2 gridint = abs(texUV) * 32 ;
-    half2 gridfrac = frac(gridint);
+    float2 gridint = abs(texUV) * 32 ;
+    float2 gridfrac = frac(gridint);
     gridint -= gridfrac ;
     gridfrac = abs(gridfrac -0.5) ;
 
@@ -434,6 +441,13 @@ half hp_nano_build(float bonealpha, half2 texUV)
     //scanalpha = max(saturate(scanalpha), saturate(1 - dist2grid * 16));
     return saturate(scanalpha ) ;
 }
+
+float hp_nano_build_other(float bonealpha, float2 texUV)
+{
+    return texUV.y -1 + bonealpha ;
+}
+
+
 
 /* 
 ==================================

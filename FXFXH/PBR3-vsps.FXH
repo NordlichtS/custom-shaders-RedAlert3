@@ -381,6 +381,11 @@ VS_notgt_output  VS_L_11skin (VS_11skin_notgt_input  i)//, uniform bool UseShado
 
     float4 bone_Quaternion   = WorldBones[BoneIndex.x];
     float4 bone_offset_alpha = WorldBones[BoneIndex.x + 1];
+
+    //shrink vertex pos here 
+    #ifdef BONE_ALPHA_SHRINK
+    #endif
+
     o.WorldP = QuaternionRotate( bone_Quaternion , i.position.xyz) + bone_offset_alpha.xyz ;
     o.WorldN = QuaternionRotate( bone_Quaternion , i.normal.xyz);
 
@@ -423,6 +428,11 @@ VS_notgt_output  VS_L_22skin (VS_22skin_notgt_input  i)//, uniform bool UseShado
     float4 bone_Quaternion_1   = WorldBones[BoneIndex.y];
     float4 bone_offset_alpha_0 = WorldBones[BoneIndex.x + 1];
     float4 bone_offset_alpha_1 = WorldBones[BoneIndex.y + 1];
+
+    //shrink vertex pos here 
+    #ifdef BONE_ALPHA_SHRINK
+    #endif
+
     float3 worldP0 = QuaternionRotate( bone_Quaternion_0 , i.position0.xyz) + bone_offset_alpha_0.xyz ;
     float3 worldP1 = QuaternionRotate( bone_Quaternion_1 , i.position1.xyz) + bone_offset_alpha_1.xyz ;
     float3 worldN0 = QuaternionRotate( bone_Quaternion_0 , i.normal0.xyz);
@@ -456,7 +466,7 @@ struct PS_LOW_input
     float3 WorldP : TEXCOORD3;  //世界空间位置
     float3 WorldN : TEXCOORD4;//_centroid; //世界法线Z
 };
-float4 PS_LOW (PS_LOW_input i) : COLOR 
+float4 PS_LOW_ANIME (PS_LOW_input i) : COLOR 
 {
     float3 N = normalize(i.WorldN);
     float3 IV = normalize(i.WorldP - EyePosition);
@@ -518,21 +528,28 @@ float4 PS_LOW_INFANTRY (PS_LOW_input i) : COLOR
     float3 N = i.WorldN;
     float3 Lsun     = DirectionalLight[0].Direction.xyz ;
     float3 SUNcolor = DirectionalLight[0].Color.xyz ;
-    float3 accentlight = max(DirectionalLight[1].Color , DirectionalLight[2].Color);
+    float3 accentlight = (DirectionalLight[1].Color + DirectionalLight[2].Color) /2;
     float sun_tilt = dot(N, Lsun);
     float3 surfacediffuselight = (sun_tilt > 0)? SUNcolor : accentlight ;
 
     float3 albedocolor = 1 ;
+    float  alpha = 1 ;
+    alpha = i.VertexColor.w ;
     float  HCchannel = 0 ;
+    float3 realHC = (HasRecolorColors)? RecolorColor : 1 ;
   #ifdef IS_BASIC_W3D_SHADER 
     float4 tmp0 = tex2D(Texture_0Sampler,  i.MainTexUV.xy );
     albedocolor = tmp0.xyz ;
+    alpha = i.VertexColor.w ;
     HCchannel = tmp0.w ;
   #else 
     float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
     albedocolor = dif.xyz ;
+    alpha = dif.w ;
+    #ifdef CAN_HAVE_HC
+    HCchannel = tex2D(SpecMapSampler, i.MainTexUV.xy).b ;
+    #endif
   #endif
-    HCchannel = (HasRecolorColors)? HCchannel : 0 ;
     albedocolor *= lerp(1, RecolorColor, HCchannel) ;
 
     float3 allcolors = 0;
@@ -541,7 +558,7 @@ float4 PS_LOW_INFANTRY (PS_LOW_input i) : COLOR
     allcolors *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy).xyz ;
     allcolors *= TintColor ;
 
-    return float4(allcolors.rgb ,  OpacityOverride);
+    return float4(allcolors.rgb ,  (OpacityOverride * alpha) );
 };
 
 
@@ -554,7 +571,7 @@ struct VS_ShadowMaker_output  //
     float4 Position : POSITION;   //VS一定要输出的clip space渲染坐标
     float  Sdepth : COLOR0;  //阴影空间里的深度
     float  Valpha : COLOR1;  //顶点alpha
-    half4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
+    float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
 };
 
 
@@ -649,7 +666,7 @@ struct PS_ShadowMaker_input  //
 {
     float  Sdepth : COLOR0;  //阴影空间里的深度
     float  Valpha : COLOR1;  //顶点alpha
-    half4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
+    float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
 };
 
 float4 PS_ShadowMaker_NoAlphaTest(PS_ShadowMaker_input i) : COLOR 
@@ -685,6 +702,10 @@ float4 PS_ShadowMaker_AlphaTest(PS_ShadowMaker_input i) : COLOR
     dmgalpha = (i.Valpha < 0.375)? dmgalpha : 1;
     realalpha *= dmgalpha ;
     #endif
+
+  #ifdef IS_NANO_BUILDUP
+    realalpha = hp_nano_build(i.Valpha, i.MainTexUV.xy);
+  #endif
 
     clip(realalpha - 0.375);
     return i.Sdepth ; 

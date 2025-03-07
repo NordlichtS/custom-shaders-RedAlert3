@@ -88,7 +88,7 @@ sampler2D SpecMapSampler
     MinFilter = 3; //Anisotropic
     MagFilter = 2;
     MipFilter = 2;
-    MaxAnisotropy = 8;
+    MaxAnisotropy = 4;
     AddressU = Wrap;
     AddressV = Wrap;
     //MIPMAPLODBIAS = -1 ;
@@ -104,7 +104,7 @@ sampler2D NormalMapSampler
     MinFilter = 2; //3 
     MagFilter = 2;
     MipFilter = 2;
-    MaxAnisotropy = 4;
+    //MaxAnisotropy = 4;
     AddressU = Wrap;
     AddressV = Wrap;
 };

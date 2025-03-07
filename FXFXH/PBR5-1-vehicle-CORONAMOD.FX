@@ -95,7 +95,7 @@ float4 PS_H_PBR_CORONA (PS_H_input i) : COLOR
     // if(GlowAmplitude != 0)
     //GLOWchannel = (GlowAmplitude > 0)? spm.w : (1- spm.w) ;
     //CAVITYchannel = 1 - GLOWchannel ;
-    float3 GlowMapRGB = dif.xyz * GLOWchannel ; //发光图层，可能要加个闪烁. abs(GlowAmplitude) 
+    float3 glowmapRGB = dif.xyz * GLOWchannel ; //发光图层，可能要加个闪烁. abs(GlowAmplitude) 
 
 
   //世界法线
@@ -196,7 +196,7 @@ float4 PS_H_PBR_CORONA (PS_H_input i) : COLOR
     #ifndef _3DSMAX_ //预览没有迷雾
     OUTCOLOR.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy).x ;
     #endif
-    OUTCOLOR.xyz += GlowMapRGB  * GlowAmplitude ; //* hp_timepulse()
+    OUTCOLOR.xyz += glowmapRGB  * GlowAmplitude ; //* hp_timepulse()
     OUTCOLOR.xyz *= TintColor ;
 
     OUTCOLOR.w *= OpacityOverride * dif.w ;
