@@ -1,6 +1,6 @@
 //下面是一堆全局MACRO控制。用于条件编译取舍功能
 
-//#define _3DSMAX_ 
+#define _3DSMAX_ 
 //编译给3DSMAX预览专用版时开启。
 //请注意 如果你直接把源码给MAX读 是不需要上面这个的。 MAX会自己加
 //你可以编译一个FXO然后后缀改成FX 给MAX读。
@@ -8,7 +8,6 @@
 //因为MAX 默认只能用FX源码。不能读编译后的
 //但如果给游戏用的 就不要启用。否则游戏直接崩
 
-// #define IGNORE_NRM //完全禁用法线图
 // #define FORBID_PIPELINE_CONSTANT //
 // 上面的最好别乱动 dont change any above 
 
@@ -19,25 +18,26 @@
  #define ALLOW_STEALTH //允许隐身时有特殊的全息投影特效
 
 //下面三个互相冲突的功能只能选一个
-#define ALLOW_CLIP_VERTEX_ALPHA //允许骨骼透明度隐藏零件。object要。building不要。
+// #define ALLOW_CLIP_VERTEX_ALPHA //允许骨骼透明度隐藏零件。object要。building不要。
 // #define IS_BUILDNG //仅building要。这是损伤破洞功能。与上下两者冲突 不可同时用
 // #define IS_NANO_BUILDUP  //启用帝国建筑的建造动画。 与上两者冲突 不可同时用
 
 
 /*
-fxc.exe /O2 /T fx_2_0 /Fo   objectsgeneric.fxo   PBR5-6-objects-PATCH.FX
-fxc.exe /O2 /T fx_2_0 /Fo   buildingsgeneric.fxo   PBR5-6-objects-PATCH.FX
+fxc.exe /O2 /T fx_2_0 /Fo   objectsgeneric.fxo   PBR5-10-objects-ARPBR.FX
+fxc.exe /O2 /T fx_2_0 /Fo   buildingsgeneric.fxo   PBR5-10-objects-ARPBR.FX
 
-fxc.exe /O2 /T fx_2_0 /Fo   buildingsjapanbuildup.fxo   PBR5-6-objects-PATCH.FX
+fxc.exe /O2 /T fx_2_0 /Fo   buildingsjapanbuildup.fxo   PBR5-10-objects-ARPBR.FX
 
-fxc.exe /O2 /T fx_2_0 /Fo   buildingsallied.fxo   PBR5-6-objects-PATCH.FX
-fxc.exe /O2 /T fx_2_0 /Fo   buildingsjapan.fxo   PBR5-6-objects-PATCH.FX
-fxc.exe /O2 /T fx_2_0 /Fo   buildingssoviet.fxo   PBR5-6-objects-PATCH.FX
+fxc.exe /O2 /T fx_2_0 /Fo   buildingsallied.fxo   PBR5-10-objects-ARPBR.FX
+fxc.exe /O2 /T fx_2_0 /Fo   buildingsjapan.fxo   PBR5-10-objects-ARPBR.FX
+fxc.exe /O2 /T fx_2_0 /Fo   buildingssoviet.fxo   PBR5-10-objects-ARPBR.FX
 
-fxc.exe /O2 /T fx_2_0 /Fo   objectsallied.fxo   PBR5-6-objects-PATCH.FX
-fxc.exe /O2 /T fx_2_0 /Fo   objectsjapan.fxo   PBR5-6-objects-PATCH.FX
-fxc.exe /O2 /T fx_2_0 /Fo   objectssoviet.fxo   PBR5-6-objects-PATCH.FX
+fxc.exe /O2 /T fx_2_0 /Fo   objectsallied.fxo   PBR5-10-objects-ARPBR.FX
+fxc.exe /O2 /T fx_2_0 /Fo   objectsjapan.fxo   PBR5-10-objects-ARPBR.FX
+fxc.exe /O2 /T fx_2_0 /Fo   objectssoviet.fxo   PBR5-10-objects-ARPBR.FX
 
+fxc.exe /O2 /T fx_2_0 /Fo   objectsallied3DSMAX.fxo   PBR5-10-objects-ARPBR.FX
 
 */
 //#pragma warning(disable: 3206)
@@ -48,16 +48,21 @@ float4 SPM_threshold //SPM的界限
 <   string UIName = "SPM_threshold"; 	string UIWidget = "Color";
 > ={ 0.9, 0.5, 0.1, 0.5 }; //分别是：红色金属阈值，绿色金属阈值，蓝色阵营色阈值，发光倍数
 
+bool InfantrySkin //当作步兵  允许软绑定  同时关闭法线图
+<    string UIName = "InfantrySkin";> = 1;
 
 float MinRoughness //最低粗糙度（要用倒数更精确吗？）
 <   string UIName = "MinRoughness"; //MAXglossiness
     float UIMax = 0.5; float UIMin = 0.005; float UIStep = 0.005; 
 > ={ 0.125 }; 
 
+/*
 float MaxRoughness //最大粗糙度
 <   string UIName = "MaxRoughness"; 
     float UIMax = 1.0 ; float UIMin = 0.5; float UIStep = 0.05; 
 > ={ 1.0 }; 
+*/
+
 
 
 #include "PBR3-vsps.FXH" //WILL INCLUDE EVERYTHING
@@ -102,8 +107,9 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
   //拿出主贴图 (GEN 2 MOD )
     float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
-    float4 nrm = tex2D(NormalMapSampler,       i.MainTexUV.xy );
     float4 spm = tex2D(SpecMapSampler,         i.MainTexUV.xy );
+    float4 nrm = tex2D(NormalMapSampler,       i.MainTexUV.xy );
+
     //if(AlphaTestEnable) 
     #ifdef FORCE_ENABLE_TEXTURE_CLIP
     clip(dif.w - 0.5); 
@@ -111,17 +117,16 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
 
   //有用的向量
-    float3 N = float3(0,0,1); 
-  #ifdef IGNORE_NRM
-    N = i.WorldN;
-  #else
-    N.xy = (nrm.xy * 2 - 1 )  ;
-    N.xy *= -BumpScale ;
-    float3x3 TangentSpaceToWorldMatrix = float3x3(i.WorldB, i.WorldT, i.WorldN) ; //T B exchanged!
-    N = mul(N, TangentSpaceToWorldMatrix) ;
-  #endif
-    N = normalize(N); //长度单位化，这一步很重要
-
+    float3 N = i.WorldN;
+    if(! InfantrySkin) { 
+      nrm.xy = nrm.xy * 2 - 1  ;
+      nrm.xy *= -BumpScale ;
+      N += nrm.x * i.WorldB + nrm.y * i.WorldT ;
+    };  //利用世界空间的切线去拉扯法线
+    N = normalize(N); 
+    //float3x3 TangentSpaceToWorldMatrix = float3x3(i.WorldB, i.WorldT, i.WorldN) ; //T B exchanged!
+    //N = mul( float3(nrm.xy, 1), TangentSpaceToWorldMatrix) ;
+    
     float3 V = hp_ps_getViewVector(i.WorldP) ;
     float3 R = reflect(-V , N) ; //input light vector is towards fragment!
     float  EYEtilt = dot(V , N) ;
@@ -189,7 +194,8 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
   //还原通道信息 ========================
     
-    float glossiness = 1 / lerp(MaxRoughness, MinRoughness, spm.r) ; //
+    float roughness = lerp(1, MinRoughness, spm.r) ;
+    float glossiness = 1 / roughness ; //
     float specbase_mult = 0.25; 
 
     bool ismetal = (spm.r > SPM_threshold.r) || (spm.g > SPM_threshold.g)  ;
@@ -217,12 +223,11 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     float3 irradi_color = hp_fake_irradiance(0, skycolor , N.z) + AmbientLightColor ;
     float3 skybox_color = hp_fake_skybox(0 , skycolor , R.z , (glossiness * 0.5)) + AmbientLightColor ; 
 
-    float rough_env_reduction = spm.r * spm.r ;
-    skybox_color *= (ismetal)? 1 : rough_env_reduction  ;
+    skybox_color *= (ismetal)? 1 : (spm.r * spm.r)  ;
 
   #ifdef DYNAMIC_CLOUD_REF
     float3 cloudReflectionMultipler = hp_dynamic_cloud_reflection(i.FogCloudUV.zw, R, Lsun)  ; //需要阳光信息
-    skybox_color *= lerp(1, cloudReflectionMultipler, rough_env_reduction ) ;
+    skybox_color *= lerp(cloudReflectionMultipler, 1, roughness ) ;
   #endif
  
     float3 ambientALL = float3(0,0,0) ; //环境光BRDF
@@ -290,12 +295,12 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
 
   //最终混色
-    OUTCOLOR.xyz += ambientALL + sunALL ; //BRDF
+    OUTCOLOR.xyz += ambientALL + sunALL + PLtotal; //BRDF
     //OUTCOLOR.xyz *= hcmask ; //increase hc saturation
     OUTCOLOR.xyz *= buildingDMG.b ; //only half, other half in diffcolor
     OUTCOLOR.xy  += buildingDMG.rg ; //损伤炽红效果
     OUTCOLOR.xyz *= TintColor ;
-    OUTCOLOR.xyz += PLtotal ; //thus pl unaffected by other color
+    //OUTCOLOR.xyz += PLtotal ; 
     OUTCOLOR.xyz *= cavitymap ;
     OUTCOLOR.xyz += glowmapRGB ; //现在是恒定发光
 
@@ -318,7 +323,10 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 //高画质PBR pixel shader结束====================
 
 int VSchooserExpr() 
-{ return clamp(NumJointsPerVertex, 0, 2) ; }
+{ 
+  int max_allowed_bone = (InfantrySkin)? 2 : 1 ;
+  return clamp(NumJointsPerVertex, 0, max_allowed_bone) ; 
+}
 
 VertexShader VS_H_Array[3] = {
     compile vs_3_0 VS_H_00skin(), 
@@ -358,7 +366,9 @@ technique MAXPREV
         AlphaTestEnable = 0 ;
     }
 }
-#endif
+
+#else  //================= ingame
+
 
 technique Default
 {    pass p0 <string ExpressionEvaluator = "Objects";>
@@ -410,7 +420,7 @@ technique _CreateShadowMap
   } 
 }
 
-
+#endif
 
 //
 /*

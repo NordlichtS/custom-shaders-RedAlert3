@@ -18,7 +18,7 @@ float WellRadius //井口半径，其实是最小外接圆
     float UIMax = 512; float UIMin = 1; float UIStep = 1; 
 > = 32 ;
 
-float MicroShadowBias //井口半径，其实是最小外接圆
+float MicroShadowBias //
 <   string UIName = "MicroShadowBias(1/2048)"; 
     float UIMax = 9; float UIMin = -9; float UIStep = 1; 
 > = 0 ;

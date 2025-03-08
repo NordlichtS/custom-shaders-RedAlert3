@@ -66,7 +66,7 @@ sampler2D DiffuseTextureSampler
     MinFilter = 3; //Anisotropic
     MagFilter = 2;
     MipFilter = 2;
-    MaxAnisotropy = 4;
+    MaxAnisotropy = 8;
     AddressU = Wrap;
     AddressV = Wrap;
     //AddressW = Clamp;
@@ -113,7 +113,7 @@ float BumpScale //如果法线图凹凸反了，写-1修正。完全无效化法
 <   string UIName = "BumpScale(NRM strength)"; 
     string UIWidget = "Slider"; 
     float UIMin = -8; float UIMax = 8; 
-    float UIStep = 0.25;
+    float UIStep = 0.05;
 > =  2 ;
 
 #ifdef IS_BUILDNG
