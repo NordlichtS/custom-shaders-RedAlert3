@@ -1,14 +1,19 @@
+
+
 #define IS_BASIC_W3D_SHADER
 #define ALLOW_STEALTH
 //#define ALLOW_HC_INVERT
 //#define ALLOW_CLIP_VERTEX_ALPHA //允许骨骼透明度隐藏零件。object要。building不要。
 #define BONE_ALPHA_SHRINK //AFFECT VS. caution: still write vertex alpha
+#define MAX_POINT_LIGHT 4
 
 
-#include "PBR3-vsps.FXH"
+#include "head3-vsps.FXH"
 
 #ifdef ALLOW_HC_INVERT
 bool HC_invert <string UIName = "HC_invert";> = 0;
+#else
+static const bool HC_invert = 0 ;
 #endif
 
 /*
@@ -47,16 +52,15 @@ float4 PS_H_infantry (PS_infantry_input i) : COLOR
     float3 N = normalize(i.WorldN) ; //!!!
 
     float4 texcolor = tex2D(Texture_0Sampler,  i.MainTexUV.xy );
-
+    float3 albedo = texcolor.xyz ;
 
   //hc mix
     float HCchannel = texcolor.w ;
-  #ifdef ALLOW_HC_INVERT
     HCchannel = (HC_invert)? (1 - texcolor.w) : texcolor.w ;
-  #endif
-    //HCchannel = (HasRecolorColors)? HCchannel : 0 ;
+    HCchannel = (HasRecolorColors)? HCchannel : 0 ;
+    float whiteHCpart = max(max(albedo.r, albedo.g), albedo.b);
     float3 hcmask = lerp( float3(1,1,1), RecolorColor, HCchannel);
-    texcolor.xyz *= lerp(texcolor.xyz , 1 , HCchannel); //gamma without hc
+    texcolor.xyz = lerp((albedo * albedo) , whiteHCpart.xxx , HCchannel); //gamma without hc
     texcolor.xyz *= hcmask * hcmask ; //squared hc mix
 
   #ifdef ALLOW_STEALTH
@@ -93,7 +97,7 @@ float4 PS_H_infantry (PS_infantry_input i) : COLOR
   //about point light
     float3 PLtotal = float3(0,0,0) ;
 
-    for (int itpl = 0; (itpl < 4) && (itpl < NumPointLights); itpl++ ) 
+    for (int itpl = 0; itpl < min(4, NumPointLights); itpl++ ) 
     {
       //if(itpl >= NumPointLights ){break;};
 

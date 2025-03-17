@@ -4,7 +4,7 @@
 
 //#include "PBR1-constants.FXH"  //shader通用的
 
-#include "PBR1-maxui.FXH"  //可调的材质 
+#include "head1-maxui.FXH"  //可调的材质 
 
 
 //常用常量，与确定的风格参数===================
@@ -228,15 +228,28 @@ float hp_invshadow_easy ( float3 ShadowProjection )
     return NOTshadow ;
 }
 
+float3 hp_hcmixer (float3 realhc, float3 texcolor, float HCdensity)
+{
+    //assume input is already gamma corrected
+    float brightest = max(max(texcolor.r, texcolor.g), texcolor.b);
+    float3 fulldensitymix = brightest * realhc ;
+    return lerp(texcolor, fulldensitymix , HCdensity);
+}
 
-float3 hp_dynamic_cloud_reflection(float2 pixelcloudUV, float3 R, float3 Lsun)
+
+
+
+float3 hp_dynamic_cloud_reflection(float2 pixelcloudUV, float3 R, float3 Lsun, float cloudLOD)
 {
   #ifdef _3DSMAX_
     return float3(1,1,1);
   #endif
     float2 UVbias = R.xy / R.z -  Lsun.xy / Lsun.z ;
-    UVbias += pixelcloudUV ;
-    float3 cloudcolor = tex2D(CloudTextureSampler, UVbias);
+    //cloud color dont change on sunlight direction, consider the same UV
+    UVbias /= 4 ; //cloud texture stretch larger ?
+    float4 cloudUVwithLOD = float4(pixelcloudUV , 0, cloudLOD);
+    cloudUVwithLOD.xy += UVbias ;
+    float3 cloudcolor = tex2Dlod(CloudTextureSampler, cloudUVwithLOD);
     float3 skycolor_multplier = lerp( 1, cloudcolor, saturate(R.z) );
     skycolor_multplier *= skycolor_multplier ; //gamma
     return skycolor_multplier ;
@@ -387,12 +400,18 @@ float4 hp_new_damage_mix( float2 dmgUV, float bonealpha)
 
 float PLdecayfactor(float rangeMIN, float rangeMAX, float rangeTHIS )
 {
+    /*
     float dist_to_outer = rangeMAX - rangeTHIS ;
     float decayfull = dist_to_outer / rangeMAX ;
     float decayshort = dist_to_outer / (rangeMAX - rangeMIN) ;
     decayshort = pow( decayshort, 3);
-
     return min(decayfull, decayshort) ;
+
+    */
+
+    float reverselerp = (rangeTHIS - rangeMIN) / (rangeMAX - rangeMIN) ;
+    float brightness = saturate(1- reverselerp);
+    return pow(brightness, 3);
 }
 
 float4 hp_saturation_luminance(float3 inputcolor, float margin)

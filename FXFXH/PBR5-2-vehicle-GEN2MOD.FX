@@ -8,7 +8,7 @@ fxc.exe /O2 /T fx_2_0 /Fo   BUILDING.fxo   PBR5-2-vehicle-GEN2MOD.FX
 */
 #pragma warning(disable: 3206)
 
-#include "PBR3-vsps.FXH" //WILL INCLUDE EVERYTHING
+#include "head3-vsps.FXH" //WILL INCLUDE EVERYTHING
 
 /*
 float maxgloss // one over min roughness
@@ -183,7 +183,7 @@ float4 PS_H_GEN2MOD_SKETCH (PS_H_input i) : COLOR
 
   //点光源BRDF
     float3 PLtotal = float3(0,0,0) ;
-    for (int itpl = 0; (itpl < 8) && (itpl < NumPointLights); itpl++ ) 
+    for (int itpl = 0; itpl < min(8, NumPointLights); itpl++ ) 
     {
       //if(itpl >= NumPointLights ){break;};
 

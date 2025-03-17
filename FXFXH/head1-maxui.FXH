@@ -1,22 +1,93 @@
 //for shader specific controls
 
-#include "PBR0-COMMON.FXH"  //shader通用的
+#include "head0-COMMON.FXH"  //shader通用的
 
 /*
 // This is used by 3dsmax to load the correct parser
 #if defined(_3DSMAX_)
-    //string ParamID = "0x1";
-    #define readonly
-    #define SEMANTIC_3DSMAX(semantic) : semantic
-#else 
-    #define readonly const
-    #define texture2D texture
-    #define textureCUBE texture
-    #define SEMANTIC_3DSMAX(semantic)
+
 #endif
 */
 
+
+sampler2D ShadowMapSamplerLinear
+<
+    string Texture = "ShadowMap";
+    string SasBindAddress = "Sas.Shadow[0].ShadowMap";
+> = sampler_state {
+    Texture = < ShadowMap >;
+    MinFilter = 2 ; 
+    MagFilter = 2 ; // 用线性可防止斜面锯齿?
+    MipFilter = 0;
+    AddressU = 4;
+    AddressV = 4;
+    AddressW = 3;
+};
+
+
+// 云的贴图
+texture CloudTexture
+<
+    string UIWidget = "None";
+    string SasBindAddress = "Terrain.Cloud.Texture";
+    string ResourceName = "ShaderPreviewCloud.dds";
+>;
+sampler2D CloudTextureSampler
+<
+    string Texture = "CloudTexture";
+    string SasBindAddress = "Terrain.Cloud.Texture";
+    string ResourceName = "ShaderPreviewCloud.dds";
+> = sampler_state {
+    Texture = < CloudTexture >;
+    MinFilter = 2;
+    MagFilter = 2;
+    MipFilter = 2;
+    AddressU = 1;
+    AddressV = 1;
+    AddressW = 3;
+};
+
+
+// 战争迷雾贴图
+texture ShroudTexture
+<
+    string UIWidget = "None";
+    string SasBindAddress = "Terrain.Shroud.Texture";
+>;
+sampler2D ShroudTextureSampler
+<
+    string Texture = "ShroudTexture";
+    string SasBindAddress = "Terrain.Shroud.Texture";
+> = sampler_state {
+    Texture = < ShroudTexture >;
+    MinFilter = 1;
+    MagFilter = 2;
+    MipFilter = 1;
+    AddressU = 3;
+    AddressV = 3;
+};
+
+
+
 //w3x里可以记录的参数=============================
+
+
+
+#ifndef FORBID_PIPELINE_CONSTANT
+
+//bool AlphaBlendEnable < string UIName = "Alpha Blend Enable";> ;//= 0;
+
+bool AlphaTestEnable //主贴图镂空
+<    string UIName = "Alpha Test Enable";> = 0;
+
+bool CullingEnable //好像是允许背面不渲染来优化？
+<    string UIName = "Culling Enable";> = 1;
+
+bool DepthWriteEnable //写入深度buffer
+<    string UIName = "Depth Write Enable";> = 1;
+
+#endif
+
 
 #ifdef IS_BASIC_W3D_SHADER  //!!!
 
@@ -35,6 +106,8 @@ sampler2D Texture_0Sampler   : register(ps, s1)
 
 int BlendMode //WTF
 <string UIName = "BlendMode(0=opaque,1=alpha,2=additive)"; int UIMin = 0; int UIMax = 2;> = 0 ;
+
+
 
 float3 ColorAmbient : register(vs_3_0, c14) 
 <string UIName = "ColorAmbient"; string UIWidget = "Color";> = { 1, 1, 1 };
@@ -286,6 +359,12 @@ float PV_vertexALPHA
 <
     string UIName = "PV_vertexALPHA"; 
     float UIMax = 1; float UIMin = 0; float UIStep = 0.1; 
+    bool ExportValue = false;
+> = 1 ;
+
+bool PV_SRGB
+<
+    string UIName = "PV_SRGB"; 
     bool ExportValue = false;
 > = 1 ;
 

@@ -10,13 +10,14 @@
 // #define IGNORE_NRM //完全禁用法线图
 // #define FORBID_PIPELINE_CONSTANT //
 // #define USE_ROUGHNESS_CURVE //
+// #define FORBID_FACTION_COLOR //中立单位要禁止阵营色
+
 // 上面的最好别乱动 dont change any above 
 
 // #define FORCE_ENABLE_TEXTURE_CLIP //强制开启主贴图的ALPHA镂空。无论有没有ALPHATEST。不影响半透明
  #define ALLOW_CLIP_TEXTURE_ALPHA //允许贴图alpha镂空。帝国建造不要开。别的酌情启用
  #define DYNAMIC_CLOUD_REF //允许动态云背景反射。对金属和玻璃质感很重要
  #define SPMG_GLOWPULSE //SPM贴图的绿色为闪烁发光。看情况开关
- #define CAN_HAVE_HC //允许有阵营色。中立单位不要
  #define ALLOW_STEALTH //允许隐身时有特殊的全息投影特效
 
 //下面三个互相冲突的功能只能选一个
@@ -43,11 +44,12 @@ fxc.exe /O2 /T fx_2_0 /Fo   objectssoviet.fxo   PBR5-6-objects-PATCH.FX
 */
 //#pragma warning(disable: 3206)
 
-#include "PBR3-vsps.FXH" //WILL INCLUDE EVERYTHING
+#include "head3-vsps.FXH" //WILL INCLUDE EVERYTHING
 
 
 struct PS_H_input
 {
+    float vface : VFACE ; // + facing camera, - backface
     float2 vpos : VPOS ; //screen pixel 
     float4 VertexColor : COLOR0;  //顶点颜色
     float3 CoordOBJ  : COLOR1; 
@@ -92,16 +94,24 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
 
 
   //有用的向量
-    float3 N = float3(0,0,1); 
+    float3 N = i.WorldN; 
+    N = (i.vface > 0)? -N : N ; //BACKFACE NRM CORRECTION
+    nrm.xy = nrm.xy * 2 - 1  ;
+    nrm.xy *= -BumpScale ;
+    N += nrm.x * i.WorldB + nrm.y * i.WorldT ;
+    N = normalize(N); //长度单位化，这一步很重要
+  /*
   #ifdef IGNORE_NRM
     N = i.WorldN;
   #else
+    N = float3(0,0,1); 
     N.xy = (nrm.xy * 2 - 1 )  ;
     N.xy *= -BumpScale ;
     float3x3 TangentSpaceToWorldMatrix = float3x3(i.WorldB, i.WorldT, i.WorldN) ; //T B exchanged!
     N = mul(N, TangentSpaceToWorldMatrix) ;
   #endif
-    N = normalize(N); //长度单位化，这一步很重要
+  */
+  
 
     float3 V = hp_ps_getViewVector(i.WorldP) ;
     float3 R = reflect(-V , N) ; //input light vector is towards fragment!
@@ -120,7 +130,7 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
   //条件编译功能
     float3 realHC = (HasRecolorColors)? RecolorColor : 1 ;
     float3 hcmask = 1 ;
-  #ifdef CAN_HAVE_HC
+  #ifndef FORBID_FACTION_COLOR
     hcmask = lerp(1 , realHC, spm.b) ;
     dif.xyz *= lerp(dif.xyz , 1 , spm.b); //gamma without hc
     dif.xyz *= hcmask * hcmask;
@@ -209,8 +219,8 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
   //BRDF=========================================
 
   //环境光相关 
-    float3 cloudReflectionMultipler = hp_dynamic_cloud_reflection(i.FogCloudUV.zw, R, Lsun)  ; //需要阳光信息
-    cloudReflectionMultipler = lerp(1 , cloudReflectionMultipler, metalness ) ;
+    float3 cloudReflectionMultipler = hp_dynamic_cloud_reflection(i.FogCloudUV.zw, R, Lsun, (8 - glossiness)) ; 
+    //cloudReflectionMultipler = lerp(1 , cloudReflectionMultipler, metalness ) ;
 
     //float3 groundcolor = AmbientLightColor;
     float3 skycolor  = hp_getAccentLight() ;
@@ -251,7 +261,7 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
 
   //点光源BRDF
     float3 PLtotal = float3(0,0,0) ;
-    for (int itpl = 0; (itpl < 8) && (itpl < NumPointLights); itpl++ ) 
+    for (int itpl = 0; itpl < min(8, NumPointLights); itpl++ ) 
     {
       //if(itpl >= NumPointLights ){break;};
 
@@ -338,29 +348,34 @@ PixelShader PS_Shadow_Array[2] = {
 
 #ifdef _3DSMAX_ //预览
 technique MAXPREV
-{    pass p0 <string ExpressionEvaluator = "Objects";>
+{    pass p0 
     {
         VertexShader = compile vs_3_0 VSforMAX(); 
         PixelShader = compile ps_3_0 PS_H_PATCH();
         ZEnable = 1;
         ZFunc = 4;
         ZWriteEnable = 1;
-        CullMode = 2;
-        AlphaBlendEnable = 0 ;
+        CullMode = 1;
+        AlphaBlendEnable = 0 ; 
         AlphaTestEnable = 0 ;
     }
 }
 #endif
 
 technique Default
-{    pass p0 <string ExpressionEvaluator = "Objects";>
+{   pass p0 
+#ifdef IS_BUILDNG
+    <string ExpressionEvaluator = "Buildings";>
+#else
+    <string ExpressionEvaluator = "Objects";>
+#endif
   {
     VertexShader = VS_H_Array[ VSchooserExpr() ]; 
     PixelShader  = compile ps_3_0 PS_H_PATCH(); 
     ZEnable = 1;
     ZFunc = 4;
     ZWriteEnable = 1;
-    CullMode = 2;
+    CullMode = 1;
     AlphaFunc = 7;
     AlphaRef = 95; //95<0.375<96
     AlphaBlendEnable = 0;
@@ -370,7 +385,7 @@ technique Default
 
 
 technique Default_M 
-{    pass p0 <string ExpressionEvaluator = "Objects";>
+{    pass p0 //<string ExpressionEvaluator = "Objects";>
   {
     VertexShader = VS_L_Array[ VSchooserExpr() ]; 
     PixelShader  = compile ps_3_0 PS_LOW_INFANTRY(); 

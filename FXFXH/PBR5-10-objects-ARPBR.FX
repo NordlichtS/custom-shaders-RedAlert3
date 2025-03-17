@@ -1,6 +1,6 @@
 //下面是一堆全局MACRO控制。用于条件编译取舍功能
 
-#define _3DSMAX_ 
+// #define _3DSMAX_ 
 //编译给3DSMAX预览专用版时开启。
 //请注意 如果你直接把源码给MAX读 是不需要上面这个的。 MAX会自己加
 //你可以编译一个FXO然后后缀改成FX 给MAX读。
@@ -9,12 +9,13 @@
 //但如果给游戏用的 就不要启用。否则游戏直接崩
 
 // #define FORBID_PIPELINE_CONSTANT //
+// #define FORBID_FACTION_COLOR //中立单位要禁止阵营色
+
 // 上面的最好别乱动 dont change any above 
 
 // #define FORCE_ENABLE_TEXTURE_CLIP //强制开启主贴图的ALPHA镂空。无论有没有ALPHATEST。不影响半透明
  #define ALLOW_CLIP_TEXTURE_ALPHA //允许贴图alpha镂空。帝国建造不要开。别的酌情启用
  #define DYNAMIC_CLOUD_REF //允许动态云背景反射。对金属和玻璃质感很重要
- #define CAN_HAVE_HC //允许有阵营色。中立单位不要
  #define ALLOW_STEALTH //允许隐身时有特殊的全息投影特效
 
 //下面三个互相冲突的功能只能选一个
@@ -44,17 +45,20 @@ fxc.exe /O2 /T fx_2_0 /Fo   objectsallied3DSMAX.fxo   PBR5-10-objects-ARPBR.FX
 
 
 
+#include "head3-vsps.FXH" //WILL INCLUDE EVERYTHING
+
+
 float4 SPM_threshold //SPM的界限
 <   string UIName = "SPM_threshold"; 	string UIWidget = "Color";
 > ={ 0.9, 0.5, 0.1, 0.5 }; //分别是：红色金属阈值，绿色金属阈值，蓝色阵营色阈值，发光倍数
-
-bool InfantrySkin //当作步兵  允许软绑定  同时关闭法线图
-<    string UIName = "InfantrySkin";> = 1;
 
 float MinRoughness //最低粗糙度（要用倒数更精确吗？）
 <   string UIName = "MinRoughness"; //MAXglossiness
     float UIMax = 0.5; float UIMin = 0.005; float UIStep = 0.005; 
 > ={ 0.125 }; 
+
+bool InfantrySkin //当作步兵  允许软绑定  同时关闭法线图
+<    string UIName = "InfantrySkin";> = 0;
 
 /*
 float MaxRoughness //最大粗糙度
@@ -64,14 +68,9 @@ float MaxRoughness //最大粗糙度
 */
 
 
-
-#include "PBR3-vsps.FXH" //WILL INCLUDE EVERYTHING
-
-
-
-
 struct PS_H_input
 {
+    float vface : VFACE ; // + facing camera, - backface ?
     float2 vpos : VPOS ; //screen pixel 
     float4 VertexColor : COLOR0;  //顶点颜色
     float3 CoordOBJ  : COLOR1; 
@@ -91,8 +90,7 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
   //风格常数，编译前确定
 
-    const float ambient_diff_mult =  0.5 ; //环境光与天空盒diffuse
-    const float ambient_spec_mult =  1 ; //环境光与天空盒specular
+
 
     float  temp1 ;
     float2 temp2 ;
@@ -117,7 +115,9 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
 
   //有用的向量
+    float3 albedo = dif.xyz ;
     float3 N = i.WorldN;
+    //N = (i.vface > 0)? -N : N ; //BACKFACE NRM CORRECTION
     if(! InfantrySkin) { 
       nrm.xy = nrm.xy * 2 - 1  ;
       nrm.xy *= -BumpScale ;
@@ -143,18 +143,18 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
   //条件编译功能
     float3 realHC = (HasRecolorColors)? RecolorColor : 1 ;
-    float3 hcmask = 1 ;
-  #ifdef CAN_HAVE_HC
-    spm.b = (spm.b > SPM_threshold.b )? spm.b : 0 ;
-    hcmask = lerp(1 , realHC, spm.b) ;
-    dif.xyz *= lerp(dif.xyz , 1 , spm.b); //gamma without hc
-    dif.xyz *= hcmask * hcmask;
+  #ifndef FORBID_FACTION_COLOR
+    float whiteHCpart = max(max(albedo.r, albedo.g), albedo.b);
+    albedo = lerp((albedo * albedo) , whiteHCpart.xxx , spm.b); 
+    //gamma only for no hc part
+    spm.b = (spm.b > SPM_threshold.b)? spm.b : 0 ;
+    albedo *= lerp(1, (realHC * realHC), spm.b);
   #else
-    dif.xyz*= dif.xyz ;
+    albedo *= albedo ;
   #endif
 
 
-
+    //这段是ALPHA相关！
     //clipping affected ! ===========
 
   #ifdef ALLOW_CLIP_TEXTURE_ALPHA
@@ -184,7 +184,7 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
   #ifdef ALLOW_STEALTH
     if(OpacityOverride < 0.985) //stealth
-    {return hp_stealthVFX(EYEtilt, dif.xyz , 1, i.vpos.y, realHC);};
+    {return hp_stealthVFX(EYEtilt, albedo , 1, i.vpos.y, realHC);};
   #else
     OUTCOLOR.w *= OpacityOverride ;
   #endif
@@ -200,10 +200,10 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
     bool ismetal = (spm.r > SPM_threshold.r) || (spm.g > SPM_threshold.g)  ;
 
-    float3 diffcolor = (ismetal)? 0 : dif.xyz ;
+    float3 diffcolor = (ismetal)? 0 : albedo ;
     diffcolor *= buildingDMG.b ; //haha
 
-    float3 speccolor = (ismetal)? dif.xyz : 0 ;
+    float3 speccolor = (ismetal)? albedo : 0 ;
     float4 colortone = hp_saturation_luminance(speccolor, 0.0625 );
     speccolor = colortone.rgb  ; //?
 
@@ -212,12 +212,15 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
     float  cavitymap = spm.w ;
     spm.w = saturate( SPM_threshold.w - spm.w);
-    float3 glowmapRGB = dif.xyz * spm.w * 4 ;
+    float3 glowmapRGB = albedo * spm.w * 4 ;
 
 
   //BRDF=========================================
 
   //环境光相关 
+
+    const float ambient_diff_mult =  0.5 ; //环境光与天空盒diffuse
+    const float ambient_spec_mult =  1 ; //环境光与天空盒specular
 
     float3 skycolor  = hp_getAccentLight() ;
     float3 irradi_color = hp_fake_irradiance(0, skycolor , N.z) + AmbientLightColor ;
@@ -226,8 +229,8 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     skybox_color *= (ismetal)? 1 : (spm.r * spm.r)  ;
 
   #ifdef DYNAMIC_CLOUD_REF
-    float3 cloudReflectionMultipler = hp_dynamic_cloud_reflection(i.FogCloudUV.zw, R, Lsun)  ; //需要阳光信息
-    skybox_color *= lerp(cloudReflectionMultipler, 1, roughness ) ;
+    float3 cloudReflectionMultipler = hp_dynamic_cloud_reflection(i.FogCloudUV.zw, R, Lsun, (roughness *4))  ; 
+    //skybox_color *= lerp(cloudReflectionMultipler, 1, roughness ) ;
   #endif
  
     float3 ambientALL = float3(0,0,0) ; //环境光BRDF
@@ -257,7 +260,7 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
   //点光源BRDF
     float3 PLtotal = float3(0,0,0) ;
-    for (int itpl = 0; (itpl < 8) && (itpl < NumPointLights); itpl++ ) 
+    for (int itpl = 0; itpl < min(8, NumPointLights); itpl++ ) //itpl < min(8, NumPointLights)
     {
       //if(itpl >= NumPointLights ){break;};
 
@@ -311,10 +314,8 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     //alpha clipping is in macro function stage
 
   #ifdef _3DSMAX_
-    if(AlphaTestEnable) 
-    { clip(OUTCOLOR.w - 0.375) ; } ;
-
-    OUTCOLOR.xyz = sqrt(OUTCOLOR.xyz); //linear to srgb
+    if(AlphaTestEnable)  clip(OUTCOLOR.w - 0.375) ; 
+    if(PV_SRGB) OUTCOLOR.xyz = sqrt(OUTCOLOR.xyz); //linear to srgb
   #endif
 
     return OUTCOLOR;
@@ -354,7 +355,7 @@ PixelShader PS_Shadow_Array[2] = {
 
 #ifdef _3DSMAX_ //预览
 technique MAXPREV
-{    pass p0 <string ExpressionEvaluator = "Objects";>
+{    pass p0 
     {
         VertexShader = compile vs_3_0 VSforMAX(); 
         PixelShader = compile ps_3_0 PS_H_ARPBR();
@@ -382,7 +383,7 @@ technique Default
     AlphaFunc = 7;
     AlphaRef = 95; //95<0.375<96
     AlphaBlendEnable = 0;
-    AlphaTestEnable = 1;
+    AlphaTestEnable = 0;
   } 
 }
 
@@ -399,7 +400,7 @@ technique Default_M
     AlphaFunc = 7;
     AlphaRef = 96;
     AlphaBlendEnable = 0;
-    AlphaTestEnable = 1;
+    AlphaTestEnable = 0;
     //DepthBias = -1.0f / 4096 ;
 
   } 

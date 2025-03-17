@@ -38,7 +38,7 @@ float GlowAmplitude //最大发光倍数，(如果写负数会怎样?)
 
 //1/512 = 0.0019，original = 0.0015
 
-#include "PBR2-functions.FXH" //WILL INCLUDE EVERYTHING before vsps.FXH
+#include "head2-functions.FXH" //WILL INCLUDE EVERYTHING before vsps.FXH
 
 
 struct VS_to_PS_H_UNDERGROUND
@@ -204,7 +204,7 @@ float4 PS_H_UNDERGROUND (VS_to_PS_H_UNDERGROUND i) : COLOR
 
   //点光源BRDF
     float3 PLtotal = float3(0,0,0) ;
-    for (int itpl = 0; (itpl < 8) && (itpl < NumPointLights); itpl++ ) 
+    for (int itpl = 0; itpl < min(8, NumPointLights); itpl++ ) 
     {
 
       float3 PLpos = PointLight[itpl].Position - i.WorldP ;

@@ -1,6 +1,6 @@
 
 //#include "PBR1-constants.FXH"
-#include "PBR2-functions.FXH"
+#include "head2-functions.FXH"
 
 
 //standard structures =================
@@ -15,8 +15,8 @@ struct VS_H_output
 {
     float4 Position : POSITION;   //VS一定要输出的clip space渲染坐标
     float4 VertexColor : COLOR0;  //顶点颜色
-    float3 CoordOBJ  : COLOR1;   //物体或骨骼空间坐标， w= index
-    //float4 CoordCLIP : COLOR2;
+    float3 CoordOBJ  : TEXCOORD7;   //物体或骨骼空间坐标， w= index
+    //float4 CoordCLIP : TEXCOORD8;
     float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV, ZW是建筑损伤图 (并没有反)
     float3 ShadowPROJ : TEXCOORD1; //XYZ阴影空间投影, W弃用
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
@@ -214,6 +214,7 @@ VS_H_output  VS_H_22skin (VS_H_22skin_input  i)  //2 bone skin, with tangentfram
     float3x3 bone_matrix_1 = Quaternion2Matrix( WorldBones[BoneIndex.y] ) ;
     float4 bone_offset_alpha_0 = WorldBones[BoneIndex.x + 1];
     float4 bone_offset_alpha_1 = WorldBones[BoneIndex.y + 1];
+
     float3 worldP0 = mul(i.position0.xyz, bone_matrix_0) + bone_offset_alpha_0.xyz ;
     float3 worldP1 = mul(i.position1.xyz, bone_matrix_1) + bone_offset_alpha_1.xyz ;
     float3 worldN0 = mul(i.normal0.xyz, bone_matrix_0) ;
@@ -230,33 +231,7 @@ VS_H_output  VS_H_22skin (VS_H_22skin_input  i)  //2 bone skin, with tangentfram
     o.VertexColor.w *= lerp(bone_offset_alpha_1.w , bone_offset_alpha_0.w , i.blendweight.x) ; 
     o.WorldN = normalize(o.WorldN);
 
-    /*
-        int2 BoneIndex = floor(i.blendindices.xy * 2 );
-        //先算第一骨骼
-        float4 This_Quaternion   = WorldBones[BoneIndex.x];
-        float4 This_offset_alpha = WorldBones[BoneIndex.x + 1];
-        //     this                        this             .x         0.       this
-        float3 this_WorldP = QuaternionRotate( This_Quaternion , i.position0.xyz) + This_offset_alpha.xyz ;
-        float3 this_WorldN = QuaternionRotate( This_Quaternion , i.normal0.xyz);
-        float3 this_WorldT = QuaternionRotate( This_Quaternion , i.tangent0.xyz);
-        float3 this_WorldB = QuaternionRotate( This_Quaternion , i.binormal0.xyz);
 
-        //第二骨骼
-        float4 That_Quaternion   = WorldBones[BoneIndex.y ];
-        float4 That_offset_alpha = WorldBones[BoneIndex.y + 1];
-        //     that                        that             .y         1.       that
-        float3 that_WorldP = QuaternionRotate( That_Quaternion , i.position1.xyz) + That_offset_alpha.xyz ;
-        float3 that_WorldN = QuaternionRotate( That_Quaternion , i.normal1.xyz);
-        float3 that_WorldT = QuaternionRotate( That_Quaternion , i.tangent1.xyz);
-        float3 that_WorldB = QuaternionRotate( That_Quaternion , i.binormal1.xyz);
-        //混合结果，lerpw越大越靠近第一骨骼，所以左 that 右 this
-        o.WorldP = lerp( that_WorldP , this_WorldP , i.blendweight.x) ;
-        o.WorldN = lerp( that_WorldN , this_WorldN , i.blendweight.x) ;
-        o.WorldT = lerp( that_WorldT , this_WorldT , i.blendweight.x) ;
-        o.WorldB = lerp( that_WorldB , this_WorldB , i.blendweight.x) ;
-        o.VertexColor.w *= lerp(That_offset_alpha.w , This_offset_alpha.w , i.blendweight.x) ; 
-        o.WorldN = normalize(o.WorldN); //插值后向量会变短要拉回来
-    */
 
     //以上是物体到世界空间相关的代码，以下保留======
 
@@ -383,10 +358,12 @@ VS_notgt_output  VS_L_11skin (VS_11skin_notgt_input  i)//, uniform bool UseShado
     float4 bone_offset_alpha = WorldBones[BoneIndex.x + 1];
 
     //shrink vertex pos here 
+    float bonescale = 1 ;
     #ifdef BONE_ALPHA_SHRINK
+    bonescale = bone_offset_alpha.w ;
     #endif
 
-    o.WorldP = QuaternionRotate( bone_Quaternion , i.position.xyz) + bone_offset_alpha.xyz ;
+    o.WorldP = QuaternionRotate( bone_Quaternion , (i.position.xyz * bonescale)) + bone_offset_alpha.xyz ;
     o.WorldN = QuaternionRotate( bone_Quaternion , i.normal.xyz);
 
     //以上要换成双骨骼软绑定相关的代码，以下保留======
@@ -430,11 +407,13 @@ VS_notgt_output  VS_L_22skin (VS_22skin_notgt_input  i)//, uniform bool UseShado
     float4 bone_offset_alpha_1 = WorldBones[BoneIndex.y + 1];
 
     //shrink vertex pos here 
+    float2 bonescale = 1 ;
     #ifdef BONE_ALPHA_SHRINK
+    bonescale = float2(bone_offset_alpha_0.w , bone_offset_alpha_1.w ) ;
     #endif
 
-    float3 worldP0 = QuaternionRotate( bone_Quaternion_0 , i.position0.xyz) + bone_offset_alpha_0.xyz ;
-    float3 worldP1 = QuaternionRotate( bone_Quaternion_1 , i.position1.xyz) + bone_offset_alpha_1.xyz ;
+    float3 worldP0 = QuaternionRotate( bone_Quaternion_0 , (i.position0.xyz * bonescale.x)) + bone_offset_alpha_0.xyz ;
+    float3 worldP1 = QuaternionRotate( bone_Quaternion_1 , (i.position1.xyz * bonescale.y)) + bone_offset_alpha_1.xyz ;
     float3 worldN0 = QuaternionRotate( bone_Quaternion_0 , i.normal0.xyz);
     float3 worldN1 = QuaternionRotate( bone_Quaternion_1 , i.normal1.xyz);
 
@@ -466,62 +445,7 @@ struct PS_LOW_input
     float3 WorldP : TEXCOORD3;  //世界空间位置
     float3 WorldN : TEXCOORD4;//_centroid; //世界法线Z
 };
-float4 PS_LOW_ANIME (PS_LOW_input i) : COLOR 
-{
-    float3 N = normalize(i.WorldN);
-    float3 IV = normalize(i.WorldP - EyePosition);
-    float3 R = reflect( IV, N);
-    float3 Lsun     = DirectionalLight[0].Direction.xyz ;
-    float3 SUNcolor = DirectionalLight[0].Color.xyz ;
-    float3 accentlight = max(DirectionalLight[1].Color , DirectionalLight[2].Color);
-    float sun_tilt = dot(N, Lsun);
-    sun_tilt = saturate(sun_tilt *2 +0.5);
-    float3 surfacediffuselight = lerp(accentlight, SUNcolor, sun_tilt) ;
 
-    float3 albedocolor = 1 ;
-    float  specchannel = 0 ; 
-    float  HCchannel = 0 ;
-    float  alpha = 1;
-  #ifdef IS_BASIC_W3D_SHADER //but dont use this for infantry !
-    float4 tmp0 = tex2D(Texture_0Sampler,  i.MainTexUV.xy );
-    albedocolor = tmp0.xyz ;
-    HCchannel = tmp0.w ;
-  #else //above is placeholder, under is used object shader
-    float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
-    float4 spm = tex2D(SpecMapSampler,         i.MainTexUV.xy );
-    albedocolor = dif.xyz ;
-    alpha *= dif.w ;
-    HCchannel = spm.z ;
-    specchannel = spm.x + spm.y ;
-  #endif
-    HCchannel = (HasRecolorColors)? HCchannel : 0 ;
-    albedocolor *= lerp(1, RecolorColor, HCchannel) ;
-
-    surfacediffuselight *= albedocolor ;
-    float specdist = dot(R, Lsun);
-    specdist *= pow( specdist, 32);
-    //dot(R, Lsun) *16 -16 + specchannel;
-    //(dot(R, Lsun) -1 ) * 64 * (specchannel +1) + specchannel ; //over complicated 
-    //    max( allcolors , (specdist * SUNcolor) ) ;
-
-    float3 allcolors = 0;
-    allcolors = lerp(surfacediffuselight, SUNcolor , saturate(specdist * specchannel)) ;
-    allcolors += AmbientLightColor * albedocolor;
-
-  #ifdef IS_BUILDNG
-    //float dist2dmg = saturate( dot(i.CoordOBJ, i.CoordOBJ) /32 );
-    float4 dmgtex = tex2D(DamagedTextureSampler , i.MainTexUV.zw);
-    allcolors *= (i.VertexColor.w < 0.375)? dmgtex.xyz : 1 ;
-    alpha *= dmgtex.w ;
-  #else
-    alpha *= i.VertexColor.w ;
-  #endif
-
-    allcolors *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy).xyz ;
-    allcolors *= TintColor ;
-
-    return float4(allcolors.rgb , (alpha * OpacityOverride));
-};
 
 float4 PS_LOW_INFANTRY (PS_LOW_input i) : COLOR 
 {
@@ -546,11 +470,12 @@ float4 PS_LOW_INFANTRY (PS_LOW_input i) : COLOR
     float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
     albedocolor = dif.xyz ;
     alpha = dif.w ;
-    #ifdef CAN_HAVE_HC
     HCchannel = tex2D(SpecMapSampler, i.MainTexUV.xy).b ;
-    #endif
   #endif
+
+  #ifndef FORBID_FACTION_COLOR
     albedocolor *= lerp(1, RecolorColor, HCchannel) ;
+  #endif
 
     float3 allcolors = 0;
     allcolors += surfacediffuselight + AmbientLightColor ;
@@ -626,7 +551,11 @@ VS_ShadowMaker_output VS_ShadowMaker_11skin(VS_ShadowMaker_11skin_input i)
 
     float4 bone_Quaternion   = WorldBones[i.blendindices.x * 2 ];
     float4 bone_offset_alpha = WorldBones[i.blendindices.x * 2 + 1];
-    WorldPosition.xyz = QuaternionRotate( bone_Quaternion , i.position.xyz) + bone_offset_alpha.xyz ;
+    float bonescale = 1 ;
+    #ifdef BONE_ALPHA_SHRINK
+    bonescale = bone_offset_alpha.w ;
+    #endif
+    WorldPosition.xyz = QuaternionRotate( bone_Quaternion , (i.position.xyz * bonescale)) + bone_offset_alpha.xyz ;
     o.Valpha = bone_offset_alpha.w;// * OpacityOverride ;
     //以下是阴影空间投影
     o.Position = mul(WorldPosition, ViewProjection);
@@ -644,10 +573,16 @@ VS_ShadowMaker_output VS_ShadowMaker_22skin(VS_ShadowMaker_22skin_input i)
     int2 BoneIndex = floor(i.blendindices.xy * 2 );
     float4 bone_Quaternion_0   = WorldBones[BoneIndex.x];
     float4 bone_offset_alpha_0 = WorldBones[BoneIndex.x + 1];
-    float3 worldP0 = QuaternionRotate( bone_Quaternion_0 , i.position0.xyz) + bone_offset_alpha_0.xyz ;
     float4 bone_Quaternion_1   = WorldBones[BoneIndex.y];
     float4 bone_offset_alpha_1 = WorldBones[BoneIndex.y + 1];
-    float3 worldP1 = QuaternionRotate( bone_Quaternion_1 , i.position1.xyz) + bone_offset_alpha_1.xyz ;
+
+    float2 bonescale = 1 ;
+    #ifdef BONE_ALPHA_SHRINK
+    bonescale = float2(bone_offset_alpha_0.w , bone_offset_alpha_1.w ) ;
+    #endif
+
+    float3 worldP0 = QuaternionRotate( bone_Quaternion_0 , (i.position0.xyz * bonescale.x)) + bone_offset_alpha_0.xyz ;
+    float3 worldP1 = QuaternionRotate( bone_Quaternion_1 , (i.position1.xyz * bonescale.y)) + bone_offset_alpha_1.xyz ;
     WorldPosition.xyz = lerp( worldP1 , worldP0 , i.blendweight.x) ;
     o.Valpha = lerp(bone_offset_alpha_1.w , bone_offset_alpha_0.w , i.blendweight.x) ;//* OpacityOverride ; 
     //以下是阴影空间投影
@@ -1014,4 +949,100 @@ float4 PS_vfx_stealth (PS_VFX_input i) : COLOR
         o.WorldN = lerp( that_WorldN , this_WorldN , i.blendweight.x) ;
         o.VertexColor.w *= lerp(That_offset_alpha.w , This_offset_alpha.w , i.blendweight.x) ; 
         //o.WorldN = normalize(o.WorldN); //插值后向量会变短要拉回来
+
+
+
+*/
+
+    /*
+        int2 BoneIndex = floor(i.blendindices.xy * 2 );
+        //先算第一骨骼
+        float4 This_Quaternion   = WorldBones[BoneIndex.x];
+        float4 This_offset_alpha = WorldBones[BoneIndex.x + 1];
+        //     this                        this             .x         0.       this
+        float3 this_WorldP = QuaternionRotate( This_Quaternion , i.position0.xyz) + This_offset_alpha.xyz ;
+        float3 this_WorldN = QuaternionRotate( This_Quaternion , i.normal0.xyz);
+        float3 this_WorldT = QuaternionRotate( This_Quaternion , i.tangent0.xyz);
+        float3 this_WorldB = QuaternionRotate( This_Quaternion , i.binormal0.xyz);
+
+        //第二骨骼
+        float4 That_Quaternion   = WorldBones[BoneIndex.y ];
+        float4 That_offset_alpha = WorldBones[BoneIndex.y + 1];
+        //     that                        that             .y         1.       that
+        float3 that_WorldP = QuaternionRotate( That_Quaternion , i.position1.xyz) + That_offset_alpha.xyz ;
+        float3 that_WorldN = QuaternionRotate( That_Quaternion , i.normal1.xyz);
+        float3 that_WorldT = QuaternionRotate( That_Quaternion , i.tangent1.xyz);
+        float3 that_WorldB = QuaternionRotate( That_Quaternion , i.binormal1.xyz);
+        //混合结果，lerpw越大越靠近第一骨骼，所以左 that 右 this
+        o.WorldP = lerp( that_WorldP , this_WorldP , i.blendweight.x) ;
+        o.WorldN = lerp( that_WorldN , this_WorldN , i.blendweight.x) ;
+        o.WorldT = lerp( that_WorldT , this_WorldT , i.blendweight.x) ;
+        o.WorldB = lerp( that_WorldB , this_WorldB , i.blendweight.x) ;
+        o.VertexColor.w *= lerp(That_offset_alpha.w , This_offset_alpha.w , i.blendweight.x) ; 
+        o.WorldN = normalize(o.WorldN); //插值后向量会变短要拉回来
+    */
+
+/*
+
+
+
+
+
+float4 PS_LOW_ANIME (PS_LOW_input i) : COLOR 
+{
+    float3 N = normalize(i.WorldN);
+    float3 IV = normalize(i.WorldP - EyePosition);
+    float3 R = reflect( IV, N);
+    float3 Lsun     = DirectionalLight[0].Direction.xyz ;
+    float3 SUNcolor = DirectionalLight[0].Color.xyz ;
+    float3 accentlight = max(DirectionalLight[1].Color , DirectionalLight[2].Color);
+    float sun_tilt = dot(N, Lsun);
+    sun_tilt = saturate(sun_tilt *2 +0.5);
+    float3 surfacediffuselight = lerp(accentlight, SUNcolor, sun_tilt) ;
+
+    float3 albedocolor = 1 ;
+    float  specchannel = 0 ; 
+    float  HCchannel = 0 ;
+    float  alpha = 1;
+  #ifdef IS_BASIC_W3D_SHADER //but dont use this for infantry !
+    float4 tmp0 = tex2D(Texture_0Sampler,  i.MainTexUV.xy );
+    albedocolor = tmp0.xyz ;
+    HCchannel = tmp0.w ;
+  #else //above is placeholder, under is used object shader
+    float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
+    float4 spm = tex2D(SpecMapSampler,         i.MainTexUV.xy );
+    albedocolor = dif.xyz ;
+    alpha *= dif.w ;
+    HCchannel = spm.z ;
+    specchannel = spm.x + spm.y ;
+  #endif
+    HCchannel = (HasRecolorColors)? HCchannel : 0 ;
+    albedocolor *= lerp(1, RecolorColor, HCchannel) ;
+
+    surfacediffuselight *= albedocolor ;
+    float specdist = dot(R, Lsun);
+    specdist *= pow( specdist, 32);
+    //dot(R, Lsun) *16 -16 + specchannel;
+    //(dot(R, Lsun) -1 ) * 64 * (specchannel +1) + specchannel ; //over complicated 
+    //    max( allcolors , (specdist * SUNcolor) ) ;
+
+    float3 allcolors = 0;
+    allcolors = lerp(surfacediffuselight, SUNcolor , saturate(specdist * specchannel)) ;
+    allcolors += AmbientLightColor * albedocolor;
+
+  #ifdef IS_BUILDNG
+    //float dist2dmg = saturate( dot(i.CoordOBJ, i.CoordOBJ) /32 );
+    float4 dmgtex = tex2D(DamagedTextureSampler , i.MainTexUV.zw);
+    allcolors *= (i.VertexColor.w < 0.375)? dmgtex.xyz : 1 ;
+    alpha *= dmgtex.w ;
+  #else
+    alpha *= i.VertexColor.w ;
+  #endif
+
+    allcolors *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy).xyz ;
+    allcolors *= TintColor ;
+
+    return float4(allcolors.rgb , (alpha * OpacityOverride));
+};
+
 */
