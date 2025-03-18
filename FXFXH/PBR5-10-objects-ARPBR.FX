@@ -9,17 +9,18 @@
 //但如果给游戏用的 就不要启用。否则游戏直接崩
 
 // #define FORBID_PIPELINE_CONSTANT //
-// #define FORBID_FACTION_COLOR //中立单位要禁止阵营色
+// #define FORCE_ENABLE_TEXTURE_CLIP //强制开启主贴图的ALPHA镂空。无论有没有ALPHATEST。不影响半透明
 
 // 上面的最好别乱动 dont change any above 
 
-// #define FORCE_ENABLE_TEXTURE_CLIP //强制开启主贴图的ALPHA镂空。无论有没有ALPHATEST。不影响半透明
- #define ALLOW_CLIP_TEXTURE_ALPHA //允许贴图alpha镂空。帝国建造不要开。别的酌情启用
- #define DYNAMIC_CLOUD_REF //允许动态云背景反射。对金属和玻璃质感很重要
- #define ALLOW_STEALTH //允许隐身时有特殊的全息投影特效
+// #define FORBID_FACTION_COLOR //中立单位要禁止阵营色 generic on
+ #define DYNAMIC_CLOUD_REF //允许动态云背景反射。对金属和玻璃质感很重要 on for all
+ #define ALLOW_STEALTH //允许隐身时有特殊的全息投影特效, player object only ! building off
+ #define ALLOW_CLIP_TEXTURE_ALPHA //允许贴图alpha镂空。on for all
+ #define RENDER_BACKFACE //only for tengu, objectsjapan
 
 //下面三个互相冲突的功能只能选一个
-// #define ALLOW_CLIP_VERTEX_ALPHA //允许骨骼透明度隐藏零件。object要。building不要。
+// #define ALLOW_CLIP_VERTEX_ALPHA //允许骨骼透明度隐藏零件。building不要。objects ? 
 // #define IS_BUILDNG //仅building要。这是损伤破洞功能。与上下两者冲突 不可同时用
 // #define IS_NANO_BUILDUP  //启用帝国建筑的建造动画。 与上两者冲突 不可同时用
 
@@ -50,7 +51,7 @@ fxc.exe /O2 /T fx_2_0 /Fo   objectsallied3DSMAX.fxo   PBR5-10-objects-ARPBR.FX
 
 float4 SPM_threshold //SPM的界限
 <   string UIName = "SPM_threshold"; 	string UIWidget = "Color";
-> ={ 0.9, 0.5, 0.1, 0.5 }; //分别是：红色金属阈值，绿色金属阈值，蓝色阵营色阈值，发光倍数
+> ={ 0.75, 0.125, 0.125, 0 }; //分别是：红色金属阈值，绿色金属阈值，蓝色阵营色阈值，发光倍数
 
 float MinRoughness //最低粗糙度（要用倒数更精确吗？）
 <   string UIName = "MinRoughness"; //MAXglossiness
@@ -91,18 +92,6 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
   //风格常数，编译前确定
 
 
-
-    float  temp1 ;
-    float2 temp2 ;
-    float3 temp3 ;
-    float4 temp4 ;
-    /*
-    const float pointlight_mult =  1 ; //点光源整体亮度
-    const float sunlight_mult =  1 ; //阳光亮度
-    const float diffuse_mult =  1 ; //漫反射亮度，影响阳光与点光源
-    */
-
-
   //拿出主贴图 (GEN 2 MOD )
     float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
     float4 spm = tex2D(SpecMapSampler,         i.MainTexUV.xy );
@@ -117,7 +106,9 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
   //有用的向量
     float3 albedo = dif.xyz ;
     float3 N = i.WorldN;
-    //N = (i.vface > 0)? -N : N ; //BACKFACE NRM CORRECTION
+#ifdef RENDER_BACKFACE
+    N = (i.vface > 0)? -N : N ; //BACKFACE NRM CORRECTION
+#endif
     if(! InfantrySkin) { 
       nrm.xy = nrm.xy * 2 - 1  ;
       nrm.xy *= -BumpScale ;
@@ -142,9 +133,10 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
 
   //条件编译功能
-    float3 realHC = (HasRecolorColors)? RecolorColor : 1 ;
+    float3 realHC = 1 ;
   #ifndef FORBID_FACTION_COLOR
-    float whiteHCpart = max(max(albedo.r, albedo.g), albedo.b);
+    realHC = (HasRecolorColors)? RecolorColor : realHC ;
+    float whiteHCpart = dot(albedo.rgb, 0.375) ;//max(max(albedo.r, albedo.g), albedo.b);
     albedo = lerp((albedo * albedo) , whiteHCpart.xxx , spm.b); 
     //gamma only for no hc part
     spm.b = (spm.b > SPM_threshold.b)? spm.b : 0 ;
@@ -182,17 +174,10 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
 
 
-  #ifdef ALLOW_STEALTH
-    if(OpacityOverride < 0.985) //stealth
-    {return hp_stealthVFX(EYEtilt, albedo , 1, i.vpos.y, realHC);};
-  #else
-    OUTCOLOR.w *= OpacityOverride ;
-  #endif
-
-
 
 
   //还原通道信息 ========================
+    float blacklineavoid = saturate(dot(dif.xyz, 1) + dot(spm.rg, 2));
     
     float roughness = lerp(1, MinRoughness, spm.r) ;
     float glossiness = 1 / roughness ; //
@@ -205,9 +190,10 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
     float3 speccolor = (ismetal)? albedo : 0 ;
     float4 colortone = hp_saturation_luminance(speccolor, 0.0625 );
-    speccolor = colortone.rgb  ; //?
+    speccolor = colortone.rgb ; //?
+    speccolor *= (ismetal)? 1 : blacklineavoid ;
 
-    float f0_dir = (ismetal)? 1 : (spm.r * colortone.w) ;
+    float f0_dir = (ismetal)? 1 : (1- colortone.w) ;
     float f0_env = (ismetal)? colortone.w : 0 ;
 
     float  cavitymap = spm.w ;
@@ -219,25 +205,22 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
   //环境光相关 
 
-    const float ambient_diff_mult =  0.5 ; //环境光与天空盒diffuse
-    const float ambient_spec_mult =  1 ; //环境光与天空盒specular
+    //const float ambient_diff_mult =  0.5 ; //环境光与天空盒diffuse
+    //const float ambient_spec_mult =  1 ; //环境光与天空盒specular
 
-    float3 skycolor  = hp_getAccentLight() ;
-    float3 irradi_color = hp_fake_irradiance(0, skycolor , N.z) + AmbientLightColor ;
-    float3 skybox_color = hp_fake_skybox(0 , skycolor , R.z , (glossiness * 0.5)) + AmbientLightColor ; 
-
+    float3 irradi_color = hp_fake_irradiance(0, i.VertexColor.rgb , N.z) ; //already /2 in vs
+    float3 skybox_color = hp_fake_skybox(0 , hp_getAccentLight(R) , R.z , (glossiness * 0.5)) ; 
     skybox_color *= (ismetal)? 1 : (spm.r * spm.r)  ;
-
   #ifdef DYNAMIC_CLOUD_REF
     float3 cloudReflectionMultipler = hp_dynamic_cloud_reflection(i.FogCloudUV.zw, R, Lsun, (roughness *4))  ; 
-    //skybox_color *= lerp(cloudReflectionMultipler, 1, roughness ) ;
+    skybox_color *= cloudReflectionMultipler ;
   #endif
+    irradi_color += AmbientLightColor;
+    skybox_color += AmbientLightColor;
  
     float3 ambientALL = float3(0,0,0) ; //环境光BRDF
-    //ambient DIFF
-    ambientALL += irradi_color * diffcolor * ambient_diff_mult ; 
-    //ambient SPEC
-    ambientALL += skybox_color * speccolor * ambient_spec_mult * hp_fresnel(R, V, f0_env, 8); 
+    ambientALL += irradi_color * diffcolor  ; 
+    ambientALL += skybox_color * speccolor * hp_fresnel(R, V, f0_env, 8); 
 
   //阳光相关  
 
@@ -251,9 +234,7 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
   #endif
 
     float3 sunALL = float3(0,0,0) ;  //阳光BRDF
-    //sun diff
     sunALL += diffcolor * sun_tilt ; //* diffuse_mult ;
-    //sun spec
     sunALL += speccolor * hp_specdist(glossiness, R, Lsun) * specbase_mult * hp_fresnel(Lsun, V, f0_dir, 4);
     sunALL *= SUNcolor ; //*= sunlight_mult ;
 
@@ -267,7 +248,7 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
       float3 PLpos = PointLight[itpl].Position - i.WorldP ;
       float3 PLcolor = PointLight[itpl].Color ;
       float  PLrangeMAX = PointLight[itpl].Range_Inner_Outer.y * 2 ;
-      float  PLrangeMIN = PointLight[itpl].Range_Inner_Outer.x + 1 ;
+      float  PLrangeMIN = PointLight[itpl].Range_Inner_Outer.x ;//+ 1 ;
 
     #ifdef _3DSMAX_ //读取预览点光源数据
       PLpos = PV_pointlightPOS - i.WorldP; // relative!
@@ -289,7 +270,7 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
       //pl spec  
       thisBRDF += speccolor * hp_specdist(glossiness, R, PLL) * specbase_mult  ;
       //pl color
-      thisBRDF *= PLcolor * PLdecayfactor(PLrangeMIN, PLrangeMAX, PLdist);
+      thisBRDF *= PLcolor * PLdecayfactor(PLrangeMIN, PLrangeMAX, PLdist, 3);
 
       PLtotal += thisBRDF ; //叠加所有点光源
     };
@@ -303,7 +284,6 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     OUTCOLOR.xyz *= buildingDMG.b ; //only half, other half in diffcolor
     OUTCOLOR.xy  += buildingDMG.rg ; //损伤炽红效果
     OUTCOLOR.xyz *= TintColor ;
-    //OUTCOLOR.xyz += PLtotal ; 
     OUTCOLOR.xyz *= cavitymap ;
     OUTCOLOR.xyz += glowmapRGB ; //现在是恒定发光
 
@@ -316,6 +296,13 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
   #ifdef _3DSMAX_
     if(AlphaTestEnable)  clip(OUTCOLOR.w - 0.375) ; 
     if(PV_SRGB) OUTCOLOR.xyz = sqrt(OUTCOLOR.xyz); //linear to srgb
+  #endif
+
+  #ifdef ALLOW_STEALTH
+    if(OpacityOverride < 0.985) //stealth
+    {OUTCOLOR = hp_stealthVFX(EYEtilt, albedo , 1, i.vpos.y, realHC);};
+  #else
+    OUTCOLOR.w *= OpacityOverride ;
   #endif
 
     return OUTCOLOR;
@@ -379,7 +366,11 @@ technique Default
     ZEnable = 1;
     ZFunc = 4;
     ZWriteEnable = 1;
+#ifdef RENDER_BACKFACE
+    CullMode = 1;
+#else
     CullMode = 2;
+#endif
     AlphaFunc = 7;
     AlphaRef = 95; //95<0.375<96
     AlphaBlendEnable = 0;

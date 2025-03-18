@@ -173,9 +173,8 @@ float4 PS_H_UNDERGROUND (VS_to_PS_H_UNDERGROUND i) : COLOR
   //环境光相关 
     const float ambient_diff_mult =  0.5 ; //环境光与天空盒diffuse
     const float ambient_spec_mult =  1 ; //环境光与天空盒specular
-    float3 skycolor  = hp_getAccentLight() + AmbientLightColor;
-
-    float3 irradi_color = hp_fake_irradiance(0, skycolor , N.z);
+    float3 skycolor = DirectionalLight[1].Color.xyz + DirectionalLight[2].Color.xyz ;
+    float3 irradi_color = hp_fake_irradiance(0, skycolor , N.z) + AmbientLightColor;
     float3 skybox_color = hp_fake_skybox(0 , skycolor , R.z , glossiness ) ; 
 
     float env_f_term = hp_fresnel(R, V, f0_env, 6);  

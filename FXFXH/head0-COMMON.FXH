@@ -21,12 +21,17 @@ string DefaultParameterScopeBlock = "material";
 
 
 //这有什么用？看起来很重要
+#ifndef SPECIAL_SAS_HEADER
 int _SasGlobal : SasGlobal  
 <
     int3 SasVersion = int3(1, 0, 0);
     string UIWidget = "None";
     int MaxSupportedInstancingMode = 1;
-
+    int MaxLocalLights = 8;
+> = 0;
+#endif
+//先留着吧
+/*
 #ifdef MAX_POINT_LIGHT
     int MaxLocalLights = MAX_POINT_LIGHT; 
 #else
@@ -40,10 +45,7 @@ int _SasGlobal : SasGlobal
 #elif defined(SUPPORT_REFLECTION)
 	string RenderBin = "TerrainLikeGroundObject";
 #endif
-
-> = 0;
-//先留着吧
-
+*/
 
 //下面是引擎自己加的constant，按寄存器编号排序吧================
 
@@ -177,7 +179,7 @@ float4 WorldBones[128] //shared  ? C128-C255
 
 
 //当前帧要接收几个点光源。// register i0 ?
-int NumPointLights : register(vs, i0) : register(ps, i0)
+int NumPointLights //: register(vs, i0) : register(ps, i0)
 <   string UIWidget="None"; string SasBindAddress = "Sas.NumPointLights";> = 1 ; //预览一个
 
 //0=无蒙皮，1=硬绑定，2=软绑定 // no register, needed by shader array

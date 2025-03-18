@@ -79,6 +79,7 @@ float3 getShadowMapUV(float4 WorldPosition)
 
     float4 shadowMapCoordinates = mul(WorldPosition, ShadowMapWorldToShadow);
     shadowMapCoordinates.xyz /= shadowMapCoordinates.w;
+    //non linear, actually smaller if not on vertex, good for slope self shadow avoidance
     // shadowMapCoordinates.z -= 1.0/256 ; // BIAS moved to PS function
     return shadowMapCoordinates.xyz;
 };
@@ -154,7 +155,7 @@ float hp_invshadow_bilinear ( float3 SMUV, float sun_tilt )
 
     float2 SM01T = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
     float2 UVlerpw = frac(SMUV.xy / SM01T.y);
-    float object_depth = SMUV.z - SM01T.y * 2;//(3- 2* sun_tilt) ; //  1.0 / 512.0 ;
+    float object_depth = SMUV.z - SM01T.y ;//(3- 2* sun_tilt) ; //  1.0 / 512.0 ;
     //tbd : use suntilt to fix side offset
 
     float4 fourSamples = float4(   //四个角的阴影图深度
@@ -166,9 +167,9 @@ float hp_invshadow_bilinear ( float3 SMUV, float sun_tilt )
     bool4 fourTests = (fourSamples > object_depth) ; //阴影比物体离阳光更远，则有阳光
     fourSamples = (float4)fourTests ;
     //双线性插值
-    float2 bilinearLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
-    float  bilinearUD = lerp(bilinearLR.x   , bilinearLR.y   , UVlerpw.y);
-    float lightmid = hp_cubic_hermit(bilinearUD) ; //* bilinearUD;
+    float2 bLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
+    float  bUD = lerp(bLR.x   , bLR.y   , UVlerpw.y);
+    float lightmid = saturate(bUD *3 -1);// hp_cubic_hermit(bUD) ; //* bUD;
 
     return lightmid ;
 }
@@ -193,9 +194,9 @@ float hp_invshadow_underground ( float3 SMUV, float sun_tilt, float MicroShadowB
     bool4 fourTests = (fourSamples > object_depth) ; //阴影比物体离阳光更远，则有阳光
     fourSamples = (float4)fourTests ;
     //双线性插值
-    float2 bilinearLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
-    float  bilinearUD = lerp(bilinearLR.x   , bilinearLR.y   , UVlerpw.y);
-    float lightmid = hp_cubic_hermit(bilinearUD) ; //* bilinearUD;
+    float2 bLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
+    float  bUD = lerp(bLR.x   , bLR.y   , UVlerpw.y);
+    float lightmid = saturate(bUD *3 -1); // hp_cubic_hermit(bUD) ; //* bUD;
 
     return lightmid ;
 }
@@ -246,7 +247,7 @@ float3 hp_dynamic_cloud_reflection(float2 pixelcloudUV, float3 R, float3 Lsun, f
   #endif
     float2 UVbias = R.xy / R.z -  Lsun.xy / Lsun.z ;
     //cloud color dont change on sunlight direction, consider the same UV
-    UVbias /= 4 ; //cloud texture stretch larger ?
+    UVbias /= 2 ; //cloud texture stretch larger ?
     float4 cloudUVwithLOD = float4(pixelcloudUV , 0, cloudLOD);
     cloudUVwithLOD.xy += UVbias ;
     float3 cloudcolor = tex2Dlod(CloudTextureSampler, cloudUVwithLOD);
@@ -354,13 +355,18 @@ float3 hp_normalmapper(float2 TEXtangent, float tangent_xy_mult)
     return nrm ;
 };
 
-float3 hp_getAccentLight ()
+float3 hp_getAccentLight (float3 vectype)
 {
-    float3 biggeraccent = max(DirectionalLight[1].Color , DirectionalLight[2].Color);
     #if defined(_3DSMAX_)
-    biggeraccent = PV_accentlight ;
+    return PV_accentlight ;
     #endif
-    return biggeraccent ;
+
+    float3 skybox1 = DirectionalLight[1].Color ;
+    skybox1 *= dot(DirectionalLight[1].Direction, vectype) +1 ;
+    float3 skybox2 = DirectionalLight[2].Color ;
+    skybox2 *= dot(DirectionalLight[2].Direction, vectype) +1;
+    //already double bright
+    return (skybox1 + skybox2) /2 ; 
 }
 
 
@@ -398,7 +404,7 @@ float4 hp_new_damage_mix( float2 dmgUV, float bonealpha)
 } //clip w-0.125  -> mult z  -> plus xy, 
 
 
-float PLdecayfactor(float rangeMIN, float rangeMAX, float rangeTHIS )
+float PLdecayfactor(float PLrangeMIN, float PLrangeMAX, float PLdist, int exponent )
 {
     /*
     float dist_to_outer = rangeMAX - rangeTHIS ;
@@ -408,10 +414,9 @@ float PLdecayfactor(float rangeMIN, float rangeMAX, float rangeTHIS )
     return min(decayfull, decayshort) ;
 
     */
-
-    float reverselerp = (rangeTHIS - rangeMIN) / (rangeMAX - rangeMIN) ;
-    float brightness = saturate(1- reverselerp);
-    return pow(brightness, 3);
+    float decay = (PLdist - PLrangeMAX) / (PLrangeMIN - PLrangeMAX) ;
+    decay = saturate(decay);
+    return pow(decay, exponent);
 }
 
 float4 hp_saturation_luminance(float3 inputcolor, float margin)
@@ -446,7 +451,7 @@ float4 hp_stealthVFX (float EYEtilt, float3 texcolor, float otheralpha, float vp
     return OUTCOLOR ;
 }
 
-float hp_nano_build(float bonealpha, float2 texUV)
+float hp_nano_build_grid(float bonealpha, float2 texUV)
 {
     float2 gridint = abs(texUV) * 32 ;
     float2 gridfrac = frac(gridint);
@@ -461,9 +466,11 @@ float hp_nano_build(float bonealpha, float2 texUV)
     return saturate(scanalpha ) ;
 }
 
-float hp_nano_build_other(float bonealpha, float2 texUV)
-{
-    return texUV.y -1 + bonealpha ;
+float hp_nano_build(float bonealpha, float2 texUV)
+{   
+    float timetoshow = 1- texUV.y ;
+    float simulatealpha = (bonealpha > timetoshow) ? 1 : 0 ;
+    return simulatealpha ;
 }
 
 
@@ -494,10 +501,10 @@ float hp_invshadow_dither ( float3 ShadowProj, float sun_tilt, float2 vpos )
     bool4 fourTests = (fourSamples > object_depth) ; //阴影比物体离阳光更远，则有阳光
     fourSamples = (float4)fourTests ;
     //双线性插值
-    float2 bilinearLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
-    float  bilinearUD = lerp(bilinearLR.x   , bilinearLR.y   , UVlerpw.y);
+    float2 bLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
+    float  bUD = lerp(bLR.x   , bLR.y   , UVlerpw.y);
 
-    return bilinearUD ;
+    return bUD ;
 }
 
 

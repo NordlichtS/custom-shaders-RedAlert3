@@ -15,11 +15,11 @@ struct PS_infantry_input
 {
     float2 vpos : VPOS ; //screen pixel 
     float4 VertexColor : COLOR0;  //顶点颜色
-    float3 CoordOBJ  : COLOR1;  //原始的物体空间坐标
+    //float3 CoordOBJ  : COLOR1;  //原始的物体空间坐标
     float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
     float3 ShadowPROJ : TEXCOORD1; //XYZ阴影空间投影, W弃用
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
-    float3 WorldP : TEXCOORD3;  //世界空间位置 ( no use ?)
+    float3 WorldP : TEXCOORD3;  //世界空间位置 
     float3 WorldN : TEXCOORD4; //世界法线Z
 };
 
@@ -31,9 +31,9 @@ float4 PS_H_bubble (PS_infantry_input i) : COLOR
 
     float3 N = normalize(i.WorldN);
     float3 V = hp_ps_getViewVector(i.WorldP) ;
-    float3 realHC = (HasRecolorColors)? RecolorColor : 1 ;
+    float3 realHC = (HasRecolorColors)? RecolorColor * RecolorColor : 1 ;
     float fresnel = 1 - dot(N,V);
-    fresnel *= fresnel ;
+    fresnel = pow(fresnel, 2) ;
 
     float3 gridcoord = i.WorldP;
     gridcoord.xy = mul(gridcoord.xy , float2x2(1,-1,1,1));

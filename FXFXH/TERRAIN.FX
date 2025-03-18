@@ -26,7 +26,8 @@ string DefaultParameterScopeBlock = "material";
 
 
 int _SasGlobal : SasGlobal 
-<   string UIWidget = "None"; 
+<   
+    string UIWidget = "None"; 
     int3 SasVersion = int3(1, 0, 0); 
     int MaxLocalLights = 8; //6
 >;
@@ -47,7 +48,7 @@ shared float3 TintColor
 
 shared float3 NoCloudMultiplier  
 : register(vs, c3) : register(ps, c3)
-<   bool unmanaged = true;> = 0;
+<   bool unmanaged = true;> = 1;
 
 shared float3 AmbientLightColor 
 : register(vs, c4) : register(ps, c4)
@@ -212,7 +213,7 @@ sampler2D BaseSamplerClampedSampler
 > = sampler_state
 {
     Texture = <BaseSamplerClamped>; 
-    MinFilter = 2;//3
+    MinFilter = 3;//3
     MagFilter = 2;
     MipFilter = 2;
     MaxAnisotropy = 4;
@@ -271,7 +272,7 @@ sampler2D NormalSamplerWrappedSampler
 > = sampler_state
 {
     Texture = <NormalSamplerWrapped>; 
-    MinFilter = 3; //3
+    MinFilter = 2; //3
     MagFilter = 2;
     MipFilter = 2;
     MaxAnisotropy = 4;
@@ -386,36 +387,37 @@ static const int RenderingMode_NumOf = 4;
 #endif
 */
 
-// 计算战争迷雾贴图的 UV 坐标
+// 
 float2 getWarfogUV(float4 WorldPosition) 
 {
     float2 temp = WorldPosition.xy + Shroud.ScaleUV_OffsetUV.zw ;
     temp *= Shroud.ScaleUV_OffsetUV.xy;
     return temp;
 };
-// 计算云的贴图的 UV 坐标
+// 
 float2 getCloudUV(float4 WorldPosition) 
 {
     float4 multipliedCloudUV = WorldPosition.xyzz * Cloud.WorldPositionMultiplier_XYZZ;
     return multipliedCloudUV.xy - multipliedCloudUV.zw + Cloud.CurrentOffsetUV;
 };
-// 计算阴影贴图的 UV 坐标和深度
+// this is not linear accurate ! obsolete
+/*
 float3 getShadowMapUV(float4 WorldPosition) 
 {
-    //if(! HasShadow){return float3(0,0,-1);};
-
+    if(! HasShadow){return float3(0,0,-1);};
     float4 shadowMapCoordinates = mul(WorldPosition, ShadowMapWorldToShadow);
     shadowMapCoordinates.xyz /= shadowMapCoordinates.w;
-    shadowMapCoordinates.z -= 1.0/512 ; 
+    //shadowMapCoordinates.z -= 1.0/512 ; 
     return shadowMapCoordinates.xyz;
 };
+*/
 
-float specdist(float glossiness, float3 R, float3 L)
+float specdist(float ooa, float3 R, float3 L)
 {
     float cosRL = dot(R,L) ;  //no need saturate
-    float specdist = (cosRL -1) * glossiness + 1 ;
+    float specdist = cosRL * ooa - ooa + 1 ;
     specdist = saturate(specdist);
-    specdist = pow(specdist, 3) ; //smooth tail
+    specdist = pow(specdist, 4) ; //smooth tail
     return specdist ;
 };
 
@@ -432,7 +434,7 @@ float bilinearShadow(float3 ShadowMapUV)
     float2 SMUV = ShadowMapUV.xy ;
     float2 SM01T = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
     float2 UVlerpw = frac(SMUV.xy / SM01T.y);
-    float objectdepth = ShadowMapUV.z; //already has bias
+    float objectdepth = ShadowMapUV.z - SM01T.y; //depth bias is ooms
 
     float4 fourSamples = float4(   //四个角的阴影图深度
             tex2D(ShadowMapSampler, (SMUV.xy + SM01T.xx)).x ,
@@ -442,10 +444,20 @@ float bilinearShadow(float3 ShadowMapUV)
         );  // LU,LD,RU,RD (00,01,10,11) 
         bool4 fourTests = (fourSamples > objectdepth) ; 
         fourSamples = (float4)fourTests ;
-        float2 bilinearLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
-        float  bilinearUD = lerp(bilinearLR.x   , bilinearLR.y   , UVlerpw.y);
-        float lightmid = (3.0 - 2 * bilinearUD) * bilinearUD * bilinearUD ; //cubic hermit;
-        return lightmid ;
+        float2 bLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
+        float  bUD = lerp(bLR.x   , bLR.y   , UVlerpw.y);
+        float lightmid = (3.0 - 2 * bUD) * bUD * bUD ; //cubic hermit;
+        return bUD ;
+}
+
+float3 fakeskybox(float3 vectype)
+{
+    float3 skybox1 = DirectionalLight[1].Color ;
+    skybox1 *= dot(DirectionalLight[1].Direction, vectype) +1 ;
+    float3 skybox2 = DirectionalLight[2].Color ;
+    skybox2 *= dot(DirectionalLight[2].Direction, vectype) +1;
+    //already double bright
+    return (skybox1 + skybox2) /2 ; 
 }
 
 //=================================================
@@ -456,12 +468,12 @@ float bilinearShadow(float3 ShadowMapUV)
 struct VSOutputDefault
 {
 	float4 Position : POSITION; //clip space
-	float4 Color_Ambient_Blend : COLOR0; 
-    float2 Color_Shroud_Shadow : COLOR1 ;
+	float4 Color_Accent_Blend : COLOR0; 
+    float1 Color_Shroud : COLOR1 ;
  	float4 BaseTexCoord_BlendWeight : TEXCOORD0;
  	float4 BlendTex1Coord_BlendTex2Coord : TEXCOORD1;
     float4 ShroudCloudUV : TEXCOORD2;
-	float3 ShadowMapUV : TEXCOORD3 ; //
+	float4 ShadowMapClipSpace : TEXCOORD3 ; //
     float3 WorldP : TEXCOORD4 ;
 	float3 WorldN : TEXCOORD5 ;
 	float3 WorldT : TEXCOORD6 ;
@@ -491,17 +503,13 @@ VSOutputDefault VS_Default(
     float4 worldPosition = float4(Position.xyz, 1) ; //HOMOGENIZED
 	o.Position = mul(worldPosition, ViewProjection);
 
-    float3 skybox1 = DirectionalLight[1].Color ;
-    skybox1 *= dot(DirectionalLight[1].Direction, Normal) +1 ;
-    float3 skybox2 = DirectionalLight[2].Color ;
-    skybox2 *= dot(DirectionalLight[2].Direction, Normal) +1;
-    //already double bright
-    float3 irradiance_color = (skybox1 + skybox2) /2 /2; //maybe 0.3?
-    irradiance_color += AmbientLightColor ;
-    irradiance_color *= (Normal.z +1)/2 ;
+    float3 irradiance_color = fakeskybox(Normal) /2; 
+    //irradiance_color *= (Normal.z +1)/2 ; 
+    //irradiance_color += AmbientLightColor ;
+    //moved to ps
 
-    o.Color_Ambient_Blend.rgb = irradiance_color ;
-    o.Color_Ambient_Blend.w = Color.w;
+    o.Color_Accent_Blend.rgb = irradiance_color ;
+    o.Color_Accent_Blend.w = Color.w;
 
 	o.WorldP = Position;
 	o.WorldN = Normal;
@@ -523,11 +531,11 @@ VSOutputDefault VS_Default(
 
 	o.ShroudCloudUV.xy = getWarfogUV(worldPosition);
     o.ShroudCloudUV.zw = getCloudUV(worldPosition);
-    o.ShadowMapUV.xyz = getShadowMapUV(worldPosition);
+    o.ShadowMapClipSpace = mul(worldPosition, ShadowMapWorldToShadow);
     //vertex shroud
-    o.Color_Shroud_Shadow.x = tex2Dlod(ShroudSamplerSampler, float4(o.ShroudCloudUV.xy, 0,0)).x;
+    o.Color_Shroud = tex2Dlod(ShroudSamplerSampler, float4(o.ShroudCloudUV.xy, 0,0)).x;
     //vertex shadow, tbd
-    o.Color_Shroud_Shadow.y = 1 ;
+    //o.Color_Shroud_Shadow.y = 1 ;
 
 	return o;
 }
@@ -627,6 +635,7 @@ VSOutputDefault VS_TerrainScorch(
 
 float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
 	VSOutputDefault i, 
+    float2 vpos : VPOS ,
 	uniform int renderingMode,
 	uniform sampler2D baseSampler, 
 	uniform sampler2D normalSampler,
@@ -651,7 +660,7 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
 	float3 baseColor = baseTextureValue.xyz ;
     baseColor *= baseColor ; //GAMMA
 
-	float opacity = i.Color_Ambient_Blend.w;
+	float opacity = i.Color_Accent_Blend.w;
 
 	if (renderingMode == RenderingMode_Road || renderingMode == RenderingMode_Scorch)
 	{	opacity *= baseTextureValue.w;	}
@@ -703,17 +712,12 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
     float ooa = glossiness * glossiness ;
     float fresnelf0 = 1- dot(baseTextureValue.xyz, 0.3) ;
 
-    float diffAO = 1- normalintensity;
     float specAO = saturate(dot(R, i.WorldN) +1) ;
+    float diffAO = N.z *0.5 + 0.5 ; //1- normalintensity;
 
     //ambient BRDF
-    float3 skybox1 = DirectionalLight[1].Color ;
-    skybox1 *= dot(DirectionalLight[1].Direction, R) +1 ;
-    float3 skybox2 = DirectionalLight[2].Color ;
-    skybox2 *= dot(DirectionalLight[2].Direction, R) +1;
-
-    float3 skybox_color = (skybox1 + skybox2) /2 ; //maybe 0.3?
-    float3 irradi_color = i.Color_Ambient_Blend.rgb ;
+    float3 skybox_color = i.Color_Accent_Blend.rgb ; //fakeskybox(R) /2; 
+    float3 irradi_color = i.Color_Accent_Blend.rgb + AmbientLightColor;
 
     float env_f_term = pow(saturate(1- dot(V,N)) , 4) ;
 
@@ -731,8 +735,16 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
 
 	float shadowterm = (suntilt > 0)? 1 : 0 ;
 	if (HasShadow) // not the uniform bool hasShadow
-    {   shadowterm *= bilinearShadow(i.ShadowMapUV.xyz); }
-    //tbd: modify shadowterm with vertex shadow
+    {   
+        float3 ShadowMapUV = i.ShadowMapClipSpace.xyz / i.ShadowMapClipSpace.w;
+        bool2 dither = frac(vpos /2) < 0.3 ;
+        float2 smbias = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
+        smbias = (dither.x)? smbias.xy : smbias.yx ; //x to flip axis
+        smbias = (dither.y)? smbias    : - smbias  ; //y to flip direction     
+        ShadowMapUV.xy += smbias  ;
+        shadowterm *= bilinearShadow(ShadowMapUV); 
+    }
+    //tbd: modify shadowterm with vertex shadow? better not
 	sunColor *= shadowterm ;
 
     float3 cloudColor = tex2D(CloudSamplerSampler, i.ShroudCloudUV.zw) ;
@@ -741,7 +753,7 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
     float3 sunALL = float3(0,0,0) ;  
     sunALL += diffcolor * suntilt ; 
     sunALL += speccolor * sunspecdist * fresnel(sunDir, V, fresnelf0, 4);
-    sunALL *= sunColor ;//* shadowterm * cloudColor; 
+    sunALL *= sunColor ; //* shadowterm * cloudColor; 
 
 
 	// Compute point lights
@@ -763,21 +775,22 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
         float decay = (PLdist - PLrangeMAX) / (PLrangeMIN - PLrangeMAX) ;
         decay = saturate(decay);
         decay *= decay ;
-        float PLfresnel = fresnel(sunDir, V, fresnelf0, 2) ;
+        float PLfresnel = fresnel(PLL, V, fresnelf0, 2) ;
 
         float3 thisBRDF = float3(0,0,0) ;
-        thisBRDF +=  diffcolor * PLtilt  ; 
+        thisBRDF += diffcolor * PLtilt  ; 
         thisBRDF += (speccolor + 0.25) * specdist(ooa, R, PLL) * PLfresnel ;
         thisBRDF *= PLcolor * decay;
 
 		plALL += thisBRDF;
 	}
+    plALL *= 2 ;
 
-    float shroudColor = i.Color_Shroud_Shadow.x ;
+    //float shroudColor = i.Color_Shroud ;
     ////RGBA shroud, shadow, macro, blend  //no more
 
     float3 OUTCOLOR = ambientALL + sunALL  ;
-    OUTCOLOR *= shroudColor ;
+    OUTCOLOR *= i.Color_Shroud ;
 
     if(1)  //(renderingMode != RenderingMode_Scorch)
     {OUTCOLOR += plALL ;};
@@ -882,6 +895,168 @@ technique Scorch
 }
 
 //===============================
+// low quality PS and technique. vs are the same
+//===============================
+
+
+
+float4 PS_DefaultLOW(   //LOW QUALITY PS . 
+	VSOutputDefault i, 
+    float2 vpos : VPOS ,
+	uniform int renderingMode,
+	uniform sampler2D baseSampler, 
+	uniform sampler2D normalSampler,
+	//uniform bool hasShadow, 
+	uniform bool isTextureAtlasEnabled
+) : COLOR 
+{
+    float2 BaseTexCoord = i.BaseTexCoord_BlendWeight.xy;
+	float4 baseTextureValue = tex2D(baseSampler, BaseTexCoord);
+
+    // Doing first and second blend
+    float2 blendWeight = saturate(i.BaseTexCoord_BlendWeight.wz);
+
+    if(renderingMode == RenderingMode_TerrainTile && isTextureAtlasEnabled)
+    {
+        float4 texColor1 = tex2D(baseSampler, i.BlendTex1Coord_BlendTex2Coord.xy);
+        float4 texColor2 = tex2D(baseSampler, i.BlendTex1Coord_BlendTex2Coord.wz);
+        baseTextureValue = lerp(baseTextureValue, texColor1, blendWeight[0]) ;
+        baseTextureValue = lerp(baseTextureValue, texColor2, blendWeight[1]) ;
+    }
+    
+	float3 baseColor = baseTextureValue.xyz ; //no gamma
+	float opacity = i.Color_Accent_Blend.w;
+
+	if (renderingMode == RenderingMode_Road || renderingMode == RenderingMode_Scorch)
+	{	opacity *= baseTextureValue.w;	}
+
+	//no normalmap
+	float3 N = normalize(i.WorldN) ; 
+
+    float3 diffcolor = baseColor.rgb ;
+
+    //ambient BRDF
+
+    float3 irradi_color = i.Color_Accent_Blend.rgb ;
+    irradi_color *= N.z *0.5 + 0.5 ;
+    irradi_color += AmbientLightColor ;
+
+    float3 ambientALL = 0 ; 
+    ambientALL += irradi_color * diffcolor  ; 
+
+    //sun BRDF
+	float3 sunColor = DirectionalLight[0].Color;
+	float3 sunDir = DirectionalLight[0].Direction ;
+
+	float suntilt = dot(sunDir, N); //no saturate yet
+    float diffterm = 1- pow( (1- suntilt) , 2 );
+
+	float shadowterm = (suntilt > 0)? 1 : 0 ; //replace saturate
+	if (HasShadow) // not the uniform bool hasShadow
+    {   
+        float3 ShadowMapUV = i.ShadowMapClipSpace.xyz / i.ShadowMapClipSpace.w;
+        shadowterm *= bilinearShadow(ShadowMapUV); 
+        shadowterm = saturate(shadowterm *3 -1) ;
+    }
+	sunColor *= shadowterm ;
+
+    float3 cloudColor = tex2D(CloudSamplerSampler, i.ShroudCloudUV.zw) ;
+    sunColor *= cloudColor;//no gamma
+
+    float3 sunALL = float3(0,0,0) ;  
+    sunALL += diffcolor * diffterm ; 
+    sunALL *= sunColor ; //* shadowterm * cloudColor; 
+
+    float3 OUTCOLOR = ambientALL + sunALL  ;
+    OUTCOLOR *= i.Color_Shroud ;
+
+	return float4(OUTCOLOR, opacity);
+}
+//end low ps, begin low technique
+
+
+technique TerrainTile_M
+{	pass P0
+	{
+		VertexShader = compile vs_3_0 VS_TerrainTile(true);
+		PixelShader  = compile ps_3_0 PS_DefaultLOW(RenderingMode_TerrainTile, 
+            BaseSamplerClampedSampler, 
+            NormalSamplerClampedSampler,
+            true
+        );
+		ZEnable = true;
+		ZWriteEnable = true;
+		ZFunc = 4;
+		CullMode = 2;
+		AlphaTestEnable = false;
+		AlphaBlendEnable = false;
+	}
+}
+
+technique Cliff_M
+{    pass P0
+    {
+        VertexShader = compile vs_3_0 VS_Default(RenderingMode_Cliff, false);
+		PixelShader  = compile ps_3_0 PS_DefaultLOW(RenderingMode_Cliff, 
+            BaseSamplerWrappedSampler, 
+            NormalSamplerWrappedSampler,
+            false
+        );
+        ZEnable = 1;
+        ZWriteEnable = 0;
+        ZFunc = 4; //#define ZFUNC_INFRONT LessEqual
+        CullMode = 2; //CW
+        AlphaTestEnable = 0;
+        AlphaBlendEnable = 1;
+		SrcBlend = 5; //SrcAlpha
+		DestBlend = 6; //InvSrcAlpha
+    }
+}
+
+technique Road_M
+{   pass P0
+    {
+        VertexShader = compile vs_3_0 VS_Default(RenderingMode_Road, false);
+		PixelShader  = compile ps_3_0 PS_DefaultLOW(RenderingMode_Road, 
+            BaseSamplerWrappedSampler, 
+            NormalSamplerWrappedSampler,
+            false
+        );
+        ZEnable = 1;
+        ZWriteEnable = 0;
+        ZFunc = 4;
+        CullMode = 2;
+        AlphaTestEnable = 0;
+        AlphaBlendEnable = 1;
+        SrcBlend = 5;
+        DestBlend = 6;
+        DepthBias = -1.0f / 2048; // -0.0004 = -1 / 2500
+    }
+}
+
+technique Scorch_M
+{   pass P0
+    {
+        VertexShader = compile vs_3_0 VS_TerrainScorch();
+		PixelShader  = compile ps_3_0 PS_DefaultLOW(RenderingMode_Scorch, 
+            BaseSamplerClampedSampler, 
+            NormalSamplerClampedSampler,
+            false
+        );
+        ZEnable = 1;
+        ZWriteEnable = 0;
+        ZFunc = 4;
+        CullMode = 2;
+        AlphaTestEnable = 0;
+        AlphaBlendEnable = 1;
+        SrcBlend = 5;
+        DestBlend = 6;
+        DepthBias = -1.0f / 4096; //-0.0002
+    }
+}
+
+
+//===============================
 //special technique about shadow and depth 
 //so you have differed rendering pipeline?
 //===============================
@@ -889,21 +1064,22 @@ technique Scorch
 struct VSOutput_CreateShadowMap
 {
 	float4 Position : POSITION;
-	float Depth : TEXCOORD0;
+	float4 ClipSpace : TEXCOORD0;
 };
-VSOutput_CreateShadowMap VS_CreateShadowMap(float3 Position : POSITION)
+VSOutput_CreateShadowMap VS_CreateShadowMap(float4 Position : POSITION)
 {
 	VSOutput_CreateShadowMap Out;
 	Out.Position = mul(float4(Position.xyz, 1), ViewProjection);
-	Out.Depth = Out.Position.z / Out.Position.w;
+    Out.ClipSpace = Out.Position ;
+	//Out.Depth = Out.Position.z / Out.Position.w;
 	return Out;
 }
 float4 PS_CreateShadowMap(VSOutput_CreateShadowMap In) : COLOR
 {
-	return In.Depth;
+	return (In.ClipSpace.z / In.ClipSpace.w) ;
 }
-
-
+//this is now linear correct
+//matrix mult is always linear operation, but division is not
 
 
 technique _CreateShadowMap

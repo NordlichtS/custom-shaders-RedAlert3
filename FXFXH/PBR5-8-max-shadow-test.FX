@@ -85,9 +85,9 @@ float4 PS_H_SHADOWTEST (PS_H_input i) : COLOR
     bool4 fourTests = (fourSamples > object_depth) ; //阴影比物体离阳光更远，则有阳光
     fourSamples = (float4)fourTests ;
     //双线性插值
-    float2 bilinearLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
-    float  bilinearUD = lerp(bilinearLR.x   , bilinearLR.y   , UVlerpw.y);
-    float lightmid = bilinearUD ; //* bilinearUD;
+    float2 bLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
+    float  bUD = lerp(bLR.x   , bLR.y   , UVlerpw.y);
+    float lightmid = bUD ; //* bUD;
 
     //对斜边的额外抗锯齿修复
     

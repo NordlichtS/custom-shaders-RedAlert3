@@ -223,13 +223,14 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
     //cloudReflectionMultipler = lerp(1 , cloudReflectionMultipler, metalness ) ;
 
     //float3 groundcolor = AmbientLightColor;
-    float3 skycolor  = hp_getAccentLight() ;
 
-    float3 irradi_color = hp_fake_irradiance(0, skycolor , N.z) + AmbientLightColor ;
-    float3 skybox_color = hp_fake_skybox(0 , skycolor , R.z , (glossiness * horizon_extra_sharp)) + AmbientLightColor ; 
+    float3 irradi_color = hp_fake_irradiance(0, i.VertexColor.rgb , N.z) ;
+    float3 skybox_color = hp_fake_skybox(0 , hp_getAccentLight(R) , R.z , (glossiness * horizon_extra_sharp)) ; 
   #ifdef DYNAMIC_CLOUD_REF
     skybox_color *= cloudReflectionMultipler ;
   #endif
+    irradi_color += AmbientLightColor;
+    skybox_color += AmbientLightColor;
 
     float env_f_term = pow((1- EYEtilt), 3); //hp_fresnel(R, V, f0_env, 6);  
     env_f_term = lerp( f0_env, 1, env_f_term );
@@ -290,7 +291,7 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
       //pl spec  
       thisBRDF += speccolor * hp_specdist_patch(glossiness, R, PLL) * specbase_mult * hp_fresnel(PLL, V, f0_dir, 2) ;
       //pl color
-      thisBRDF *= PLcolor * PLdecayfactor(PLrangeMIN, PLrangeMAX, PLdist);
+      thisBRDF *= PLcolor * PLdecayfactor(PLrangeMIN, PLrangeMAX, PLdist, 3);
 
       PLtotal += thisBRDF ; //叠加所有点光源
     };
@@ -375,7 +376,11 @@ technique Default
     ZEnable = 1;
     ZFunc = 4;
     ZWriteEnable = 1;
+#ifdef RENDER_BACKFACE
     CullMode = 1;
+#else
+    CullMode = 2;
+#endif
     AlphaFunc = 7;
     AlphaRef = 95; //95<0.375<96
     AlphaBlendEnable = 0;
