@@ -54,7 +54,7 @@ VS_H_output VSforMAX(VS_3dsmax_input i)
 
     float4 WorldPosition = float4(0,0,0,1);
     o.ShadowCS = o.FogCloudUV = 0 ;
-    o.VertexColor = i.color ;  //顶点颜色，opacity 放ps里去吧
+    o.VertexColor = PV_accentlight ;  //
     o.VertexColor.w = PV_vertexALPHA ; //!!!
     o.CoordOBJ.xyz = i.position.xyz; //o.CoordOBJ.w = -1;
 
@@ -459,19 +459,17 @@ float4 PS_LOW_INFANTRY (PS_LOW_input i) : COLOR
     float3 surfacediffuselight = (sun_tilt > 0)? SUNcolor : i.VertexColor.rgb ;
 
     float3 albedocolor = 1 ;
-    float  alpha = 1 ;
-    alpha = i.VertexColor.w ; //ALLOW_CLIP_VERTEX_ALPHA
+    float  texalpha = 1 ;
     float  HCchannel = 0 ;
 
   #ifdef IS_BASIC_W3D_SHADER 
     float4 tmp0 = tex2D(Texture_0Sampler,  i.MainTexUV.xy );
     albedocolor = tmp0.xyz ;
-    alpha = i.VertexColor.w ;
     HCchannel = tmp0.w ;
   #else 
     float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
     albedocolor = dif.xyz ;
-    alpha = dif.w ;
+    texalpha = dif.w ;
     HCchannel = tex2D(SpecMapSampler, i.MainTexUV.xy).b ;
   #endif
 
@@ -480,13 +478,50 @@ float4 PS_LOW_INFANTRY (PS_LOW_input i) : COLOR
     albedocolor *= lerp(1, realHC, HCchannel) ;
   #endif
 
-    float3 allcolors = 0;
-    allcolors += surfacediffuselight + AmbientLightColor ;
-    allcolors *= albedocolor ;
-    allcolors *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy).xyz ;
-    allcolors *= TintColor ;
+    float4 OUTCOLOR = 0;
+    OUTCOLOR.rgb += surfacediffuselight + AmbientLightColor ;
+    OUTCOLOR.rgb *= albedocolor ;
+    OUTCOLOR.rgb *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy).xyz ;
+    OUTCOLOR.rgb *= TintColor ;
 
-    return float4(allcolors.rgb ,  (OpacityOverride * alpha) );
+    //
+    float extra_alpha = 1 ; //
+
+    #ifdef OPACITY_OVERRIDE_CLIP
+    extra_alpha *= OpacityOverride ;
+    #endif
+
+    #ifdef ALLOW_CLIP_VERTEX_ALPHA
+    extra_alpha *= i.VertexColor.w ; //ALLOW_CLIP_VERTEX_ALPHA
+    #endif
+
+    #ifdef ALLOW_CLIP_TEXTURE_ALPHA
+    extra_alpha *= texalpha ;
+    #endif
+
+    #ifdef IS_BUILDNG
+    float dmgalpha = tex2D(DamagedEasySampler , i.MainTexUV.zw).w ;
+    dmgalpha = (i.VertexColor.w < 0.375)? dmgalpha : 1;
+    extra_alpha *= dmgalpha ;
+    #endif 
+
+    #ifdef IS_NANO_BUILDUP
+    extra_alpha = hp_nano_build(i.VertexColor.w, i.MainTexUV.xy).x;
+    #endif
+
+    #ifdef FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN
+    clip(extra_alpha - 0.375) ;
+    #else
+    if(AlphaTestEnable) {clip(extra_alpha - 0.375) ; };
+    #endif
+
+    #ifdef OPACITY_OVERRIDE_OUTPUT
+    OUTCOLOR.w = OpacityOverride ;
+    #else
+    OUTCOLOR.w = 1 ;
+    #endif
+
+    return OUTCOLOR ;
 };
 
 
@@ -595,6 +630,14 @@ VS_ShadowMaker_output VS_ShadowMaker_22skin(VS_ShadowMaker_22skin_input i)
     return o ;
 }
 
+VS_ShadowMaker_output VS_ShadowMaker_CLIPALL()
+{   
+    VS_ShadowMaker_output  o;
+    o.Position = float4(2,2,2,1) ;
+    o.ClipSpace = o.Position ;
+    return o ;
+}
+
 //==阴影图VS结束，下面是阴影图PS  =============
 
 float4 PS_ShadowMaker_NoAlphaTest(VS_ShadowMaker_output i) : COLOR 
@@ -604,27 +647,31 @@ float4 PS_ShadowMaker_NoAlphaTest(VS_ShadowMaker_output i) : COLOR
 
 float4 PS_ShadowMaker_AlphaTest(VS_ShadowMaker_output i) : COLOR 
 {  
-    float realalpha = 1 ;
+    float extra_alpha = 1 ;
+
+    #ifdef OPACITY_OVERRIDE_CLIP
+    extra_alpha *= OpacityOverride ;
+    #endif
 
     #ifdef ALLOW_CLIP_VERTEX_ALPHA
-    realalpha *= i.Valpha;
+    extra_alpha *= i.Valpha;
     #endif
 
     #ifdef ALLOW_CLIP_TEXTURE_ALPHA
-    realalpha *= tex2D(DiffuseEasySampler , i.MainTexUV.xy).w ;
+    extra_alpha *= tex2D(DiffuseEasySampler , i.MainTexUV.xy).w ;
     #endif
 
     #ifdef IS_BUILDNG
     float dmgalpha = tex2D(DamagedEasySampler , i.MainTexUV.zw).w ;
     dmgalpha = (i.Valpha < 0.375)? dmgalpha : 1;
-    realalpha *= dmgalpha ;
+    extra_alpha *= dmgalpha ;
     #endif 
 
     #ifdef IS_NANO_BUILDUP
-    realalpha = hp_nano_build(i.Valpha, i.MainTexUV.xy).x;
+    extra_alpha = hp_nano_build(i.Valpha, i.MainTexUV.xy).x;
     #endif
 
-    clip(realalpha - 0.375);
+    clip(extra_alpha - 0.375);
     return (i.ClipSpace.z / i.ClipSpace.w) ; 
 }
 

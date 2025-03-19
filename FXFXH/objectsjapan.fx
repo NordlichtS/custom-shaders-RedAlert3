@@ -3,7 +3,6 @@
 // #define FORBID_FACTION_COLOR //中立单位要禁止阵营色 generic on
  #define DYNAMIC_CLOUD_REF //允许动态云背景反射。对金属和玻璃质感很重要 on for all
  #define ALLOW_STEALTH //允许隐身时有特殊的全息投影特效, player object only ! building off
- #define ALLOW_CLIP_TEXTURE_ALPHA //允许贴图alpha镂空。on for all
  #define RENDER_BACKFACE //only for tengu, objectsjapan
 
 //下面三个互相冲突的功能只能选一个

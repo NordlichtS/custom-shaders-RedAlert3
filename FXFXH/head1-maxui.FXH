@@ -77,13 +77,13 @@ sampler2D ShroudTextureSampler
 
 //bool AlphaBlendEnable < string UIName = "Alpha Blend Enable";> ;//= 0;
 
-bool AlphaTestEnable //主贴图镂空
-<    string UIName = "Alpha Test Enable";> = 0;
+extern bool AlphaTestEnable //主贴图镂空
+<    string UIName = "Alpha Test Enable";> = 1;
 
-bool CullingEnable //好像是允许背面不渲染来优化？
+extern bool CullingEnable //好像是允许背面不渲染来优化？
 <    string UIName = "Culling Enable";> = 1;
 
-bool DepthWriteEnable //写入深度buffer
+extern bool DepthWriteEnable //写入深度buffer
 <    string UIName = "Depth Write Enable";> = 1;
 
 #endif
@@ -216,7 +216,7 @@ sampler_state{
 
 
 
-
+#ifdef ALLOW_CUBE_MAP_SAMPLER //====================================
 //这个是环境反射图？真正的天空盒？
 #ifdef ENV_CUSTOM
     //  #define ENVMAP_NAME "Terrain.EnvironmentTexture"
@@ -289,7 +289,7 @@ samplerCUBE IrradianceTextureSampler
 };
 #endif
 
-
+#endif  //==========================
 //=================================
 //shader specific helper function
 

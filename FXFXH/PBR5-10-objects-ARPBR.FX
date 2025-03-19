@@ -9,15 +9,21 @@
 //但如果给游戏用的 就不要启用。否则游戏直接崩
 
 // #define FORBID_PIPELINE_CONSTANT //
-// #define FORCE_ENABLE_TEXTURE_CLIP //强制开启主贴图的ALPHA镂空。无论有没有ALPHATEST。不影响半透明
 
 // 上面的最好别乱动 dont change any above 
 
 // #define FORBID_FACTION_COLOR //中立单位要禁止阵营色 generic on
 // #define DYNAMIC_CLOUD_REF //允许动态云背景反射。对金属和玻璃质感很重要 on for all
 // #define ALLOW_STEALTH //允许隐身时有特殊的全息投影特效, player object only ! building off
-// #define ALLOW_CLIP_TEXTURE_ALPHA //允许贴图alpha镂空。on for all
 // #define RENDER_BACKFACE //only for tengu, objectsjapan
+
+ #define OPACITY_OVERRIDE_CLIP 
+ #define OPACITY_OVERRIDE_OUTPUT 
+ #define ALLOW_CLIP_TEXTURE_ALPHA //允许贴图alpha镂空。on for all
+// #define FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN
+// #define STEALTH_CLIP  //
+
+
 
 //下面三个互相冲突的功能只能选一个
 // #define ALLOW_CLIP_VERTEX_ALPHA //允许骨骼透明度隐藏零件。building不要。objects ? 
@@ -119,6 +125,7 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     float  EYEtilt = dot(V , N) ;
     R = (EYEtilt <0) ? -V : R ;
     EYEtilt = saturate(EYEtilt);
+    float fresnelbase = 1- EYEtilt;
 
     float3 Lsun     = DirectionalLight[0].Direction.xyz ;
     float3 SUNcolor = DirectionalLight[0].Color.xyz ;
@@ -127,20 +134,22 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     SUNcolor = PV_SunlightColor ;
   #endif
 
+    float4 ditherline = frac(i.vpos.yyyy / float4(1,2,4,8));
 
   //条件编译功能
     float3 extra_glow = 0 ; //add
     float3 extra_cavity = 1 ; //mult
 
-
     float3 realHC = 1 ;
+    float3 hcmask = 1 ;
   #ifndef FORBID_FACTION_COLOR
     realHC = (HasRecolorColors)? RecolorColor : realHC ;
     float whiteHCpart = dot(albedo.rgb, 0.375) ;//max(max(albedo.r, albedo.g), albedo.b);
     albedo = lerp((albedo * albedo) , whiteHCpart.xxx , spm.b); 
     //gamma only for no hc part
     spm.b = (spm.b > SPM_threshold.b)? spm.b : 0 ;
-    albedo *= lerp(1, (realHC * realHC), spm.b);
+    hcmask = lerp(1,  realHC, spm.b);
+    albedo *= hcmask ;
   #else
     albedo *= albedo ;
   #endif
@@ -148,35 +157,61 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
     //这段是ALPHA相关！
     //clipping affected ! ===========
+    float extra_alpha = 1 ;
 
-    //if(AlphaTestEnable) 
-  #ifdef FORCE_ENABLE_TEXTURE_CLIP
-    clip(dif.w - 0.5); 
+  #ifdef OPACITY_OVERRIDE_CLIP
+    extra_alpha *= OpacityOverride ;
   #endif
 
   #ifdef ALLOW_CLIP_TEXTURE_ALPHA
-    dif.w = (dif.w < 0.5)? 0 : dif.w ;
-    OUTCOLOR.w *= dif.w ;
+    //dif.w = (dif.w < 0.5)? 0 : dif.w ;
+    extra_alpha *= dif.w ;
   #endif
 
   #ifdef ALLOW_CLIP_VERTEX_ALPHA
-    OUTCOLOR.w *= i.VertexColor.w ;
+    extra_alpha *= i.VertexColor.w ;
   #endif
 
   #ifdef IS_BUILDNG //建筑损伤
-    float4 buildingDMG = hp_new_damage_mix(i.MainTexUV.zw , i.VertexColor.w );
-    OUTCOLOR.w *= buildingDMG.w ;
-    extra_glow.rg += buildingDMG.rg ;
-    extra_cavity *= buildingDMG.b ;
-    spm.r *= buildingDMG.b ;
+    float4 dmgtex = tex2D(DamagedTextureSampler , i.MainTexUV.zw);
+    dmgtex = (i.VertexColor.w < 0.375)? dmgtex : 1 ;
+    extra_alpha *= dmgtex.w ;
+    float burnred = 1 - dmgtex.w  ; //max 0.625
+    extra_glow.r += burnred ;
+    extra_glow.g += burnred * burnred ;
+    albedo.rgb *= dmgtex.rgb ;
+    spm.r *= dmgtex.g ;
   #endif
 
   #ifdef IS_NANO_BUILDUP
     float2 nanobuildupMASK_alpha_glow = hp_nano_build(i.VertexColor.w, i.MainTexUV.xy);
-    clip(nanobuildupMASK_alpha_glow.x - 0.375); 
+    extra_alpha *= nanobuildupMASK_alpha_glow.x ;
     extra_glow += realHC * nanobuildupMASK_alpha_glow.y ;
     extra_cavity *= 1- nanobuildupMASK_alpha_glow.y;
   #endif
+
+    float4 stealthcolor = 1 ;
+  #ifdef ALLOW_STEALTH
+    stealthcolor.rgb = realHC ;
+    stealthcolor.rgb *= fresnelbase * fresnelbase * (2 - OpacityOverride) ;
+    stealthcolor.rgb += albedo ;
+    stealthcolor.a = (ditherline.y < 0.0625)? 1 : fresnelbase ;
+  #endif  
+  //opacity is multiplied before, in both extra_alpha and OUTCOLOR
+  #ifdef STEALTH_CLIP   
+    extra_alpha *= stealthcolor.a ;
+  #endif
+
+      
+  //lets ignore the damn pass alpha test and do it here
+
+  #ifdef FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN
+    clip(extra_alpha - 0.375) ;
+  #else
+    if(AlphaTestEnable) {clip(extra_alpha - 0.375) ; };
+  #endif
+
+  // EXTRA_ALPHA WILL NOT EXPORT TO OUTCOLOR
 
 
   //还原通道信息 ========================
@@ -189,14 +224,13 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     bool ismetal = (spm.r > SPM_threshold.r) || (spm.g > SPM_threshold.g)  ;
 
     float3 diffcolor = (ismetal)? 0 : albedo ;
-    //diffcolor *= buildingDMG.b ; //haha
 
     float3 speccolor = (ismetal)? albedo : 0 ;
     float4 colortone = hp_saturation_luminance(speccolor, 0.0625 );
     speccolor = colortone.rgb ; //?
     speccolor *= blacklineavoid ;
 
-    float f0_dir = (ismetal)? 1 : (1- colortone.w) ;
+    float f0_dir = (ismetal)? 1 : (1- dot(dif.xyz, 0.3)) ;
     float f0_env = (ismetal)? colortone.w : 0 ;
 
     //float  cavitymap = spm.w ;
@@ -227,9 +261,19 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
   //阳光相关  
 
     float  sun_tilt  = dot(N,Lsun) ;
-    SUNcolor *= hp_invshadow_bilinear((i.ShadowCS.xyz / i.ShadowCS.w) , sun_tilt) ;
-    // hp_invshadow_dither(i.ShadowPROJ.xyz , sun_tilt, i.vpos);
-    //shadow helper also return 0 for backface, 1 for no shadow
+    SUNcolor *= (sun_tilt > 0 )? 1 : 0 ; 
+
+    float3 ShadowMapUV = i.ShadowCS.xyz / i.ShadowCS.w ;
+  #ifdef SHADOW_DITHER
+    bool2 dither = frac(i.vpos /2) < 0.3 ;
+    float2 smbias = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
+    smbias = (dither.x)? smbias.xy : smbias.yx ; //x to flip axis
+    smbias = (dither.y)? smbias    : - smbias  ; //y to flip direction     
+    ShadowMapUV.xy += smbias  ;
+  #endif
+    SUNcolor *= hp_invshadow_bilinear(ShadowMapUV) ;
+
+
   #ifndef _3DSMAX_ //高画质都有云，但预览没有
     float3 cloudcolor = tex2D(CloudTextureSampler, i.FogCloudUV.zw);
     SUNcolor *= cloudcolor * cloudcolor ;
@@ -267,11 +311,8 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
       if(PLtilt < 0) {continue;}; //排除背光面
 
       float3 thisBRDF = float3(0,0,0) ;
-      //pl diff
       thisBRDF += diffcolor * PLtilt  ; 
-      //pl spec  
       thisBRDF += speccolor * hp_specdist(glossiness, R, PLL) * specbase_mult  ;
-      //pl color
       thisBRDF *= PLcolor * PLdecayfactor(PLrangeMIN, PLrangeMAX, PLdist, 2);
 
       PLtotal += thisBRDF ; //叠加所有点光源
@@ -281,27 +322,34 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
 
   //最终混色
+    OUTCOLOR.w = 1 ; //just in case
     OUTCOLOR.xyz += ambientALL + sunALL + PLtotal; //BRDF
     OUTCOLOR.xyz *= extra_cavity ; //
     OUTCOLOR.xyz += extra_glow * 5; //all glow
-    OUTCOLOR.xyz *= TintColor ;
 
   #ifndef _3DSMAX_ //预览没有迷雾
     OUTCOLOR.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;
   #endif
 
-    //alpha clipping is in macro function stage
-
-  #ifdef _3DSMAX_
-    if(AlphaTestEnable)  clip(OUTCOLOR.w - 0.375) ; 
-    if(PV_SRGB) OUTCOLOR.xyz = sqrt(OUTCOLOR.xyz); //linear to srgb
+  #ifdef ALLOW_STEALTH
+    OUTCOLOR = (OpacityOverride < 0.985)? stealthcolor : OUTCOLOR ;
+    OUTCOLOR.rgb += PLtotal ;
   #endif
 
-  #ifdef ALLOW_STEALTH
-    if(OpacityOverride < 0.985) //stealth
-    {OUTCOLOR = hp_stealthVFX(EYEtilt, albedo , 1, i.vpos.y, realHC);};
-  #else
+  #ifdef OPACITY_OVERRIDE_OUTPUT //no conflict with stealth
     OUTCOLOR.w *= OpacityOverride ;
+  #else
+    OUTCOLOR.w = 1 ;
+  #endif
+
+    OUTCOLOR.xyz *= TintColor ;
+    OUTCOLOR.xyz *= hcmask ;
+
+    //alpha clipping is in macro function stage
+    //ONLY STEALTH AND OPACITY OVERRIDE AFFECT OUTCOLOR ALPHA
+
+  #ifdef _3DSMAX_
+    if(PV_SRGB) { OUTCOLOR.xyz = sqrt(OUTCOLOR.xyz) ; } //linear to srgb
   #endif
 
     return OUTCOLOR;
@@ -331,12 +379,22 @@ VertexShader VS_Shadow_Array[3] = {
     compile vs_2_0 VS_ShadowMaker_00skin(), 
     compile vs_2_0 VS_ShadowMaker_11skin(), 
     compile vs_2_0 VS_ShadowMaker_22skin(), 
+    //compile vs_2_0 VS_ShadowMaker_CLIPALL(), 
 };
 
 PixelShader PS_Shadow_Array[2] = {
   compile ps_2_0 PS_ShadowMaker_NoAlphaTest(),
   compile ps_2_0 PS_ShadowMaker_AlphaTest(),
 };
+
+int SMPSchooserExpr() 
+{ 
+  int index = (AlphaTestEnable)? 1 : 0 ;
+  #ifdef FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN
+  index = 1 ;
+  #endif
+  return index ; 
+}
 
 
 #ifdef _3DSMAX_ //预览
@@ -375,8 +433,8 @@ technique Default
   #endif
     AlphaFunc = 7;
     AlphaRef = 95; //95<0.375<96
-    AlphaBlendEnable = 0;
-    AlphaTestEnable = 1;
+    //AlphaBlendEnable = 0;
+    AlphaTestEnable = 0;//default to 0 ?
   } 
 }
 
@@ -404,7 +462,7 @@ technique _CreateShadowMap
 {    pass p0    
   {
     VertexShader = VS_Shadow_Array[ VSchooserExpr()  ]; 
-    PixelShader = PS_Shadow_Array[ int(AlphaTestEnable) ];
+    PixelShader  = PS_Shadow_Array[ SMPSchooserExpr()  ];
     ZEnable = 1;
     ZFunc = 4;
     ZWriteEnable = 1;
@@ -415,6 +473,8 @@ technique _CreateShadowMap
 }
 
 #endif
+
+
 
 //
 /*

@@ -90,7 +90,7 @@ shared float3 TintColor
 shared float3 NoCloudMultiplier  //EdgeFadeOut ？
 : register(vs, c3) : register(ps, c3)
 <   bool unmanaged = true;> 
-= 0;
+= 1 ;
 
 //地编环境光
 shared float3 AmbientLightColor 

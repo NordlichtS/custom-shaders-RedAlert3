@@ -148,9 +148,9 @@ float hp_round_transition( float invalue, float centerpoint, float margin)
 //柔和阴影
 
 
-float hp_invshadow_bilinear ( float3 SMUV, float sun_tilt ) 
+float hp_invshadow_bilinear ( float3 SMUV ) 
 { 
-    if(sun_tilt <= 0) {return 0;};
+    //if(sun_tilt <= 0) {return 0;};
     if(! HasShadow)   {return 1;}; 
 
     float2 SM01T = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
@@ -169,7 +169,9 @@ float hp_invshadow_bilinear ( float3 SMUV, float sun_tilt )
     //双线性插值
     float2 bLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
     float  bUD = lerp(bLR.x   , bLR.y   , UVlerpw.y);
-    float lightmid = saturate(bUD *3 -1);// hp_cubic_hermit(bUD) ; //* bUD;
+    float lightmid = bUD ;
+    
+    lightmid = saturate(bUD *3 -1);// hp_cubic_hermit(bUD) ; //* bUD;
 
     return lightmid ;
 }
@@ -257,7 +259,7 @@ float3 hp_dynamic_cloud_reflection(float2 pixelcloudUV, float3 R, float3 Lsun, f
 }
 
 
-//#ifdef ENV_CUSTOM
+#ifdef ENV_CUSTOM
 float3 getSKYBOXcolor (float3 reflectedView, float roughness, float AOchannel) 
 {
     // float  mirAO = saturate(AOchannel * glossiness);  //天空盒镜面反射的AO
@@ -271,7 +273,7 @@ float3 getSKYBOXcolor (float3 reflectedView, float roughness, float AOchannel)
 
     return skybox_color * AOchannel;
 }
-//#endif
+#endif
 
 
 float3 getIRRADIANCEcolor (float3 N, float AOchannel) 
@@ -337,7 +339,7 @@ float hp_specdist_power(int exponent, float3 R, float3 L)
 float hp_fresnel(float3 L, float3 V, float F0, int exponent)
 {
     float lerpw = dot( L , -V ) * 0.5 + 0.5 ;
-    lerpw = pow (lerpw, exponent); //8 ? 6?
+    lerpw = pow (lerpw, exponent); 
     float fresnelLV = lerp(F0, 1, lerpw);
     return fresnelLV ;
 };
@@ -384,24 +386,6 @@ float3 hp_fake_skybox( float3 groundcolor, float3 skycolor, float RZ, float glos
     
     
 
-float4 hp_new_damage_mix( float2 dmgUV, float bonealpha)
-{
-    //if(bonealpha > 0.5){return float4(0,0,1,1);};
-
-    float4 dmgtex = 1;
-  #ifdef IS_BUILDNG
-    dmgtex = tex2D(DamagedTextureSampler , dmgUV);
-  #endif
-    dmgtex = (bonealpha < 0.375)? dmgtex : 1 ;
-
-    float burnred = 1 - dmgtex.w  ; //max 0.625
-    float burngreen = pow(burnred, 3) *2 ; 
-    float darken = dmgtex.g ;//no square
-    float alphamult = dmgtex.w ;//(dmgtex.w > 0.375)? 1 : dmgtex.w ;
-    float4 alldmg = float4(burnred, burngreen, darken, alphamult);
-
-    return alldmg ;
-} //clip w-0.125  -> mult z  -> plus xy, 
 
 
 float PLdecayfactor(float PLrangeMIN, float PLrangeMAX, float PLdist, int exponent )
