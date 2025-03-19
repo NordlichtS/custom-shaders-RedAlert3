@@ -33,7 +33,7 @@ struct PS_H_input
     float2 vpos : VPOS ; //screen pixel 
     float4 VertexColor : COLOR0;  //顶点颜色
     float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
-    float3 ShadowPROJ : TEXCOORD1; //XYZ阴影空间投影, W弃用
+    float4 ShadowCS : TEXCOORD1; //XYZ阴影空间投影, W弃用
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
     float3 WorldP : TEXCOORD3;  //世界空间位置
     float3 WorldN : TEXCOORD4_centroid; //世界法线Z
@@ -142,7 +142,7 @@ float4 PS_H_GEN2MOD_SKETCH (PS_H_input i) : COLOR
     #endif
 
     float  sun_tilt  = dot(N,Lsun) ;
-    SUNcolor *= hp_invshadow_bilinear(i.ShadowPROJ.xyz , sun_tilt) ;
+    SUNcolor *= hp_invshadow_bilinear((i.ShadowCS.xyz / i.ShadowCS.w) , sun_tilt) ;
     // hp_invshadow_dither(i.ShadowPROJ.xyz , sun_tilt, i.vpos);
     //shadow helper also return 0 for backface, 1 for no shadow
     #ifndef _3DSMAX_ //高画质都有云，但预览没有
@@ -158,12 +158,12 @@ float4 PS_H_GEN2MOD_SKETCH (PS_H_input i) : COLOR
     sunALL *= SUNcolor ; //*= sunlight_mult ;
 
   //环境光相关 
-    float3 cloudReflectionMultipler = hp_dynamic_cloud_reflection(i.FogCloudUV.zw, R, Lsun)  ; //需要阳光信息
-    cloudReflectionMultipler = lerp(1 , cloudReflectionMultipler, saturate(spm.r *2 -1) ) ;
+    //float3 cloudReflectionMultipler = hp_dynamic_cloud_reflection(i.FogCloudUV.zw, R, Lsun)  ; //需要阳光信息
+    //cloudReflectionMultipler = lerp(1 , cloudReflectionMultipler, saturate(spm.r *2 -1) ) ;
 
     //float3 groundcolor = AmbientLightColor;
-    float3 skycolor_d  = hp_getAccentLight() ;
-    float3 skycolor_s  = skycolor_d * cloudReflectionMultipler ;
+    float3 skycolor_d  = i.VertexColor.rgb ;
+    float3 skycolor_s  = skycolor_d ;//* cloudReflectionMultipler ;
 
     float3 irradi_color = hp_fake_irradiance(0, skycolor_d , N.z) + AmbientLightColor ;
     float3 skybox_color = hp_fake_skybox(0 , skycolor_s , R.z , glossiness) + AmbientLightColor ; 
@@ -190,7 +190,7 @@ float4 PS_H_GEN2MOD_SKETCH (PS_H_input i) : COLOR
       float3 PLpos = PointLight[itpl].Position - i.WorldP ;
       float3 PLcolor = PointLight[itpl].Color ;
       float  PLrangeMAX = PointLight[itpl].Range_Inner_Outer.y * 2 ;
-      float  PLrangeMIN = PointLight[itpl].Range_Inner_Outer.x + 1 ;
+      float  PLrangeMIN = PointLight[itpl].Range_Inner_Outer.x  ;
 
       #ifdef _3DSMAX_ //读取预览点光源数据
       PLpos = PV_pointlightPOS - i.WorldP; // relative!
@@ -212,7 +212,7 @@ float4 PS_H_GEN2MOD_SKETCH (PS_H_input i) : COLOR
       //pl spec  
       thisBRDF += speccolor * hp_specdist(glossiness, R, PLL) * specbase_mult * hp_fresnel(PLL, V, spmLowPart, 4) ;
       //pl color
-      thisBRDF *= PLcolor * PLdecayfactor(PLrangeMIN, PLrangeMAX, PLdist);
+      thisBRDF *= PLcolor * PLdecayfactor(PLrangeMIN, PLrangeMAX, PLdist, 2);
 
       PLtotal += thisBRDF ; //叠加所有点光源
     };

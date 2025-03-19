@@ -18,7 +18,7 @@ struct VS_H_output
     float3 CoordOBJ  : TEXCOORD7;   //物体或骨骼空间坐标， w= index
     //float4 CoordCLIP : TEXCOORD8;
     float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV, ZW是建筑损伤图 (并没有反)
-    float3 ShadowPROJ : TEXCOORD1; //XYZ阴影空间投影, W弃用
+    float4 ShadowCS : TEXCOORD1; // 阴影的 CLIP SPACE坐标，像素里还得除
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
     float3 WorldP : TEXCOORD3;  //世界空间位置
     float3 WorldN : TEXCOORD4_centroid; //世界法线Z
@@ -53,7 +53,7 @@ VS_H_output VSforMAX(VS_3dsmax_input i)
     VS_H_output  o;
 
     float4 WorldPosition = float4(0,0,0,1);
-    o.ShadowPROJ = o.FogCloudUV = 0 ;
+    o.ShadowCS = o.FogCloudUV = 0 ;
     o.VertexColor = i.color ;  //顶点颜色，opacity 放ps里去吧
     o.VertexColor.w = PV_vertexALPHA ; //!!!
     o.CoordOBJ.xyz = i.position.xyz; //o.CoordOBJ.w = -1;
@@ -99,7 +99,6 @@ VS_H_output  VS_H_00skin (VS_H_00skin_input  i)  //no bone skin
     VS_H_output o; //声明下输出数组的结构缩写
 
     float4 WorldPosition = float4(0,0,0,1);
-    o.ShadowPROJ = o.FogCloudUV = 0 ;
     o.VertexColor = i.color ;  
     o.MainTexUV = float4(i.texcoord.xy , i.texcoordNEW.xy) ; //直接转存贴图UV
     o.CoordOBJ.xyz = i.position.xyz; //o.CoordOBJ.w = -1;
@@ -118,7 +117,7 @@ VS_H_output  VS_H_00skin (VS_H_00skin_input  i)  //no bone skin
     o.WorldN = normalize(o.WorldN);
     o.VertexColor.rgb = hp_getAccentLight(o.WorldN)/2;
     //if(HasShadow) 
-    o.ShadowPROJ = getShadowMapUV( WorldPosition) ;
+    o.ShadowCS = mul(WorldPosition, ShadowMapWorldToShadow); ;
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
     o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;
 
@@ -142,7 +141,6 @@ VS_H_output  VS_H_11skin (VS_H_11skin_input  i)  //1 bone skin
     VS_H_output o; //声明下输出数组的结构缩写
 
     float4 WorldPosition = float4(0,0,0,1);
-    o.ShadowPROJ = o.FogCloudUV = 0 ;
     o.VertexColor = i.color ;  
     o.MainTexUV = float4(i.texcoord.xy , i.texcoordNEW.xy) ; //直接转存贴图UV
     o.CoordOBJ.xyz = i.position.xyz; //o.CoordOBJ.w = i.blendindices.x;
@@ -176,7 +174,7 @@ VS_H_output  VS_H_11skin (VS_H_11skin_input  i)  //1 bone skin
     o.WorldN = normalize(o.WorldN);
     o.VertexColor.rgb = hp_getAccentLight(o.WorldN)/2;
     //if(HasShadow) 
-    o.ShadowPROJ = getShadowMapUV( WorldPosition) ;
+    o.ShadowCS = mul(WorldPosition, ShadowMapWorldToShadow); ;
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
     o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;
 
@@ -207,7 +205,6 @@ VS_H_output  VS_H_22skin (VS_H_22skin_input  i)  //2 bone skin, with tangentfram
     VS_H_output o; //声明下输出数组的结构缩写
 
     float4 WorldPosition = float4(0,0,0,1);
-    o.ShadowPROJ = o.FogCloudUV = 0 ;
     o.VertexColor = i.color ;  
     o.MainTexUV = float4(i.texcoord.xy , i.texcoordNEW.xy) ; //直接转存贴图UV
 
@@ -240,7 +237,7 @@ VS_H_output  VS_H_22skin (VS_H_22skin_input  i)  //2 bone skin, with tangentfram
     WorldPosition.xyz = o.WorldP  ; //四维世界坐标
     o.WorldN = normalize(o.WorldN);
     o.VertexColor.rgb = hp_getAccentLight(o.WorldN)/2;
-    o.ShadowPROJ = getShadowMapUV( WorldPosition) ;
+    o.ShadowCS = mul(WorldPosition, ShadowMapWorldToShadow); ;
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
     o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;
 
@@ -273,7 +270,7 @@ struct VS_notgt_output  //
     float3 CoordOBJ  : COLOR1;
     //float4 CoordCLIP : COLOR2;
     float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
-    float3 ShadowPROJ : TEXCOORD1; //XYZ阴影空间投影, （W 是顶点阴影的阳光？还是用Z存）
+    float4 ShadowCS : TEXCOORD1; //CLIP SPACE 影子，需要在PS里除
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
     float3 WorldP : TEXCOORD3;  //世界空间位置    
     float3 WorldN : TEXCOORD4;//_centroid; //世界法线
@@ -325,7 +322,6 @@ VS_notgt_output  VS_L_00skin (VS_00skin_notgt_input  i)//, uniform bool UseShado
     VS_notgt_output o; //声明下输出数组的结构缩写
 
     float4 WorldPosition = float4(0,0,0,1);
-    o.ShadowPROJ = o.FogCloudUV = 0 ;
     o.VertexColor = i.color ;  //顶点颜色，opacity 放ps里去吧
     o.CoordOBJ.xyz = i.position.xyz; //o.CoordOBJ.w = i.blendindices.x;
     o.MainTexUV = float4(i.texcoord.xy , i.texcoordNEW.xy) ; //直接转存贴图UV
@@ -340,7 +336,7 @@ VS_notgt_output  VS_L_00skin (VS_00skin_notgt_input  i)//, uniform bool UseShado
     o.VertexColor.rgb = hp_getAccentLight(o.WorldN)/2;
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
     o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;
-    o.ShadowPROJ = getShadowMapUV( WorldPosition) ;
+    o.ShadowCS = mul(WorldPosition, ShadowMapWorldToShadow); ;
     
     o.Position = mul(WorldPosition, ViewProjection); //给rasterizer的clip space坐标
 
@@ -352,7 +348,6 @@ VS_notgt_output  VS_L_11skin (VS_11skin_notgt_input  i)//, uniform bool UseShado
     VS_notgt_output o; //声明下输出数组的结构缩写
 
     float4 WorldPosition = float4(0,0,0,1);
-    o.ShadowPROJ = o.FogCloudUV = 0 ;
     o.VertexColor = i.color ;  
     o.CoordOBJ.xyz = i.position.xyz; //o.CoordOBJ.w = i.blendindices.x;
     o.MainTexUV = float4(i.texcoord.xy , i.texcoordNEW.xy) ; //直接转存贴图UV
@@ -379,7 +374,7 @@ VS_notgt_output  VS_L_11skin (VS_11skin_notgt_input  i)//, uniform bool UseShado
     o.VertexColor.rgb = hp_getAccentLight(o.WorldN)/2;
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
     o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;
-    o.ShadowPROJ = getShadowMapUV( WorldPosition) ;
+    o.ShadowCS = mul(WorldPosition, ShadowMapWorldToShadow); ;
     
     o.Position = mul(WorldPosition, ViewProjection); //给rasterizer的clip space坐标
 
@@ -391,7 +386,6 @@ VS_notgt_output  VS_L_22skin (VS_22skin_notgt_input  i)//, uniform bool UseShado
     VS_notgt_output o; //声明下输出数组的结构缩写
 
     float4 WorldPosition = float4(0,0,0,1);
-    o.ShadowPROJ = o.FogCloudUV = 0 ;
     o.VertexColor = i.color ;  
     o.MainTexUV = float4(i.texcoord.xy , i.texcoordNEW.xy) ; //直接转存贴图UV
 
@@ -436,7 +430,7 @@ VS_notgt_output  VS_L_22skin (VS_22skin_notgt_input  i)//, uniform bool UseShado
     o.VertexColor.rgb = hp_getAccentLight(o.WorldN)/2;
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
     o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;
-    o.ShadowPROJ = getShadowMapUV( WorldPosition) ;
+    o.ShadowCS = mul(WorldPosition, ShadowMapWorldToShadow); ;
 
     o.CoordOBJ.xyz = WorldPosition.xyz - WorldBones[1].xyz ; //o.CoordOBJ.w = -1;
     
@@ -744,295 +738,3 @@ float4 PS_outline() : COLOR
 
 
 //==废弃代码==========================
-
-
-/*
-    // 不需要第二骨骼时，直接存第一骨骼的变换结果
-    o.WorldP = this_WorldP ; o.WorldN = this_WorldN ;
-    o.WorldT = this_WorldT ; o.WorldB = this_WorldB ;
-    o.VertexColor.w *= This_offset_alpha.w ;
-    //如果检查到权重可以启用第二骨骼
-    if(i.blendweight.y > 0) 
-*/
-
-/*
-
-//下面的是实验型，可以根据全局constant自动开关第二骨骼和切线框架（但是IF太多了）
-VS_H_output  VS_H_skincomplex (VS_H_22skin_input  i)  //1-2 bone skin, with or no tangentframe
-{
-    VS_H_output o;
-    float4 WorldPosition = float4(0,0,0,1);
-    o.ShadowPROJ = o.FogCloudUV = 0 ;
-    o.VertexColor = i.color ;  
-    float3 that_WorldT , that_WorldB , this_WorldT , this_WorldB ;
-    this_WorldT = this_WorldB = that_WorldT = that_WorldB = 0 ; //initialize for safety
-
-    //int2 BoneIndex = i.blendindices.xy * 2; 
-    bool use_second_bone = bool(NumJointsPerVertex > 1) && bool(i.blendweight.y > 0);
-
-    //先算第一骨骼
-    float4 This_Quaternion   = WorldBones[i.blendindices.x * 2];
-    float4 This_offset_alpha = WorldBones[i.blendindices.x * 2 + 1];
-
-    float3 this_WorldP = QuaternionRotate( This_Quaternion , i.position0.xyz) + This_offset_alpha.xyz ;
-    float3 this_WorldN = QuaternionRotate( This_Quaternion , i.normal0.xyz);
-    o.WorldP = this_WorldP ;  
-    o.WorldN = this_WorldN ;
-    o.VertexColor.w = This_offset_alpha.w ;
-    if(tangent_xy_mult != 0) { //启用切线框架
-        this_WorldT = QuaternionRotate( This_Quaternion , i.tangent0.xyz);
-        this_WorldB = QuaternionRotate( This_Quaternion , i.binormal0.xyz);
-        o.WorldT = this_WorldT ;  
-        o.WorldB = this_WorldB ;  
-    };
-
-    //如果检查到权重可以启用第二骨骼
-    if(use_second_bone) 
-    {
-    float4 That_Quaternion   = WorldBones[i.blendindices.y * 2 ];
-    float4 That_offset_alpha = WorldBones[i.blendindices.y * 2 + 1];
-    float3 that_WorldP = QuaternionRotate( That_Quaternion , i.position1.xyz) + That_offset_alpha.xyz ;
-    float3 that_WorldN = QuaternionRotate( That_Quaternion , i.normal1.xyz);
-    o.WorldP = lerp( that_WorldP , this_WorldP , i.blendweight.x) ;
-    o.WorldN = lerp( that_WorldN , this_WorldN , i.blendweight.x) ;
-    o.VertexColor.w = lerp(That_offset_alpha.w , This_offset_alpha.w , i.blendweight.x) ; 
-    if(tangent_xy_mult != 0) { //启用切线框架
-        that_WorldT = QuaternionRotate( That_Quaternion , i.tangent1.xyz);
-        that_WorldB = QuaternionRotate( That_Quaternion , i.binormal1.xyz);
-        o.WorldT = lerp( that_WorldT , this_WorldT , i.blendweight.x) ;
-        o.WorldB = lerp( that_WorldB , this_WorldB , i.blendweight.x) ;
-    };
-
-    };
-    //以上是物体到世界空间相关的代码，以下保留======
-
-    WorldPosition.xyz = o.WorldP  ; //四维世界坐标
-    o.MainTexUV = float4(i.texcoord.xy , i.texcoordNEW.xy) ; //直接转存贴图UV
-    if(HasWarfog) { o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;};
-    if(HasCloud)  { o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;};
-    if(HasShadow) { o.ShadowPROJ = getShadowMapUV( WorldPosition) ;};
-
-    o.Position = mul(WorldPosition, ViewProjection); //给rasterizer的clip space坐标
-    return o;
-};  //以上这个VS是实验性代码模板，我也不知道会有什么效果，套了两层if 有可能负优化也说不定
-
-
-
-float4 PS_Objects_Low(PS_notgt_input i, uniform bool UseShadowAndCloud) : COLOR 
-{  
-    //拿出主贴图
-    float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
-    float4 spm = tex2D(SpecMapSampler,         i.MainTexUV.xy );
-
-    //初步整理下信息
-    //if(AlphaTestEnable) { clip(dif.w - 0.5);  clip(i.VertexColor.w - 0.25); };    
-    clip(dif.w - 0.5);  
-    clip(i.VertexColor.w - 0.25);
-    //force enable main texture alpha
-    float  HCchannel = (HasRecolorColors)? spm.b : 0 ;
-    dif.xyz *= lerp(1 , RecolorColor , HCchannel);
-
-    bool ismetal = bool(spm.g > 0.25);
-    float3 reflectSpectrum = max(dif.xyz , spm.xxx );
-    float3 diffcolor = (ismetal)? 0 : dif.xyz ;
-    float3 speccolor = (ismetal)? reflectSpectrum : spm.xxx ;
-
-    //发光层，//原版，日冕，将军，这个会不一样
-    float3 GLOWchannel = (ismetal)? dif.xyz : 0 ; 
-    // (ismetal)? dif.xyz : 0 ; //将军
-    // spm.w * dif.xyz ; //日冕
-
-
-
-    //一些有用的向量
-    float3 V = hp_ps_getViewVector(i.WorldP) ;
-    float3 N = normalize(i.WorldN);
-    float3 R = reflect(-V , N) ;
-    float Fterm = saturate(1- dot(V, N));
-
-    //sun
-    float3 Lsun     = DirectionalLight[0].Direction ;
-    float3 SUNcolor = DirectionalLight[0].Color ;
-    float  sun_tilt  = dot(N,Lsun) ;
-    SUNcolor *= (sun_tilt > 0)? 1 : 0 ;
-    if(UseShadowAndCloud)
-    {
-    SUNcolor *= hp_invshadow_easy(i.ShadowPROJ);
-    SUNcolor *= tex2D(CloudTextureSampler, i.FogCloudUV.zw);
-    };
-    float sun_specdist = saturate(dot(R, Lsun )) ;
-    sun_specdist = pow(sun_specdist , 8);
-
-    float3 sunALL = float3(0,0,0) ;  //阳光BRDF
-    sunALL += diffcolor * sun_tilt  ;
-    sunALL += speccolor * sun_specdist ;
-    sunALL *= SUNcolor ;
-
-    //ambient
-    float3 ambientALL = float3(0,0,0) ; //环境光BRDF
-    ambientALL += diffcolor ; 
-    ambientALL += speccolor * Fterm * Fterm; 
-    ambientALL *= AmbientLightColor ;
-
-    float4 OUTCOLOR = i.VertexColor ;
-    OUTCOLOR.w = dif.w * i.VertexColor.w ;
-    OUTCOLOR.xyz = ambientALL + sunALL ;
-    OUTCOLOR.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy).x ;
-    OUTCOLOR.xyz += GLOWchannel ;
-    OUTCOLOR.xyz *= TintColor ;
-
-    return OUTCOLOR ; 
-}
-
-// stealth vfx =======================
-
-struct PS_VFX_input
-{
-    float2 vpos : VPOS ; //screen pixel 
-    float4 VertexColor : COLOR0;  //顶点颜色
-    float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
-    //float3 ShadowPROJ : TEXCOORD1; //XYZ阴影空间投影, W弃用
-    //float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
-    float3 WorldP : TEXCOORD3;  //世界空间位置
-    float3 WorldN : TEXCOORD4_centroid; //世界法线Z
-};
-
-float4 PS_vfx_stealth (PS_VFX_input i) : COLOR 
-{
-    float3 N = normalize(i.WorldN);
-    float3 V = hp_ps_getViewVector(i.WorldP) ;
-
-    float scanline = frac(i.vpos.y / 3);
-    float EYEtilt = dot(N , V);
-    EYEtilt = saturate(1- EYEtilt);
-    EYEtilt *= (scanline < 0.25)? 1 : EYEtilt ; // pow(EYEtilt, 2)
-    float3 hcmask = (HasRecolorColors)? RecolorColor : 1 ;
-    hcmask *= EYEtilt * 0.75 ;
-
-    float4 texcolor = 0 ;
-    #ifdef IS_BASIC_W3D_SHADER
-    texcolor = tex2D(Texture_0Sampler,  i.MainTexUV.xy );
-    #else
-    texcolor = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
-    clip(texcolor.w - 0.5);
-    #endif
-    texcolor.xyz *= TintColor * 0.5 ;
-
-    float4 OUTCOLOR = 0 ;
-    OUTCOLOR.xyz = hcmask + texcolor.xyz ;
-    OUTCOLOR.w = OpacityOverride * i.VertexColor.w ;
-    return OUTCOLOR ;
-}
-
-        //先算第一骨骼
-        float4 This_Quaternion   = WorldBones[BoneIndex.x];
-        float4 This_offset_alpha = WorldBones[BoneIndex.x + 1];
-        float3 this_WorldP = QuaternionRotate( This_Quaternion , i.position0.xyz) + This_offset_alpha.xyz ;
-        float3 this_WorldN = QuaternionRotate( This_Quaternion , i.normal0.xyz);
-        //第二骨骼
-        float4 That_Quaternion   = WorldBones[BoneIndex.y];
-        float4 That_offset_alpha = WorldBones[BoneIndex.y + 1];
-        float3 that_WorldP = QuaternionRotate( That_Quaternion , i.position1.xyz) + That_offset_alpha.xyz ;
-        float3 that_WorldN = QuaternionRotate( That_Quaternion , i.normal1.xyz);
-        //混合结果，lerpw越大越靠近第一骨骼，所以左 that 右 this
-        o.WorldP = lerp( that_WorldP , this_WorldP , i.blendweight.x) ;
-        o.WorldN = lerp( that_WorldN , this_WorldN , i.blendweight.x) ;
-        o.VertexColor.w *= lerp(That_offset_alpha.w , This_offset_alpha.w , i.blendweight.x) ; 
-        //o.WorldN = normalize(o.WorldN); //插值后向量会变短要拉回来
-
-
-
-*/
-
-    /*
-        int2 BoneIndex = floor(i.blendindices.xy * 2 );
-        //先算第一骨骼
-        float4 This_Quaternion   = WorldBones[BoneIndex.x];
-        float4 This_offset_alpha = WorldBones[BoneIndex.x + 1];
-        //     this                        this             .x         0.       this
-        float3 this_WorldP = QuaternionRotate( This_Quaternion , i.position0.xyz) + This_offset_alpha.xyz ;
-        float3 this_WorldN = QuaternionRotate( This_Quaternion , i.normal0.xyz);
-        float3 this_WorldT = QuaternionRotate( This_Quaternion , i.tangent0.xyz);
-        float3 this_WorldB = QuaternionRotate( This_Quaternion , i.binormal0.xyz);
-
-        //第二骨骼
-        float4 That_Quaternion   = WorldBones[BoneIndex.y ];
-        float4 That_offset_alpha = WorldBones[BoneIndex.y + 1];
-        //     that                        that             .y         1.       that
-        float3 that_WorldP = QuaternionRotate( That_Quaternion , i.position1.xyz) + That_offset_alpha.xyz ;
-        float3 that_WorldN = QuaternionRotate( That_Quaternion , i.normal1.xyz);
-        float3 that_WorldT = QuaternionRotate( That_Quaternion , i.tangent1.xyz);
-        float3 that_WorldB = QuaternionRotate( That_Quaternion , i.binormal1.xyz);
-        //混合结果，lerpw越大越靠近第一骨骼，所以左 that 右 this
-        o.WorldP = lerp( that_WorldP , this_WorldP , i.blendweight.x) ;
-        o.WorldN = lerp( that_WorldN , this_WorldN , i.blendweight.x) ;
-        o.WorldT = lerp( that_WorldT , this_WorldT , i.blendweight.x) ;
-        o.WorldB = lerp( that_WorldB , this_WorldB , i.blendweight.x) ;
-        o.VertexColor.w *= lerp(That_offset_alpha.w , This_offset_alpha.w , i.blendweight.x) ; 
-        o.WorldN = normalize(o.WorldN); //插值后向量会变短要拉回来
-    */
-
-/*
-
-
-
-
-
-float4 PS_LOW_ANIME (PS_LOW_input i) : COLOR 
-{
-    float3 N = normalize(i.WorldN);
-    float3 IV = normalize(i.WorldP - EyePosition);
-    float3 R = reflect( IV, N);
-    float3 Lsun     = DirectionalLight[0].Direction.xyz ;
-    float3 SUNcolor = DirectionalLight[0].Color.xyz ;
-    float3 accentlight = max(DirectionalLight[1].Color , DirectionalLight[2].Color);
-    float sun_tilt = dot(N, Lsun);
-    sun_tilt = saturate(sun_tilt *2 +0.5);
-    float3 surfacediffuselight = lerp(accentlight, SUNcolor, sun_tilt) ;
-
-    float3 albedocolor = 1 ;
-    float  specchannel = 0 ; 
-    float  HCchannel = 0 ;
-    float  alpha = 1;
-  #ifdef IS_BASIC_W3D_SHADER //but dont use this for infantry !
-    float4 tmp0 = tex2D(Texture_0Sampler,  i.MainTexUV.xy );
-    albedocolor = tmp0.xyz ;
-    HCchannel = tmp0.w ;
-  #else //above is placeholder, under is used object shader
-    float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
-    float4 spm = tex2D(SpecMapSampler,         i.MainTexUV.xy );
-    albedocolor = dif.xyz ;
-    alpha *= dif.w ;
-    HCchannel = spm.z ;
-    specchannel = spm.x + spm.y ;
-  #endif
-    HCchannel = (HasRecolorColors)? HCchannel : 0 ;
-    albedocolor *= lerp(1, RecolorColor, HCchannel) ;
-
-    surfacediffuselight *= albedocolor ;
-    float specdist = dot(R, Lsun);
-    specdist *= pow( specdist, 32);
-    //dot(R, Lsun) *16 -16 + specchannel;
-    //(dot(R, Lsun) -1 ) * 64 * (specchannel +1) + specchannel ; //over complicated 
-    //    max( allcolors , (specdist * SUNcolor) ) ;
-
-    float3 allcolors = 0;
-    allcolors = lerp(surfacediffuselight, SUNcolor , saturate(specdist * specchannel)) ;
-    allcolors += AmbientLightColor * albedocolor;
-
-  #ifdef IS_BUILDNG
-    //float dist2dmg = saturate( dot(i.CoordOBJ, i.CoordOBJ) /32 );
-    float4 dmgtex = tex2D(DamagedTextureSampler , i.MainTexUV.zw);
-    allcolors *= (i.VertexColor.w < 0.375)? dmgtex.xyz : 1 ;
-    alpha *= dmgtex.w ;
-  #else
-    alpha *= i.VertexColor.w ;
-  #endif
-
-    allcolors *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy).xyz ;
-    allcolors *= TintColor ;
-
-    return float4(allcolors.rgb , (alpha * OpacityOverride));
-};
-
-*/

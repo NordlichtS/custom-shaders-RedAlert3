@@ -54,7 +54,7 @@ struct PS_H_input
     float4 VertexColor : COLOR0;  //顶点颜色
     float3 CoordOBJ  : COLOR1; 
     float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
-    float3 ShadowPROJ : TEXCOORD1; //XYZ阴影空间投影, W弃用
+    float4 ShadowCS : TEXCOORD1; //XYZ阴影空间投影, W弃用
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
     float3 WorldP : TEXCOORD3;  //世界空间位置
     float3 WorldN : TEXCOORD4_centroid; //世界法线Z
@@ -244,7 +244,7 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
   //阳光相关  
 
     float  sun_tilt  = dot(N,Lsun) ;
-    SUNcolor *= hp_invshadow_bilinear(i.ShadowPROJ.xyz , sun_tilt) ;
+    SUNcolor *= hp_invshadow_bilinear((i.ShadowCS.xyz / i.ShadowCS.w) , sun_tilt) ;
     // hp_invshadow_dither(i.ShadowPROJ.xyz , sun_tilt, i.vpos);
     //shadow helper also return 0 for backface, 1 for no shadow
   #ifndef _3DSMAX_ //高画质都有云，但预览没有
@@ -291,7 +291,7 @@ float4 PS_H_PATCH (PS_H_input i) : COLOR
       //pl spec  
       thisBRDF += speccolor * hp_specdist_patch(glossiness, R, PLL) * specbase_mult * hp_fresnel(PLL, V, f0_dir, 2) ;
       //pl color
-      thisBRDF *= PLcolor * PLdecayfactor(PLrangeMIN, PLrangeMAX, PLdist, 3);
+      thisBRDF *= PLcolor * PLdecayfactor(PLrangeMIN, PLrangeMAX, PLdist, 2);
 
       PLtotal += thisBRDF ; //叠加所有点光源
     };
