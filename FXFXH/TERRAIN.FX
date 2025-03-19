@@ -960,7 +960,7 @@ float4 PS_DefaultLOW(   //LOW QUALITY PS .
     }
 	sunColor *= shadowterm ;
 
-    float3 cloudColor = tex2D(CloudSamplerSampler, i.ShroudCloudUV.zw) ;
+    float3 cloudColor = NoCloudMultiplier ;//also no cloud
     sunColor *= cloudColor;//no gamma
 
     float3 sunALL = float3(0,0,0) ;  

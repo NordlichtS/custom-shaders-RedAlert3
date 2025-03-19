@@ -624,11 +624,11 @@ float4 PS_ShadowMaker_AlphaTest(VS_ShadowMaker_output i) : COLOR
     float dmgalpha = tex2D(DamagedEasySampler , i.MainTexUV.zw).w ;
     dmgalpha = (i.Valpha < 0.375)? dmgalpha : 1;
     realalpha *= dmgalpha ;
-    #endif
+    #endif 
 
-  #ifdef IS_NANO_BUILDUP
-    realalpha = hp_nano_build(i.Valpha, i.MainTexUV.xy);
-  #endif
+    #ifdef IS_NANO_BUILDUP
+    realalpha = hp_nano_build(i.Valpha, i.MainTexUV.xy).x;
+    #endif
 
     clip(realalpha - 0.375);
     return (i.ClipSpace.z / i.ClipSpace.w) ; 

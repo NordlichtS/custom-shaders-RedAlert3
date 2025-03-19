@@ -14,10 +14,10 @@
 // 上面的最好别乱动 dont change any above 
 
 // #define FORBID_FACTION_COLOR //中立单位要禁止阵营色 generic on
- #define DYNAMIC_CLOUD_REF //允许动态云背景反射。对金属和玻璃质感很重要 on for all
- #define ALLOW_STEALTH //允许隐身时有特殊的全息投影特效, player object only ! building off
- #define ALLOW_CLIP_TEXTURE_ALPHA //允许贴图alpha镂空。on for all
- #define RENDER_BACKFACE //only for tengu, objectsjapan
+// #define DYNAMIC_CLOUD_REF //允许动态云背景反射。对金属和玻璃质感很重要 on for all
+// #define ALLOW_STEALTH //允许隐身时有特殊的全息投影特效, player object only ! building off
+// #define ALLOW_CLIP_TEXTURE_ALPHA //允许贴图alpha镂空。on for all
+// #define RENDER_BACKFACE //only for tengu, objectsjapan
 
 //下面三个互相冲突的功能只能选一个
 // #define ALLOW_CLIP_VERTEX_ALPHA //允许骨骼透明度隐藏零件。building不要。objects ? 
@@ -51,7 +51,7 @@ fxc.exe /O2 /T fx_2_0 /Fo   objectsallied3DSMAX.fxo   PBR5-10-objects-ARPBR.FX
 
 float4 SPM_threshold //SPM的界限
 <   string UIName = "SPM_threshold"; 	string UIWidget = "Color";
-> ={ 0.75, 0.125, 0.125, 0 }; //分别是：红色金属阈值，绿色金属阈值，蓝色阵营色阈值，发光倍数
+> ={ 0.75, 0.125, 0.125, 1 }; //分别是：红色金属阈值，绿色金属阈值，蓝色阵营色阈值，发光倍数
 
 float MinRoughness //最低粗糙度（要用倒数更精确吗？）
 <   string UIName = "MinRoughness"; //MAXglossiness
@@ -97,18 +97,14 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     float4 spm = tex2D(SpecMapSampler,         i.MainTexUV.xy );
     float4 nrm = tex2D(NormalMapSampler,       i.MainTexUV.xy );
 
-    //if(AlphaTestEnable) 
-    #ifdef FORCE_ENABLE_TEXTURE_CLIP
-    clip(dif.w - 0.5); 
-    #endif
 
 
   //有用的向量
     float3 albedo = dif.xyz ;
     float3 N = i.WorldN;
-#ifdef RENDER_BACKFACE
+  #ifdef RENDER_BACKFACE
     N = (i.vface > 0)? -N : N ; //BACKFACE NRM CORRECTION
-#endif
+  #endif
     if(! InfantrySkin) { 
       nrm.xy = nrm.xy * 2 - 1  ;
       nrm.xy *= -BumpScale ;
@@ -133,6 +129,10 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
 
   //条件编译功能
+    float3 extra_glow = 0 ; //add
+    float3 extra_cavity = 1 ; //mult
+
+
     float3 realHC = 1 ;
   #ifndef FORBID_FACTION_COLOR
     realHC = (HasRecolorColors)? RecolorColor : realHC ;
@@ -149,7 +149,13 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     //这段是ALPHA相关！
     //clipping affected ! ===========
 
+    //if(AlphaTestEnable) 
+  #ifdef FORCE_ENABLE_TEXTURE_CLIP
+    clip(dif.w - 0.5); 
+  #endif
+
   #ifdef ALLOW_CLIP_TEXTURE_ALPHA
+    dif.w = (dif.w < 0.5)? 0 : dif.w ;
     OUTCOLOR.w *= dif.w ;
   #endif
 
@@ -157,23 +163,20 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     OUTCOLOR.w *= i.VertexColor.w ;
   #endif
 
-    float4 buildingDMG = float4(0,0,1,1);
   #ifdef IS_BUILDNG //建筑损伤
-    buildingDMG = hp_new_damage_mix(i.MainTexUV.zw , i.VertexColor.w );
+    float4 buildingDMG = hp_new_damage_mix(i.MainTexUV.zw , i.VertexColor.w );
     OUTCOLOR.w *= buildingDMG.w ;
+    extra_glow.rg += buildingDMG.rg ;
+    extra_cavity *= buildingDMG.b ;
+    spm.r *= buildingDMG.b ;
   #endif
 
-    float nanobuildupMASK = 1;
   #ifdef IS_NANO_BUILDUP
-    nanobuildupMASK = hp_nano_build(i.VertexColor.w, i.MainTexUV.xy);
-    clip(nanobuildupMASK - 0.375); 
-    OUTCOLOR.w =1;
-    //#else
-    //if(AlphaTestEnable){clip(OUTCOLOR.w - 0.375);}
+    float2 nanobuildupMASK_alpha_glow = hp_nano_build(i.VertexColor.w, i.MainTexUV.xy);
+    clip(nanobuildupMASK_alpha_glow.x - 0.375); 
+    extra_glow += realHC * nanobuildupMASK_alpha_glow.y ;
+    extra_cavity *= 1- nanobuildupMASK_alpha_glow.y;
   #endif
-
-
-
 
 
   //还原通道信息 ========================
@@ -186,30 +189,29 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     bool ismetal = (spm.r > SPM_threshold.r) || (spm.g > SPM_threshold.g)  ;
 
     float3 diffcolor = (ismetal)? 0 : albedo ;
-    diffcolor *= buildingDMG.b ; //haha
+    //diffcolor *= buildingDMG.b ; //haha
 
     float3 speccolor = (ismetal)? albedo : 0 ;
     float4 colortone = hp_saturation_luminance(speccolor, 0.0625 );
     speccolor = colortone.rgb ; //?
-    speccolor *= (ismetal)? 1 : blacklineavoid ;
+    speccolor *= blacklineavoid ;
 
     float f0_dir = (ismetal)? 1 : (1- colortone.w) ;
     float f0_env = (ismetal)? colortone.w : 0 ;
 
-    float  cavitymap = spm.w ;
-    spm.w = saturate( SPM_threshold.w - spm.w);
-    float3 glowmapRGB = albedo * spm.w * 4 ;
+    //float  cavitymap = spm.w ;
+    extra_cavity *= spm.w ;
+    float glowchannel = saturate( SPM_threshold.w - spm.w);
+    //float3 glowmapRGB = albedo * glowchannel * 4 ;
+    extra_glow += albedo * glowchannel ;
 
 
   //BRDF=========================================
 
   //环境光相关 
 
-    //const float ambient_diff_mult =  0.5 ; //环境光与天空盒diffuse
-    //const float ambient_spec_mult =  1 ; //环境光与天空盒specular
-
     float3 irradi_color = hp_fake_irradiance(0, i.VertexColor.rgb , N.z) ; //already /2 in vs
-    float3 skybox_color = hp_fake_skybox(0 , hp_getAccentLight(R) , R.z , (glossiness * 0.5)) ; 
+    float3 skybox_color = hp_fake_skybox(0 , i.VertexColor.rgb , R.z , (glossiness * 0.5)) ; // hp_getAccentLight(R)
     skybox_color *= (ismetal)? 1 : (spm.r * spm.r)  ;
   #ifdef DYNAMIC_CLOUD_REF
     float3 cloudReflectionMultipler = hp_dynamic_cloud_reflection(i.FogCloudUV.zw, R, Lsun, (roughness *4))  ; 
@@ -280,12 +282,9 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
   //最终混色
     OUTCOLOR.xyz += ambientALL + sunALL + PLtotal; //BRDF
-    //OUTCOLOR.xyz *= hcmask ; //increase hc saturation
-    OUTCOLOR.xyz *= buildingDMG.b ; //only half, other half in diffcolor
-    OUTCOLOR.xy  += buildingDMG.rg ; //损伤炽红效果
+    OUTCOLOR.xyz *= extra_cavity ; //
+    OUTCOLOR.xyz += extra_glow * 5; //all glow
     OUTCOLOR.xyz *= TintColor ;
-    OUTCOLOR.xyz *= cavitymap ;
-    OUTCOLOR.xyz += glowmapRGB ; //现在是恒定发光
 
   #ifndef _3DSMAX_ //预览没有迷雾
     OUTCOLOR.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;
@@ -359,28 +358,31 @@ technique MAXPREV
 
 
 technique Default
-{    pass p0 <string ExpressionEvaluator = "Objects";>
+{    pass p0 
+  #ifndef IS_BUILDNG
+  <string ExpressionEvaluator = "Objects";>
+  #endif
   {
     VertexShader = VS_H_Array[ VSchooserExpr() ]; 
     PixelShader  = compile ps_3_0 PS_H_ARPBR(); 
     ZEnable = 1;
     ZFunc = 4;
     ZWriteEnable = 1;
-#ifdef RENDER_BACKFACE
+  #ifdef RENDER_BACKFACE
     CullMode = 1;
-#else
+  #else
     CullMode = 2;
-#endif
+  #endif
     AlphaFunc = 7;
     AlphaRef = 95; //95<0.375<96
     AlphaBlendEnable = 0;
-    AlphaTestEnable = 0;
+    AlphaTestEnable = 1;
   } 
 }
 
 
 technique Default_M 
-{    pass p0 <string ExpressionEvaluator = "Objects";>
+{    pass p0
   {
     VertexShader = VS_L_Array[ VSchooserExpr() ]; 
     PixelShader  = compile ps_3_0 PS_LOW_INFANTRY(); 

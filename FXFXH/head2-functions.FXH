@@ -247,7 +247,7 @@ float3 hp_dynamic_cloud_reflection(float2 pixelcloudUV, float3 R, float3 Lsun, f
   #endif
     float2 UVbias = R.xy / R.z -  Lsun.xy / Lsun.z ;
     //cloud color dont change on sunlight direction, consider the same UV
-    UVbias /= 2 ; //cloud texture stretch larger ?
+    //UVbias /= 2 ; //cloud texture stretch larger ?
     float4 cloudUVwithLOD = float4(pixelcloudUV , 0, cloudLOD);
     cloudUVwithLOD.xy += UVbias ;
     float3 cloudcolor = tex2Dlod(CloudTextureSampler, cloudUVwithLOD);
@@ -466,11 +466,13 @@ float hp_nano_build_grid(float bonealpha, float2 texUV)
     return saturate(scanalpha ) ;
 }
 
-float hp_nano_build(float bonealpha, float2 texUV)
+float2 hp_nano_build(float bonealpha, float2 texUV)
 {   
-    float timetoshow = 1- texUV.y ;
-    float simulatealpha = (bonealpha > timetoshow) ? 1 : 0 ;
-    return simulatealpha ;
+    float scanline = lerp(1, 0, bonealpha) ; //uv y down big
+    float simulatealpha = (texUV.y > scanline) ? 1 : 0 ;
+    float extraglow = abs(texUV.y - scanline) * 64;
+    extraglow = saturate(1- extraglow);
+    return float2(simulatealpha, extraglow) ;
 }
 
 
