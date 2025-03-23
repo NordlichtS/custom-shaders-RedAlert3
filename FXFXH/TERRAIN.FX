@@ -1,7 +1,6 @@
 //welcome to headache
 /*
 fxc.exe /O2 /T fx_2_0 /Fo   terrain.fxo   TERRAIN.FX
-fxc.exe /T fx_2_0 /Fo   newterrain.fxo   TERRAIN.FX
 
 */
 
@@ -288,11 +287,10 @@ sampler2D NormalSamplerWrappedSampler
 
 //  The Blendweight is the alpha value at the corner
 // 
-//	0-----3
-//  |     |
-//  |     |
-//	|     |
-//  1-----2
+//	0----3
+//  |    |
+//	|    |
+//  1----2
 
 // Since the values is normalize to be > 0, we need to add 1 so -1 become 0 in the lookup table
 static const float4 BLENDWEIGHT_LUT[2][13] =
@@ -434,7 +432,7 @@ float bilinearShadow(float3 ShadowMapUV)
     float2 SMUV = ShadowMapUV.xy ;
     float2 SM01T = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
     float2 UVlerpw = frac(SMUV.xy / SM01T.y);
-    float objectdepth = ShadowMapUV.z - SM01T.y; //depth bias is ooms
+    float objectdepth = ShadowMapUV.z ;//- SM01T.y; //depth bias is ooms
 
     float4 fourSamples = float4(   //四个角的阴影图深度
             tex2D(ShadowMapSampler, (SMUV.xy + SM01T.xx)).x ,
@@ -446,9 +444,41 @@ float bilinearShadow(float3 ShadowMapUV)
         fourSamples = (float4)fourTests ;
         float2 bLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
         float  bUD = lerp(bLR.x   , bLR.y   , UVlerpw.y);
-        float lightmid = (3.0 - 2 * bUD) * bUD * bUD ; //cubic hermit;
+        //float lightmid = (3.0 - 2 * bUD) * bUD * bUD ; //cubic hermit;
         return bUD ;
 }
+
+float trilinearShadow(float3 SMUV, float transition_range_mult, float transition_start_bias_mult)
+{
+
+    float2 SM01T = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
+    float2 UVlerpw = frac(SMUV.xy / SM01T.y);
+    float objdepth = SMUV.z;
+    // objdepth + : more likely to have shadow
+
+    float4 fourSamples = float4(   //shadowmap depth
+        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.xx)).x ,
+        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.xy)).x ,
+        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.yx)).x ,
+        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.yy)).x 
+    );  // LU,LD,RU,RD (00,01,10,11) 
+
+    // shadowmapdepth + : more likely to have sunlight
+    fourSamples -= objdepth ;
+    //shadowmapdepth - objdepth = sunlight likelyness
+    fourSamples /= SM01T.y * transition_range_mult ; 
+    //default transition range: 1/1024 (ooms)
+    //divider smaller = sharper, larger = smoother
+    fourSamples += transition_start_bias_mult ;
+    //increase sunlight likelyness, avoid self shadow
+    fourSamples = saturate(fourSamples); //???
+    //bilinear 2x2 interpolate
+    float2 bLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
+    float  bUD = lerp(bLR.x   , bLR.y   , UVlerpw.y);
+
+    return bUD ;
+}
+
 
 float3 fakeskybox(float3 vectype)
 {
@@ -469,7 +499,7 @@ struct VSOutputDefault
 {
 	float4 Position : POSITION; //clip space
 	float4 Color_Accent_Blend : COLOR0; 
-    float1 Color_Shroud : COLOR1 ;
+    float2 Color_Shroud_Suntilt : COLOR1 ;
  	float4 BaseTexCoord_BlendWeight : TEXCOORD0;
  	float4 BlendTex1Coord_BlendTex2Coord : TEXCOORD1;
     float4 ShroudCloudUV : TEXCOORD2;
@@ -533,9 +563,9 @@ VSOutputDefault VS_Default(
     o.ShroudCloudUV.zw = getCloudUV(worldPosition);
     o.ShadowMapClipSpace = mul(worldPosition, ShadowMapWorldToShadow);
     //vertex shroud
-    o.Color_Shroud = tex2Dlod(ShroudSamplerSampler, float4(o.ShroudCloudUV.xy, 0,0)).x;
+    o.Color_Shroud_Suntilt.x = tex2Dlod(ShroudSamplerSampler, float4(o.ShroudCloudUV.xy, 0,0)).x;
     //vertex shadow, tbd
-    //o.Color_Shroud_Shadow.y = 1 ;
+    o.Color_Shroud_Suntilt.y = dot(DirectionalLight[0].Direction , o.WorldN) ;
 
 	return o;
 }
@@ -646,6 +676,10 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
     float2 BaseTexCoord = i.BaseTexCoord_BlendWeight.xy;
 	float4 baseTextureValue = tex2D(baseSampler, BaseTexCoord);
 
+	float2 macroUV = i.WorldP.xy ;
+    macroUV /= MapCellSize.xy * 66 ;
+    float3 macroColor = tex2D(MacroSamplerSampler, macroUV).rgb ;
+
     // Doing first and second blend
     float2 blendWeight = saturate(i.BaseTexCoord_BlendWeight.wz);
 
@@ -653,11 +687,11 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
     {
         float4 texColor1 = tex2D(baseSampler, i.BlendTex1Coord_BlendTex2Coord.xy);
         float4 texColor2 = tex2D(baseSampler, i.BlendTex1Coord_BlendTex2Coord.wz);
-        baseTextureValue = lerp(baseTextureValue, texColor1, blendWeight[0]) ;
-        baseTextureValue = lerp(baseTextureValue, texColor2, blendWeight[1]) ;
+        baseTextureValue = lerp(baseTextureValue, texColor1, blendWeight.x) ;
+        baseTextureValue = lerp(baseTextureValue, texColor2, blendWeight.y) ;
     }
     
-	float3 baseColor = baseTextureValue.xyz ;
+	float3 baseColor = baseTextureValue.xyz * macroColor;
     baseColor *= baseColor ; //GAMMA
 
 	float opacity = i.Color_Accent_Blend.w;
@@ -665,7 +699,7 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
 	if (renderingMode == RenderingMode_Road || renderingMode == RenderingMode_Scorch)
 	{	opacity *= baseTextureValue.w;	}
 
-	// Add normal mapping lighting with main light source
+	// Add normal mapping 
 	float2 normalmap = 0;
 	float specmap = 0;
 	
@@ -679,15 +713,15 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
 	}
 	else
 	{
-		float3 normal_specular = tex2D(normalSampler, BaseTexCoord);
+		float4 normal_specular = tex2D(normalSampler, BaseTexCoord);
 
         if(renderingMode == RenderingMode_TerrainTile && isTextureAtlasEnabled)
         {
-            float3 normal_specular1 = tex2D(normalSampler, i.BlendTex1Coord_BlendTex2Coord.xy);
-            float3 normal_specular2 = tex2D(normalSampler, i.BlendTex1Coord_BlendTex2Coord.wz);
+            float4 normal_specular1 = tex2D(normalSampler, i.BlendTex1Coord_BlendTex2Coord.xy);
+            float4 normal_specular2 = tex2D(normalSampler, i.BlendTex1Coord_BlendTex2Coord.wz);
 			specmap = baseTextureValue.w;
-            normal_specular = lerp(normal_specular, normal_specular1, blendWeight[0]) ;
-            normal_specular = lerp(normal_specular, normal_specular2, blendWeight[1]) ;
+            normal_specular = lerp(normal_specular, normal_specular1, blendWeight.x) ;
+            normal_specular = lerp(normal_specular, normal_specular2, blendWeight.y) ;
         }
 		else
 		{   specmap = normal_specular.z;	};
@@ -697,7 +731,7 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
 	
 	//now we get our tangent to world matrix !!!
     float normalintensity = saturate(dot(normalmap, normalmap));
-    normalmap *= -4 * normalintensity; //bumpscale
+    normalmap *= -3 * normalintensity; //bumpscale
 	float3 N = i.WorldN ; 
     N += normalmap.x * i.WorldB + normalmap.y * i.WorldT ;
 	N = normalize(N);
@@ -705,12 +739,13 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
     float3 V = normalize(EyePosition - i.WorldP);
     float3 R = reflect( -V, N);
 
-    float3 diffcolor = baseColor.rgb ;
-    float3 speccolor = specmap.xxx ; //also spec peak color
-
-    float glossiness = specmap *5 +1 ; //min roughness 1/6
+    specmap *= dot(macroColor, macroColor) * 0.3 ; //MAX 0.9
+    float glossiness = specmap *7 +1 ; //min roughness 1/8
     float ooa = glossiness * glossiness ;
-    float fresnelf0 = 1- dot(baseTextureValue.xyz, 0.3) ;
+    float fresnelf0 = (1- dot(baseTextureValue.xyz, 0.3)) * specmap;
+
+    float3 diffcolor = baseColor.rgb ;
+    float3 speccolor = specmap + 0.125 ; //also spec peak color
 
     float specAO = saturate(dot(R, i.WorldN) +1) ;
     float diffAO = N.z *0.5 + 0.5 ; //1- normalintensity;
@@ -722,7 +757,7 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
     float env_f_term = pow(saturate(1- dot(V,N)) , 4) ;
 
     float3 ambientALL = 0 ; 
-    ambientALL += irradi_color * diffcolor * diffAO ; 
+    ambientALL += irradi_color * diffcolor * diffAO * diffAO ; 
     ambientALL += skybox_color * speccolor * specAO * env_f_term; 
 
 
@@ -733,18 +768,20 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
 	float suntilt = dot(sunDir, N); //no saturate yet
     float sunspecdist = specdist(ooa, R, sunDir) ;
 
-	float shadowterm = (suntilt > 0)? 1 : 0 ;
+	float shadowterm = 1 ;
+    shadowterm *= (suntilt > 0)? 1 : 0 ;
+    shadowterm *= (i.Color_Shroud_Suntilt.y > 0)? 1 : 0 ;
 	if (HasShadow) // not the uniform bool hasShadow
     {   
-        float3 ShadowMapUV = i.ShadowMapClipSpace.xyz / i.ShadowMapClipSpace.w;
         bool2 dither = frac(vpos /2) < 0.3 ;
-        float2 smbias = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
-        smbias = (dither.x)? smbias.xy : smbias.yx ; //x to flip axis
-        smbias = (dither.y)? smbias    : - smbias  ; //y to flip direction     
-        ShadowMapUV.xy += smbias  ;
-        shadowterm *= bilinearShadow(ShadowMapUV); 
+        float2 smuvbias = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
+        smuvbias = (dither.x)? smuvbias.xy : smuvbias.yx ; //x to flip axis
+        smuvbias = (dither.y)? smuvbias    : - smuvbias  ; //y to flip direction     
+
+        float3 ShadowMapUV = i.ShadowMapClipSpace.xyz / i.ShadowMapClipSpace.w;
+        ShadowMapUV.xy += smuvbias * i.Color_Shroud_Suntilt.y ;
+        shadowterm *= trilinearShadow(ShadowMapUV, (2- i.Color_Shroud_Suntilt.y) , 1); 
     }
-    //tbd: modify shadowterm with vertex shadow? better not
 	sunColor *= shadowterm ;
 
     float3 cloudColor = tex2D(CloudSamplerSampler, i.ShroudCloudUV.zw) ;
@@ -752,7 +789,7 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
 
     float3 sunALL = float3(0,0,0) ;  
     sunALL += diffcolor * suntilt ; 
-    sunALL += speccolor * sunspecdist * fresnel(sunDir, V, fresnelf0, 4);
+    sunALL += speccolor * sunspecdist * fresnel(sunDir, V, fresnelf0, 6);
     sunALL *= sunColor ; //* shadowterm * cloudColor; 
 
 
@@ -775,11 +812,11 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
         float decay = (PLdist - PLrangeMAX) / (PLrangeMIN - PLrangeMAX) ;
         decay = saturate(decay);
         decay *= decay ;
-        float PLfresnel = fresnel(PLL, V, fresnelf0, 2) ;
+        float PLfresnel = fresnel(PLL, V, fresnelf0, 3) ;
 
         float3 thisBRDF = float3(0,0,0) ;
         thisBRDF += diffcolor * PLtilt  ; 
-        thisBRDF += (speccolor + 0.25) * specdist(ooa, R, PLL) * PLfresnel ;
+        thisBRDF += speccolor * specdist(ooa, R, PLL) * PLfresnel ;
         thisBRDF *= PLcolor * decay;
 
 		plALL += thisBRDF;
@@ -790,11 +827,13 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
     ////RGBA shroud, shadow, macro, blend  //no more
 
     float3 OUTCOLOR = ambientALL + sunALL  ;
-    OUTCOLOR *= i.Color_Shroud ;
+    OUTCOLOR *= i.Color_Shroud_Suntilt.x ;
 
     if(1)  //(renderingMode != RenderingMode_Scorch)
     {OUTCOLOR += plALL ;};
     
+    if(renderingMode == RenderingMode_TerrainTile)
+    {opacity = 1 ;};
 	
 	return float4(OUTCOLOR, opacity);
 }
@@ -827,8 +866,10 @@ technique TerrainTile
 		ZWriteEnable = true;
 		ZFunc = 4;
 		CullMode = 2;
-		AlphaTestEnable = false;
-		AlphaBlendEnable = false;
+		AlphaTestEnable = 0;
+		AlphaBlendEnable = 0; //0
+		SrcBlend = 5; //SrcAlpha
+		DestBlend = 6; //InvSrcAlpha
 	}
 }
 
@@ -869,7 +910,7 @@ technique Road
         AlphaBlendEnable = 1;
         SrcBlend = 5;
         DestBlend = 6;
-        DepthBias = -1.0f / 2048; // -0.0004 = -1 / 2500
+        DepthBias =  -pow(0.5 , 11); // -0.0004 = -1 / 2500
     }
 }
 
@@ -890,7 +931,7 @@ technique Scorch
         AlphaBlendEnable = 1;
         SrcBlend = 5;
         DestBlend = 6;
-        DepthBias = -1.0f / 4096; //-0.0002
+        DepthBias =  -pow(0.5 , 12); //-0.0002
     }
 }
 
@@ -930,8 +971,10 @@ float4 PS_DefaultLOW(   //LOW QUALITY PS .
 	if (renderingMode == RenderingMode_Road || renderingMode == RenderingMode_Scorch)
 	{	opacity *= baseTextureValue.w;	}
 
-	//no normalmap
-	float3 N = normalize(i.WorldN) ; 
+	//no normalmap , no specmap
+	float3 N = i.WorldN ; 
+    //N = normalize(N);
+
 
     float3 diffcolor = baseColor.rgb ;
 
@@ -949,14 +992,15 @@ float4 PS_DefaultLOW(   //LOW QUALITY PS .
 	float3 sunDir = DirectionalLight[0].Direction ;
 
 	float suntilt = dot(sunDir, N); //no saturate yet
-    float diffterm = 1- pow( (1- suntilt) , 2 );
+    float diffterm = 1- pow( (1- suntilt) , 3 );
 
 	float shadowterm = (suntilt > 0)? 1 : 0 ; //replace saturate
 	if (HasShadow) // not the uniform bool hasShadow
     {   
         float3 ShadowMapUV = i.ShadowMapClipSpace.xyz / i.ShadowMapClipSpace.w;
+        ShadowMapUV.z -= Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.z ;
         shadowterm *= bilinearShadow(ShadowMapUV); 
-        shadowterm = saturate(shadowterm *3 -1) ;
+        shadowterm = saturate(shadowterm *2 - 0.5) ; // NO NEED IN SRGB?
     }
 	sunColor *= shadowterm ;
 
@@ -968,7 +1012,7 @@ float4 PS_DefaultLOW(   //LOW QUALITY PS .
     sunALL *= sunColor ; //* shadowterm * cloudColor; 
 
     float3 OUTCOLOR = ambientALL + sunALL  ;
-    OUTCOLOR *= i.Color_Shroud ;
+    OUTCOLOR *= i.Color_Shroud_Suntilt.x ;
 
 	return float4(OUTCOLOR, opacity);
 }
@@ -1030,7 +1074,7 @@ technique Road_M
         AlphaBlendEnable = 1;
         SrcBlend = 5;
         DestBlend = 6;
-        DepthBias = -1.0f / 2048; // -0.0004 = -1 / 2500
+        DepthBias = -pow(0.5 , 11); // -0.0004 = -1 / 2500
     }
 }
 
@@ -1051,7 +1095,7 @@ technique Scorch_M
         AlphaBlendEnable = 1;
         SrcBlend = 5;
         DestBlend = 6;
-        DepthBias = -1.0f / 4096; //-0.0002
+        DepthBias = -pow(0.5 , 12); //-0.00024
     }
 }
 

@@ -10,62 +10,6 @@
 */
 
 
-sampler2D ShadowMapSamplerLinear
-<
-    string Texture = "ShadowMap";
-    string SasBindAddress = "Sas.Shadow[0].ShadowMap";
-> = sampler_state {
-    Texture = < ShadowMap >;
-    MinFilter = 2 ; 
-    MagFilter = 2 ; // 用线性可防止斜面锯齿?
-    MipFilter = 0;
-    AddressU = 4;
-    AddressV = 4;
-    AddressW = 3;
-};
-
-
-// 云的贴图
-texture CloudTexture
-<
-    string UIWidget = "None";
-    string SasBindAddress = "Terrain.Cloud.Texture";
-    string ResourceName = "ShaderPreviewCloud.dds";
->;
-sampler2D CloudTextureSampler
-<
-    string Texture = "CloudTexture";
-    string SasBindAddress = "Terrain.Cloud.Texture";
-    string ResourceName = "ShaderPreviewCloud.dds";
-> = sampler_state {
-    Texture = < CloudTexture >;
-    MinFilter = 2;
-    MagFilter = 2;
-    MipFilter = 2;
-    AddressU = 1;
-    AddressV = 1;
-    AddressW = 3;
-};
-
-
-// 战争迷雾贴图
-texture ShroudTexture
-<
-    string UIWidget = "None";
-    string SasBindAddress = "Terrain.Shroud.Texture";
->;
-sampler2D ShroudTextureSampler
-<
-    string Texture = "ShroudTexture";
-    string SasBindAddress = "Terrain.Shroud.Texture";
-> = sampler_state {
-    Texture = < ShroudTexture >;
-    MinFilter = 1;
-    MagFilter = 2;
-    MipFilter = 1;
-    AddressU = 3;
-    AddressV = 3;
-};
 
 
 
@@ -86,14 +30,14 @@ extern bool CullingEnable //好像是允许背面不渲染来优化？
 extern bool DepthWriteEnable //写入深度buffer
 <    string UIName = "Depth Write Enable";> = 1;
 
-#endif
+#endif // FORBID_PIPELINE_CONSTANT ?
 
 
 #ifdef IS_BASIC_W3D_SHADER  //!!!
 
 texture Texture_0 
 <string UIName = "Texture_0";>; 
-sampler2D Texture_0Sampler   : register(ps, s1) 
+sampler2D Texture_0Sampler   //: register(ps, s1) 
 <string Texture = "Texture_0"; > = sampler_state {
     Texture = <Texture_0>; 
     MinFilter = 3;
@@ -104,31 +48,31 @@ sampler2D Texture_0Sampler   : register(ps, s1)
     AddressV = 1;
 };
 
-int BlendMode //WTF
-<string UIName = "BlendMode(0=opaque,1=alpha,2=additive)"; int UIMin = 0; int UIMax = 2;> = 0 ;
+int BlendMode //WTF IS THIS
+<string UIName = "BlendMode(0=opaque,1=alpha,2=add)"; int UIMin = 0; int UIMax = 2;> = 0 ;
 
 
 
-float3 ColorAmbient : register(vs_3_0, c14) 
+float3 ColorAmbient 
 <string UIName = "ColorAmbient"; string UIWidget = "Color";> = { 1, 1, 1 };
 
-float3 ColorDiffuse : register(vs_3_0, c15) 
+float3 ColorDiffuse 
 <string UIName = "ColorDiffuse"; string UIWidget = "Color";> = { 1, 1, 1 };
 
-float3 ColorSpecular : register(vs_3_0, c16) 
+float3 ColorSpecular 
 <string UIName = "ColorSpecular"; string UIWidget = "Color";> = { 0, 0, 0 };
 
-float  Shininess  : register(vs_3_0, c17) 
+float  Shininess  
 <string UIName = "Shininess"; string UIWidget = "Slider"; float UIMax = 64;> = { 1 };
 
-float3 ColorEmissive : register(vs_3_0, c18) 
+float3 ColorEmissive 
 <string UIName = "ColorEmissive"; string UIWidget = "Color";> = { 0, 0, 0 };
 
 #endif
 // infantry and glow shader
 //==================================
 // objects and building shader
-#ifndef IS_BASIC_W3D_SHADER  
+#ifdef IS_OBJECT_BUILDING_SHADER  
 
 texture DiffuseTexture 
 <string UIName = "(BASE)DiffuseTexture";>; 
@@ -147,9 +91,12 @@ sampler2D DiffuseTextureSampler
 sampler2D DiffuseEasySampler //给阴影图用的简便版
 <string Texture = "DiffuseTexture";> = sampler_state {
     Texture = < DiffuseTexture >;
-    MinFilter = 1;
+    MinFilter = 2;
     MagFilter = 2;
     MipFilter = 1;
+    MIPMAPLODBIAS = -1 ;
+    AddressU = Wrap;
+    AddressV = Wrap;
 };
 
 texture SpecMap 
@@ -189,6 +136,8 @@ float BumpScale //如果法线图凹凸反了，写-1修正。完全无效化法
     float UIStep = 0.05;
 > =  2 ;
 
+#endif //IS_OBJECT_BUILDING_SHADER ?
+
 #ifdef IS_BUILDNG
 texture DamagedTexture //建筑损伤图
 <string UIWidget ="None";>; 
@@ -196,23 +145,13 @@ sampler2D DamagedTextureSampler
 <string Texture = "DamagedTexture";> =
 sampler_state{
     Texture = <DamagedTexture>; 
-    MinFilter = 2;
+    MinFilter = 1;
     MagFilter = 2;
     MipFilter = 2;
     AddressU = 1;
     AddressV = 1;
 };
-sampler2D DamagedEasySampler 
-<string Texture = "DamagedTexture";> =
-sampler_state{
-    Texture = <DamagedTexture>; 
-    MinFilter = 1;
-    MagFilter = 2;
-    MipFilter = 1;
-};
-#endif
-
-#endif
+#endif  //IS_BUILDNG ?
 
 
 
@@ -289,7 +228,7 @@ samplerCUBE IrradianceTextureSampler
 };
 #endif
 
-#endif  //==========================
+#endif  //ALLOW_CUBE_MAP_SAMPLER  ?
 //=================================
 //shader specific helper function
 
@@ -368,9 +307,25 @@ bool PV_SRGB
     bool ExportValue = false;
 > = 1 ;
 
-#endif  
+#endif  // _3DSMAX_  ?
 //预览用constant结束=============================
 
+
+/*
+sampler2D ShadowMapSamplerLinear
+<
+    string Texture = "ShadowMap";
+    string SasBindAddress = "Sas.Shadow[0].ShadowMap";
+> = sampler_state {
+    Texture = < ShadowMap >;
+    MinFilter = 2 ; 
+    MagFilter = 2 ; // 用线性可防止斜面锯齿?
+    MipFilter = 0;
+    AddressU = 4;
+    AddressV = 4;
+    AddressW = 3;
+};
+*/
 
 /*
 

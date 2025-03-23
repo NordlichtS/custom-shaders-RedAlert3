@@ -54,7 +54,7 @@ VS_H_output VSforMAX(VS_3dsmax_input i)
 
     float4 WorldPosition = float4(0,0,0,1);
     o.ShadowCS = o.FogCloudUV = 0 ;
-    o.VertexColor = PV_accentlight ;  //
+    o.VertexColor.rgb = PV_accentlight ;  //
     o.VertexColor.w = PV_vertexALPHA ; //!!!
     o.CoordOBJ.xyz = i.position.xyz; //o.CoordOBJ.w = -1;
 
@@ -449,12 +449,11 @@ struct PS_LOW_input
     float3 WorldN : TEXCOORD4;//_centroid; //世界法线Z
 };
 
-
 float4 PS_LOW_INFANTRY (PS_LOW_input i) : COLOR 
 {
     float3 N = i.WorldN;
     float3 Lsun     = DirectionalLight[0].Direction.xyz ;
-    float3 SUNcolor = DirectionalLight[0].Color.xyz ;
+    float3 SUNcolor = DirectionalLight[0].Color.xyz * NoCloudMultiplier;
     float sun_tilt = dot(N, Lsun);
     float3 surfacediffuselight = (sun_tilt > 0)? SUNcolor : i.VertexColor.rgb ;
 
@@ -466,7 +465,9 @@ float4 PS_LOW_INFANTRY (PS_LOW_input i) : COLOR
     float4 tmp0 = tex2D(Texture_0Sampler,  i.MainTexUV.xy );
     albedocolor = tmp0.xyz ;
     HCchannel = tmp0.w ;
-  #else 
+  #endif
+
+  #ifdef IS_OBJECT_BUILDING_SHADER
     float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
     albedocolor = dif.xyz ;
     texalpha = dif.w ;
@@ -500,7 +501,7 @@ float4 PS_LOW_INFANTRY (PS_LOW_input i) : COLOR
     #endif
 
     #ifdef IS_BUILDNG
-    float dmgalpha = tex2D(DamagedEasySampler , i.MainTexUV.zw).w ;
+    float dmgalpha = tex2D(DamagedTextureSampler , i.MainTexUV.zw).w ;
     dmgalpha = (i.VertexColor.w < 0.375)? dmgalpha : 1;
     extra_alpha *= dmgalpha ;
     #endif 
@@ -643,7 +644,7 @@ VS_ShadowMaker_output VS_ShadowMaker_CLIPALL()
 float4 PS_ShadowMaker_NoAlphaTest(VS_ShadowMaker_output i) : COLOR 
 {    return (i.ClipSpace.z / i.ClipSpace.w) ; }
 
-#ifndef IS_BASIC_W3D_SHADER
+#ifdef IS_OBJECT_BUILDING_SHADER
 
 float4 PS_ShadowMaker_AlphaTest(VS_ShadowMaker_output i) : COLOR 
 {  
@@ -662,7 +663,7 @@ float4 PS_ShadowMaker_AlphaTest(VS_ShadowMaker_output i) : COLOR
     #endif
 
     #ifdef IS_BUILDNG
-    float dmgalpha = tex2D(DamagedEasySampler , i.MainTexUV.zw).w ;
+    float dmgalpha = tex2D(DamagedTextureSampler , i.MainTexUV.zw).w ;
     dmgalpha = (i.Valpha < 0.375)? dmgalpha : 1;
     extra_alpha *= dmgalpha ;
     #endif 

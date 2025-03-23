@@ -72,7 +72,7 @@ float4 PS_H_infantry (PS_infantry_input i) : COLOR
 
   //about ambient
     float3 groundcolor = AmbientLightColor;
-    float3 skyupcolor  = AmbientLightColor + hp_getAccentLight() ;
+    float3 skyupcolor  = AmbientLightColor + i.VertexColor.rgb ;
     float3 ambientALL = hp_fake_irradiance(groundcolor, skyupcolor , N.z);
 
   //about sun
@@ -87,7 +87,7 @@ float4 PS_H_infantry (PS_infantry_input i) : COLOR
     SUNcolor *= saturate( dot(Lsun , N));
     #ifndef _3DSMAX_ //高画质都有云和影子，但预览没有
     if(HasShadow){
-    SUNcolor *= hp_invshadow_easy(i.ShadowPROJ);
+    //SUNcolor *= hp_invshadow_easy(i.ShadowCS.xyz);
     float3 cloudcolor = tex2D(CloudTextureSampler, i.FogCloudUV.zw);
     SUNcolor *= cloudcolor * cloudcolor ;
     };
@@ -123,7 +123,7 @@ float4 PS_H_infantry (PS_infantry_input i) : COLOR
       //float decaymult = (PLdist - PLrangeMAX) / (PLrangeMIN - PLrangeMAX);
       //decaymult = saturate(decaymult * decaymult); //平方衰减看起来更自然
 
-      float3 thisBRDF = PLcolor * PLtilt * PLdecayfactor(PLrangeMIN, PLrangeMAX, PLdist); ;
+      float3 thisBRDF = PLcolor * PLtilt * PLdecayfactor(PLrangeMIN, PLrangeMAX, PLdist,2); ;
 
       PLtotal += thisBRDF ; //叠加所有点光源
     };

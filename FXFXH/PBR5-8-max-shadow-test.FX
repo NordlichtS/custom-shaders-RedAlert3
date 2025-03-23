@@ -1,5 +1,5 @@
 //#define _3DSMAX_
-#define IS_BASIC_W3D_SHADER
+// #define IS_BASIC_W3D_SHADER
 // #define IGNORE_NRM
 
 texture FakeShadowMap
@@ -71,6 +71,43 @@ float4 PS_H_SHADOWTEST (PS_H_input i) : COLOR
 
     if(sun_tilt <= 0) {return 0;};
 
+
+
+    float transition_range_mult = 4 ;
+    float transition_start_bias_mult = 0 ;
+
+    float2 SM01T = float2(0, 1.0 / FakeShadowmapTexels );
+    float2 UVlerpw = frac(SMUV.xy / SM01T.y);
+    float objdepth = SMUV.z;
+    // objdepth + : more likely to have shadow
+
+    float4 fourSamples = float4(   //shadowmap depth
+        tex2D(FakeShadowMapSampler, (SMUV.xy + SM01T.xx)).x ,
+        tex2D(FakeShadowMapSampler, (SMUV.xy + SM01T.xy)).x ,
+        tex2D(FakeShadowMapSampler, (SMUV.xy + SM01T.yx)).x ,
+        tex2D(FakeShadowMapSampler, (SMUV.xy + SM01T.yy)).x 
+    );  // LU,LD,RU,RD (00,01,10,11) 
+
+    // shadowmapdepth + : more likely to have sunlight
+    fourSamples -= objdepth ;
+    //shadowmapdepth - objdepth = sunlight likelyness
+    fourSamples /= SM01T.y * transition_range_mult ; 
+    //default transition range: 1/1024 (ooms)
+    //divider smaller = sharper
+    fourSamples +=  transition_start_bias_mult ;
+    //increase sunlight likelyness, avoid self shadow
+    //fourSamples = saturate(fourSamples); //???
+    //bilinear 2x2 interpolate
+    float2 bLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
+    float  bUD = lerp(bLR.x   , bLR.y   , UVlerpw.y);
+    float lightmid = bUD ;
+    //lightmid = smoothstep(0 , 1 , bUD) ; //???
+
+
+
+
+    /*
+
     float2 SM01T = float2(0, 1.0 / FakeShadowmapTexels);
     float2 UVlerpw = frac(SMUV.xy / SM01T.y);
     float object_depth = SMUV.z - SM01T.y * 2;//(3- 2* sun_tilt) ; //  1.0 / 512.0 ;
@@ -88,6 +125,7 @@ float4 PS_H_SHADOWTEST (PS_H_input i) : COLOR
     float2 bLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
     float  bUD = lerp(bLR.x   , bLR.y   , UVlerpw.y);
     float lightmid = bUD ; //* bUD;
+    */
 
     //对斜边的额外抗锯齿修复
     

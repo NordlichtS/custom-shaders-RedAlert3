@@ -123,6 +123,8 @@ float4 Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize
 <   string UIWidget ="None"; string SasBindAddress = "Sas.Shadow[0].Zero_Zero_OneOverMapSize_OneOverMapSize";>;
 // #define  SMtexel  Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize //名字太长了换个短的！
 
+//==== from here , sm 2.0 end, below can only used by sm 3.0 ====
+
 //可以接受最近8个武器特效的点光源, 2X8 FLOAT4 , C89-C112
 shared struct PointLightSetup {float3 Color; float3 Position; float2 Range_Inner_Outer;} 
 PointLight[8] 
@@ -205,7 +207,7 @@ float Time : Time;
 
 
 
-
+//上面的都并没有直接记录在W3X的SHADER段，但引擎会分配
 
 //贴图与采样器========================================
 //除了很重要的，别的都放其它文件了
@@ -228,8 +230,53 @@ sampler2D ShadowMapSampler
     MipFilter = 0;
     AddressU = 4; //3=clamp, 4=border
     AddressV = 4;
-    AddressW = 3;
+    //AddressW = 3;
 };
+
+
+// 云的贴图
+texture CloudTexture
+<
+    string UIWidget = "None";
+    string SasBindAddress = "Terrain.Cloud.Texture";
+    string ResourceName = "ShaderPreviewCloud.dds";
+>;
+sampler2D CloudTextureSampler
+<
+    string Texture = "CloudTexture";
+    string SasBindAddress = "Terrain.Cloud.Texture";
+    string ResourceName = "ShaderPreviewCloud.dds";
+> = sampler_state {
+    Texture = < CloudTexture >;
+    MinFilter = 2;
+    MagFilter = 2;
+    MipFilter = 2;
+    AddressU = 1;
+    AddressV = 1;
+    //AddressW = 3;
+};
+
+
+// 战争迷雾贴图
+texture ShroudTexture
+<
+    string UIWidget = "None";
+    string SasBindAddress = "Terrain.Shroud.Texture";
+>;
+sampler2D ShroudTextureSampler
+<
+    string Texture = "ShroudTexture";
+    string SasBindAddress = "Terrain.Shroud.Texture";
+> = sampler_state {
+    Texture = < ShroudTexture >;
+    MinFilter = 2;
+    MagFilter = 2;
+    MipFilter = 1;
+    AddressU = 3;
+    AddressV = 3;
+};
+
+
 
 /*
 

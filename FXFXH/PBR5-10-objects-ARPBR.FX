@@ -8,8 +8,10 @@
 //因为MAX 默认只能用FX源码。不能读编译后的
 //但如果给游戏用的 就不要启用。否则游戏直接崩
 
-// #define FORBID_PIPELINE_CONSTANT //
+#define IS_OBJECT_BUILDING_SHADER
 
+// #define FORBID_PIPELINE_CONSTANT //
+//  #define USE_ARPBR_W3X_CONSTANT
 // 上面的最好别乱动 dont change any above 
 
 // #define FORBID_FACTION_COLOR //中立单位要禁止阵营色 generic on
@@ -21,7 +23,7 @@
  #define OPACITY_OVERRIDE_OUTPUT 
  #define ALLOW_CLIP_TEXTURE_ALPHA //允许贴图alpha镂空。on for all
 // #define FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN
-// #define STEALTH_CLIP  //
+ #define KEEP_ALPHA_TEXTURE_SAMPLER_SAME
 
 
 
@@ -47,6 +49,9 @@ fxc.exe /O2 /T fx_2_0 /Fo   objectssoviet.fxo   PBR5-10-objects-ARPBR.FX
 
 fxc.exe /O2 /T fx_2_0 /Fo   objectsallied3DSMAX.fxo   PBR5-10-objects-ARPBR.FX
 
+fxc.exe /O2 /T fx_2_0 /Fo   objectsARPBR.fxo   PBR5-10-objects-ARPBR.FX
+
+
 */
 //#pragma warning(disable: 3206)
 
@@ -54,6 +59,8 @@ fxc.exe /O2 /T fx_2_0 /Fo   objectsallied3DSMAX.fxo   PBR5-10-objects-ARPBR.FX
 
 #include "head3-vsps.FXH" //WILL INCLUDE EVERYTHING
 
+
+#ifdef USE_ARPBR_W3X_CONSTANT
 
 float4 SPM_threshold //SPM的界限
 <   string UIName = "SPM_threshold"; 	string UIWidget = "Color";
@@ -67,12 +74,13 @@ float MinRoughness //最低粗糙度（要用倒数更精确吗？）
 bool InfantrySkin //当作步兵  允许软绑定  同时关闭法线图
 <    string UIName = "InfantrySkin";> = 0;
 
-/*
-float MaxRoughness //最大粗糙度
-<   string UIName = "MaxRoughness"; 
-    float UIMax = 1.0 ; float UIMin = 0.5; float UIStep = 0.05; 
-> ={ 1.0 }; 
-*/
+#else // USE_ARPBR_W3X_CONSTANT?
+
+static const float4 SPM_threshold = { 0.75, 0.25, 0.125, 1 };
+static const float MinRoughness = 0.125 ;
+static const bool InfantrySkin = 0 ;
+
+#endif //USE_ARPBR_W3X_CONSTANT ?
 
 
 struct PS_H_input
@@ -102,6 +110,11 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
     float4 spm = tex2D(SpecMapSampler,         i.MainTexUV.xy );
     float4 nrm = tex2D(NormalMapSampler,       i.MainTexUV.xy );
+
+  #ifdef KEEP_ALPHA_TEXTURE_SAMPLER_SAME
+    if(AlphaTestEnable)
+    {dif.a = tex2D(DiffuseEasySampler,  i.MainTexUV.xy ).a;}
+  #endif
 
 
 
@@ -135,11 +148,15 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
   #endif
 
     float4 ditherline = frac(i.vpos.yyyy / float4(1,2,4,8));
+    bool2 dither2x2 = frac(i.vpos /2) < 0.375 ;
+    bool alreadystealth = (OpacityOverride < 0.985) ;
+
 
   //条件编译功能
     float3 extra_glow = 0 ; //add
     float3 extra_cavity = 1 ; //mult
 
+    // hc mixer and gamma
     float3 realHC = 1 ;
     float3 hcmask = 1 ;
   #ifndef FORBID_FACTION_COLOR
@@ -154,34 +171,48 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     albedo *= albedo ;
   #endif
 
+    //in case needed
+  #ifdef SPECIAL_FUNCTION_A
+    extra_glow += 0 ;
+    extra_cavity *= 1 ;
+  #endif
+
 
     //这段是ALPHA相关！
     //clipping affected ! ===========
     float extra_alpha = 1 ;
 
+
+
   #ifdef OPACITY_OVERRIDE_CLIP
     extra_alpha *= OpacityOverride ;
   #endif
+
 
   #ifdef ALLOW_CLIP_TEXTURE_ALPHA
     //dif.w = (dif.w < 0.5)? 0 : dif.w ;
     extra_alpha *= dif.w ;
   #endif
 
+
   #ifdef ALLOW_CLIP_VERTEX_ALPHA
     extra_alpha *= i.VertexColor.w ;
   #endif
+
 
   #ifdef IS_BUILDNG //建筑损伤
     float4 dmgtex = tex2D(DamagedTextureSampler , i.MainTexUV.zw);
     dmgtex = (i.VertexColor.w < 0.375)? dmgtex : 1 ;
     extra_alpha *= dmgtex.w ;
-    float burnred = 1 - dmgtex.w  ; //max 0.625
-    extra_glow.r += burnred ;
-    extra_glow.g += burnred * burnred ;
-    albedo.rgb *= dmgtex.rgb ;
-    spm.r *= dmgtex.g ;
+    #ifdef DAMAGE_BURNRED
+      float burnred = 1 - dmgtex.w  ; //max 0.625
+      extra_glow.r += pow(burnred, 2) ;
+      extra_glow.g += pow(burnred, 3) *1.5 ;
+    #endif
+    albedo.rgb *= dmgtex.rgb * dmgtex.a ;
+    spm.r *= dmgtex.r * dmgtex.g * dmgtex.b ;
   #endif
+
 
   #ifdef IS_NANO_BUILDUP
     float2 nanobuildupMASK_alpha_glow = hp_nano_build(i.VertexColor.w, i.MainTexUV.xy);
@@ -190,17 +221,16 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     extra_cavity *= 1- nanobuildupMASK_alpha_glow.y;
   #endif
 
+
     float4 stealthcolor = 1 ;
   #ifdef ALLOW_STEALTH
     stealthcolor.rgb = realHC ;
     stealthcolor.rgb *= fresnelbase * fresnelbase * (2 - OpacityOverride) ;
     stealthcolor.rgb += albedo ;
-    stealthcolor.a = (ditherline.y < 0.0625)? 1 : fresnelbase ;
+    stealthcolor.a = (dither2x2.y)? 1 : fresnelbase - 0.0625;
   #endif  
   //opacity is multiplied before, in both extra_alpha and OUTCOLOR
-  #ifdef STEALTH_CLIP   
-    extra_alpha *= stealthcolor.a ;
-  #endif
+  //stealth alpha will be applied at shader end, not here
 
       
   //lets ignore the damn pass alpha test and do it here
@@ -215,7 +245,6 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
 
   //还原通道信息 ========================
-    float blacklineavoid = saturate(dot(dif.xyz, 1) + dot(spm.rg, 2));
     
     float roughness = lerp(1, MinRoughness, spm.r) ;
     float glossiness = 1 / roughness ; //
@@ -223,61 +252,70 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
     bool ismetal = (spm.r > SPM_threshold.r) || (spm.g > SPM_threshold.g)  ;
 
+    float4 colortone = hp_saturation_luminance(albedo, 0.0625 );
     float3 diffcolor = (ismetal)? 0 : albedo ;
+    float3 speccolor = (ismetal)? colortone.rgb : 1 ;  ; //same beightness
 
-    float3 speccolor = (ismetal)? albedo : 0 ;
-    float4 colortone = hp_saturation_luminance(speccolor, 0.0625 );
-    speccolor = colortone.rgb ; //?
-    speccolor *= blacklineavoid ;
+    //float blacklineavoid = saturate(dot(dif.xyz, 1) + dot(spm.rg, 2));
+    //speccolor *= blacklineavoid ;
 
-    float f0_dir = (ismetal)? 1 : (1- dot(dif.xyz, 0.3)) ;
     float f0_env = (ismetal)? colortone.w : 0 ;
+    float f0_dir = (1 - colortone.w) * spm.r ;
+    f0_dir = (ismetal)? 1 : f0_dir  ;
 
-    //float  cavitymap = spm.w ;
-    extra_cavity *= spm.w ;
+    extra_cavity *= spm.w ; //NO AFFECT WITH GLOW BRIGHTNESS
     float glowchannel = saturate( SPM_threshold.w - spm.w);
-    //float3 glowmapRGB = albedo * glowchannel * 4 ;
     extra_glow += albedo * glowchannel ;
 
 
   //BRDF=========================================
 
   //环境光相关 
+    float3 upper_color = i.VertexColor.rgb + AmbientLightColor;  //already /2 in vs
+    float3 lower_color = (ismetal)? (AmbientLightColor /2) : 0;
+    float3 irradi_color = hp_fake_irradiance(0 , upper_color , N.z) ;
+    float3 skybox_color = hp_fake_skybox(lower_color , upper_color , R.z , (glossiness * 0.5)) ; 
+    skybox_color *= (ismetal)? 1 :  spm.r ;
 
-    float3 irradi_color = hp_fake_irradiance(0, i.VertexColor.rgb , N.z) ; //already /2 in vs
-    float3 skybox_color = hp_fake_skybox(0 , i.VertexColor.rgb , R.z , (glossiness * 0.5)) ; // hp_getAccentLight(R)
-    skybox_color *= (ismetal)? 1 : (spm.r * spm.r)  ;
   #ifdef DYNAMIC_CLOUD_REF
     float3 cloudReflectionMultipler = hp_dynamic_cloud_reflection(i.FogCloudUV.zw, R, Lsun, (roughness *4))  ; 
     skybox_color *= cloudReflectionMultipler ;
+  #else
+    skybox_color *= lerp(1, NoCloudMultiplier, saturate(R.z)); 
   #endif
-    irradi_color += AmbientLightColor;
-    skybox_color += AmbientLightColor;
  
     float3 ambientALL = float3(0,0,0) ; //环境光BRDF
     ambientALL += irradi_color * diffcolor  ; 
     ambientALL += skybox_color * speccolor * hp_fresnel(R, V, f0_env, 8); 
 
   //阳光相关  
+    float vertex_suntilt = dot(i.WorldN, Lsun);
 
     float  sun_tilt  = dot(N,Lsun) ;
     SUNcolor *= (sun_tilt > 0 )? 1 : 0 ; 
+    SUNcolor *= (vertex_suntilt > 0 )? 1 : 0 ; 
 
-    float3 ShadowMapUV = i.ShadowCS.xyz / i.ShadowCS.w ;
-  #ifdef SHADOW_DITHER
-    bool2 dither = frac(i.vpos /2) < 0.3 ;
-    float2 smbias = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
-    smbias = (dither.x)? smbias.xy : smbias.yx ; //x to flip axis
-    smbias = (dither.y)? smbias    : - smbias  ; //y to flip direction     
-    ShadowMapUV.xy += smbias  ;
-  #endif
-    SUNcolor *= hp_invshadow_bilinear(ShadowMapUV) ;
+    if(HasShadow){
+      float3 ShadowMapUV = i.ShadowCS.xyz / i.ShadowCS.w ;
+      float transition_range_mult = 2 - vertex_suntilt ;
+      float transition_start_bias_mult = 1 ;
+      #ifdef SHADOW_DITHER
+        float2 smbias = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
+        smbias = (dither2x2.x)? smbias.xy : smbias.yx ; //x to flip axis
+        smbias = (dither2x2.y)? smbias    : - smbias  ; //y to flip direction     
+        ShadowMapUV.xy += smbias * vertex_suntilt ;
+        transition_range_mult = 1 ;
+        transition_start_bias_mult = 1 ;
+      #endif
+      SUNcolor *= hp_invshadow_trilinear(ShadowMapUV, transition_range_mult, transition_start_bias_mult) ;
+    };
 
 
   #ifndef _3DSMAX_ //高画质都有云，但预览没有
     float3 cloudcolor = tex2D(CloudTextureSampler, i.FogCloudUV.zw);
     SUNcolor *= cloudcolor * cloudcolor ;
   #endif
+
 
     float3 sunALL = float3(0,0,0) ;  //阳光BRDF
     sunALL += diffcolor * sun_tilt ; //* diffuse_mult ;
@@ -293,8 +331,8 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
       float3 PLpos = PointLight[itpl].Position - i.WorldP ;
       float3 PLcolor = PointLight[itpl].Color ;
-      float  PLrangeMAX = PointLight[itpl].Range_Inner_Outer.y * 2 ;
-      float  PLrangeMIN = PointLight[itpl].Range_Inner_Outer.x ;//+ 1 ;
+      float  PLrangeMIN = PointLight[itpl].Range_Inner_Outer.x ;
+      float  PLrangeMAX = PointLight[itpl].Range_Inner_Outer.y + PLrangeMIN ;
 
     #ifdef _3DSMAX_ //读取预览点光源数据
       PLpos = PV_pointlightPOS - i.WorldP; // relative!
@@ -325,14 +363,14 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     OUTCOLOR.w = 1 ; //just in case
     OUTCOLOR.xyz += ambientALL + sunALL + PLtotal; //BRDF
     OUTCOLOR.xyz *= extra_cavity ; //
-    OUTCOLOR.xyz += extra_glow * 5; //all glow
+    OUTCOLOR.xyz += extra_glow * 4; //all glow
 
   #ifndef _3DSMAX_ //预览没有迷雾
     OUTCOLOR.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;
   #endif
 
   #ifdef ALLOW_STEALTH
-    OUTCOLOR = (OpacityOverride < 0.985)? stealthcolor : OUTCOLOR ;
+    OUTCOLOR = (alreadystealth)? stealthcolor : OUTCOLOR ;
     OUTCOLOR.rgb += PLtotal ;
   #endif
 
@@ -342,6 +380,7 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     OUTCOLOR.w = 1 ;
   #endif
 
+    OUTCOLOR.a = saturate(OUTCOLOR.a); //for safety
     OUTCOLOR.xyz *= TintColor ;
     OUTCOLOR.xyz *= hcmask ;
 

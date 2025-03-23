@@ -5,6 +5,9 @@
 // #define ALLOW_STEALTH //允许隐身时有特殊的全息投影特效, player object only ! building off
 // #define RENDER_BACKFACE //only for tengu, objectsjapan
 
+ #define DAMAGE_BURNRED
+
+
 //下面三个互相冲突的功能只能选一个
 // #define ALLOW_CLIP_VERTEX_ALPHA //允许骨骼透明度隐藏零件。building不要。objects ? 
  #define IS_BUILDNG //仅building要。这是损伤破洞功能。与上下两者冲突 不可同时用

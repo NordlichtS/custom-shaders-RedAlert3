@@ -120,9 +120,8 @@ float hp_ReverseLerp(float sidemin, float sidemax, float invalue)
     return saturate(lerpw) ;
 };
 
-float hp_cubic_hermit(float invalue)
-{
-    float inx = invalue ; // saturate(invalue); no saturate!
+float hp_cubic_hermit(float inx)
+{   //assume already saturated
     return ( (3.0 - 2 * inx) * inx * inx );
 };
 
@@ -170,8 +169,44 @@ float hp_invshadow_bilinear ( float3 SMUV )
     float2 bLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
     float  bUD = lerp(bLR.x   , bLR.y   , UVlerpw.y);
     float lightmid = bUD ;
-    
-    lightmid = saturate(bUD *3 -1);// hp_cubic_hermit(bUD) ; //* bUD;
+    #ifndef SHADOW_DITHER
+        lightmid = saturate(bUD *2 -0.5);// hp_cubic_hermit(bUD) ; //* bUD;
+    #endif
+    return lightmid ;
+}
+
+float hp_invshadow_trilinear(float3 SMUV, float transition_range_mult, float transition_start_bias_mult)
+{
+    if(! HasShadow)   {return 1;}; 
+
+    float2 SM01T = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
+    float2 UVlerpw = frac(SMUV.xy / SM01T.y);
+    float objdepth = SMUV.z;
+    // objdepth + : more likely to have shadow
+
+    float4 fourSamples = float4(   //shadowmap depth
+        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.xx)).x ,
+        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.xy)).x ,
+        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.yx)).x ,
+        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.yy)).x 
+    );  // LU,LD,RU,RD (00,01,10,11) 
+
+    // shadowmapdepth + : more likely to have sunlight
+    fourSamples -= objdepth ;
+    //shadowmapdepth - objdepth = sunlight likelyness
+    fourSamples /= SM01T.y * transition_range_mult ; 
+    //default transition range: 1/1024 (ooms)
+    //divider smaller = sharper, larger = smoother
+    fourSamples += transition_start_bias_mult ;
+    //increase sunlight likelyness, avoid self shadow
+    fourSamples = saturate(fourSamples); //???
+    //bilinear 2x2 interpolate
+    float2 bLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
+    float  bUD = lerp(bLR.x   , bLR.y   , UVlerpw.y);
+    float lightmid = bUD ;
+    #ifndef SHADOW_DITHER
+        lightmid = hp_cubic_hermit(bUD) ; //???
+    #endif
 
     return lightmid ;
 }
@@ -203,22 +238,8 @@ float hp_invshadow_underground ( float3 SMUV, float sun_tilt, float MicroShadowB
     return lightmid ;
 }
 
+/*
 
-float hp_invshadow_single ( float3 ShadowProjection, float sun_tilt )  
-{
-    if(sun_tilt <= 0) {return 0;};
-    if(! HasShadow)   {return 1;}; 
-
-    float3 realShadowUV = float3(0.5, 0.5, -2) 
-    * Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w 
-    + ShadowProjection.xyz ;
-    float ShadowDepth = tex2D(ShadowMapSamplerLinear, realShadowUV.xy);
-    //tex2D(ShadowMapSampler, ShadowProjection.xy);
-    //tex2Dlod(ShadowMapSampler, float4(ShadowProjection.xy, 0, 0) );
-    float NOTshadow = (ShadowDepth < realShadowUV.z) ? 0 : 1 ;
-
-    return NOTshadow ;
-}
 
 float hp_invshadow_easy ( float3 ShadowProjection )  
 {
@@ -230,14 +251,7 @@ float hp_invshadow_easy ( float3 ShadowProjection )
 
     return NOTshadow ;
 }
-
-float3 hp_hcmixer (float3 realhc, float3 texcolor, float HCdensity)
-{
-    //assume input is already gamma corrected
-    float brightest = max(max(texcolor.r, texcolor.g), texcolor.b);
-    float3 fulldensitymix = brightest * realhc ;
-    return lerp(texcolor, fulldensitymix , HCdensity);
-}
+*/
 
 
 
@@ -252,7 +266,7 @@ float3 hp_dynamic_cloud_reflection(float2 pixelcloudUV, float3 R, float3 Lsun, f
     //UVbias /= 2 ; //cloud texture stretch larger ?
     float4 cloudUVwithLOD = float4(pixelcloudUV , 0, cloudLOD);
     cloudUVwithLOD.xy += UVbias ;
-    float3 cloudcolor = tex2Dlod(CloudTextureSampler, cloudUVwithLOD);
+    float3 cloudcolor = tex2Dlod(CloudTextureSampler, cloudUVwithLOD).rgb;
     float3 skycolor_multplier = lerp( 1, cloudcolor, saturate(R.z) );
     skycolor_multplier *= skycolor_multplier ; //gamma
     return skycolor_multplier ;
@@ -374,7 +388,7 @@ float3 hp_getAccentLight (float3 vectype)
 
 float3 hp_fake_irradiance( float3 groundcolor, float3 skycolor, float NZ)
 {
-    float lerpw = NZ * 0.5 + 0.5 ; // *0.5 ? 0.45 ?
+    float lerpw = NZ * 0.5 + 0.5 ; 
     return lerp(groundcolor, skycolor, lerpw);
 }
 

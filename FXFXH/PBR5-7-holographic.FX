@@ -1,12 +1,18 @@
-#define IS_BASIC_W3D_SHADER
+
+
+// #define IS_BASIC_W3D_SHADER
 // #define FORBID_PIPELINE_CONSTANT
 
 
 #include "head3-vsps.FXH"
 
+#define USE_HOLO_GRID
 
 /*
-fxc.exe /O2 /T fx_2_0 /Fo   basicw3dholographic.fxo   PBR5-7-holographic.FX
+fxc.exe /O2 /T fx_2_0 /Fo   BasicW3dHolographic.fxo   PBR5-7-holographic.FX
+fxc.exe /O2 /T fx_2_0 /Fo   InfantryFormationPreview.fxo   PBR5-7-holographic.FX
+fxc.exe /O2 /T fx_2_0 /Fo   ObjectsFormationPreview.fxo   PBR5-7-holographic.FX
+
 */
 
 
@@ -14,11 +20,7 @@ fxc.exe /O2 /T fx_2_0 /Fo   basicw3dholographic.fxo   PBR5-7-holographic.FX
 struct PS_infantry_input
 {
     float2 vpos : VPOS ; //screen pixel 
-    float4 VertexColor : COLOR0;  //顶点颜色
-    //float3 CoordOBJ  : COLOR1;  //原始的物体空间坐标
-    float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
-    float4 ShadowCS : TEXCOORD1; //XYZ阴影空间投影, W弃用
-    float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
+    //float4 VertexColor : COLOR0;  //顶点颜色
     float3 WorldP : TEXCOORD3;  //世界空间位置 
     float3 WorldN : TEXCOORD4; //世界法线Z
 };
@@ -31,31 +33,37 @@ float4 PS_H_bubble (PS_infantry_input i) : COLOR
 
     float3 N = normalize(i.WorldN);
     float3 V = hp_ps_getViewVector(i.WorldP) ;
-    float3 realHC = (HasRecolorColors)? RecolorColor * RecolorColor : 1 ;
-    float fresnel = 1 - dot(N,V);
-    fresnel = pow(fresnel, 2) ;
+    float3 realHC = (HasRecolorColors)? RecolorColor : abs(N.rgb) ;
+    float fresnel = 1- dot(N,V);
 
     float3 gridcoord = i.WorldP;
     gridcoord.xy = mul(gridcoord.xy , float2x2(1,-1,1,1));
     gridcoord.z *= 1.5 ;
-    //gridcoord = i.CoordOBJ.xyz; //use world not object coord
     gridcoord = frac(gridcoord /4) *2 -1 ;
     gridcoord = abs(gridcoord) ; //or square?
-    float dist2grid = max(gridcoord.z, max(gridcoord.x, gridcoord.y)); 
+    float dist2grid = 1; //1  at grid lines, 0 at block center
+    #ifdef USE_HOLO_GRID
+        dist2grid = max(gridcoord.z, max(gridcoord.x, gridcoord.y)); 
+        //dist2grid = dot(gridcoord, 1);
+        dist2grid -= (HasRecolorColors)? 0 : fresnel ;
+    #endif
 
     float scanline = frac(i.WorldP.z /32 - Time  );
     scanline = pow(scanline, 16);
     //scanline = scanline *0.5 + 0.25;
 
-    float alpha = i.VertexColor.w * OpacityOverride ;
+    float alpha = OpacityOverride ; // * i.VertexColor.w
     //alpha = lerp(0.125, 0.875, alpha);
     alpha = max(alpha, scanline)  ;
     alpha = min(alpha, (1- dist2grid));
-    alpha *= lerp((scanline *0.5 + 0.25), 1, saturate(fresnel)); //why f0 is like this
-    alpha = saturate(alpha);
+    alpha *= lerp((scanline *0.5 ), 1, fresnel ); //why f0 is like this
+    
+    float3 extrasaturation = 1;
+    extrasaturation = (HasRecolorColors)? RecolorColor : 0.5 ;
 
-    OUTCOLOR.rgb = lerp(realHC , 1, fresnel )  ;
-    OUTCOLOR.a = alpha ;
+    OUTCOLOR.rgb += lerp(realHC , 1, fresnel )  ;
+    OUTCOLOR.rgb *= lerp(extrasaturation , 1, scanline ) ;
+    OUTCOLOR.a = saturate(alpha) ; //min alpha 0.25
 
     return OUTCOLOR;
 }
@@ -75,9 +83,29 @@ VertexShader VS_infantry_Array[3] = {
     compile vs_3_0 VS_L_22skin(), 
 };
 
+#ifdef _3DSMAX_ //预览
+technique MAXPREV
+{    pass p0 
+    {
+        VertexShader = compile vs_3_0 VSforMAX(); 
+        PixelShader  = compile ps_3_0 PS_H_bubble(); 
+        ZEnable = 1;
+        ZFunc = 4;
+        ZWriteEnable = 1; //?
+        CullMode = 2;
+        AlphaFunc = 7;
+        AlphaTestEnable = 0;
+        AlphaBlendEnable = 1 ;
+        SrcBlend = 5;
+        DestBlend = 6;
+        AlphaRef = 16;
+    }
+}
+#endif
+
 
 technique Default
-{    pass P0 <string ExpressionEvaluator = "BasicW3D";>
+{    pass P0 //<string ExpressionEvaluator = "BasicW3D";>
     {
         VertexShader = VS_infantry_Array[ VSchooserExpr() ]; 
         PixelShader  = compile ps_3_0 PS_H_bubble(); 
@@ -88,8 +116,10 @@ technique Default
         AlphaFunc = 7;
         AlphaTestEnable = 0;
         AlphaBlendEnable = 1 ;
+        SrcBlend = 5;
+        DestBlend = 6;
         AlphaRef = 16;
-        DepthBias = 1.0f / 4096 ;
+        DepthBias = pow(0.5 , 13) ;
     }
 }
 

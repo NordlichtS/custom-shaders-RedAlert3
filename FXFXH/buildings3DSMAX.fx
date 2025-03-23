@@ -1,5 +1,7 @@
 //for batch compiling
 
+#define _3DSMAX_ 
+
 // #define FORBID_FACTION_COLOR //中立单位要禁止阵营色 generic on
 // #define DYNAMIC_CLOUD_REF //允许动态云背景反射。对金属和玻璃质感很重要 on for all
 // #define ALLOW_STEALTH //允许隐身时有特殊的全息投影特效, player object only ! building off
