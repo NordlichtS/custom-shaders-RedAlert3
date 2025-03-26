@@ -49,7 +49,7 @@ float3 getLightMap(float2 secondUV, float time)
     float3 lightmapcolor = tex2D(LightMapSampler , secondUV).xyz ;
     lightmapcolor *= lightmapcolor ; 
     float blinkclock = abs( frac(time /4 ) *2 -1 )  ;
-    lightmapcolor *= 1 + 2* blinkclock ; //will x4 in ps end, also need to x diffcolor
+    lightmapcolor *= 1 + blinkclock ; //will x4 in ps end, also need to x diffcolor
     return lightmapcolor ;
 }
 
