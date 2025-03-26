@@ -225,7 +225,7 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
     //glow will x4 at the end
   #ifdef SUPPORT_LIGHTMAP
-    extra_glow += getLightMap(i.MainTexUV.zw, Time) ; 
+    extra_glow += getLightMap(i.MainTexUV.zw, Time) * albedo; 
   #endif
   #ifdef SUPPORT_TESLA
     extra_glow += getTeslaMap( i.vpos, Time, EYEtilt) ;
