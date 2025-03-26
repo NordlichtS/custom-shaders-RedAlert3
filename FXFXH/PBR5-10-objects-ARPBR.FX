@@ -10,44 +10,34 @@
 
 #define IS_OBJECT_BUILDING_SHADER
 
-// #define FORBID_PIPELINE_CONSTANT //
+// #define FORBID_CLIPPING_CONSTANT //只有强制开 ALPHA TEST 的可以开
 //  #define USE_ARPBR_W3X_CONSTANT
+// #define REPLACE_DEFAULT_TECHNIQUE //only for objects terrain
+// #define COMPILE_SOFTSKIN_VS //USUALLY OFF
 // 上面的最好别乱动 dont change any above 
 
 // #define FORBID_FACTION_COLOR //中立单位要禁止阵营色 generic on
-// #define DYNAMIC_CLOUD_REF //允许动态云背景反射。对金属和玻璃质感很重要 on for all
-// #define ALLOW_STEALTH //允许隐身时有特殊的全息投影特效, player object only ! building off
+// #define DYNAMIC_CLOUD_REF //允许动态云背景反射。对金属和玻璃质感很重要 仅玩家
+// #define ALLOW_STEALTH //允许隐身时有特殊的全息投影特效, player object only ! 建筑和中立都关
 // #define RENDER_BACKFACE //only for tengu, objectsjapan
-
- #define OPACITY_OVERRIDE_CLIP 
- #define OPACITY_OVERRIDE_OUTPUT 
- #define ALLOW_CLIP_TEXTURE_ALPHA //允许贴图alpha镂空。on for all
-// #define FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN
- #define KEEP_ALPHA_TEXTURE_SAMPLER_SAME
+// #define FORBID_SHADOW_ALPHATEST  //for terrain like stuff
 
 
+// #define OPACITY_OVERRIDE_CLIP  //仅玩家的OBJECT开
+// #define OPACITY_OVERRIDE_OUTPUT //玩家的OBJECT和BUILDING 开
+// #define ALLOW_CLIP_TEXTURE_ALPHA //允许贴图alpha镂空。on for all
+// #define FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN //应该都关
+// #define KEEP_ALPHA_TEXTURE_SAMPLER_SAME  //仅建筑
+//  #define DAMAGE_BURNRED  //烧红效果看情况吧
+// #define SHADOW_DITHER //just like terrain
 
-//下面三个互相冲突的功能只能选一个
+//下面三个互相冲突的（顶点ALPHA功能）功能只能选一个
 // #define ALLOW_CLIP_VERTEX_ALPHA //允许骨骼透明度隐藏零件。building不要。objects ? 
 // #define IS_BUILDNG //仅building要。这是损伤破洞功能。与上下两者冲突 不可同时用
 // #define IS_NANO_BUILDUP  //启用帝国建筑的建造动画。 与上两者冲突 不可同时用
 
 
 /*
-fxc.exe /O2 /T fx_2_0 /Fo   objectsgeneric.fxo   PBR5-10-objects-ARPBR.FX
-fxc.exe /O2 /T fx_2_0 /Fo   buildingsgeneric.fxo   PBR5-10-objects-ARPBR.FX
-
-fxc.exe /O2 /T fx_2_0 /Fo   buildingsjapanbuildup.fxo   PBR5-10-objects-ARPBR.FX
-
-fxc.exe /O2 /T fx_2_0 /Fo   buildingsallied.fxo   PBR5-10-objects-ARPBR.FX
-fxc.exe /O2 /T fx_2_0 /Fo   buildingsjapan.fxo   PBR5-10-objects-ARPBR.FX
-fxc.exe /O2 /T fx_2_0 /Fo   buildingssoviet.fxo   PBR5-10-objects-ARPBR.FX
-
-fxc.exe /O2 /T fx_2_0 /Fo   objectsallied.fxo   PBR5-10-objects-ARPBR.FX
-fxc.exe /O2 /T fx_2_0 /Fo   objectsjapan.fxo   PBR5-10-objects-ARPBR.FX
-fxc.exe /O2 /T fx_2_0 /Fo   objectssoviet.fxo   PBR5-10-objects-ARPBR.FX
-
-fxc.exe /O2 /T fx_2_0 /Fo   objectsallied3DSMAX.fxo   PBR5-10-objects-ARPBR.FX
 
 fxc.exe /O2 /T fx_2_0 /Fo   objectsARPBR.fxo   PBR5-10-objects-ARPBR.FX
 
@@ -64,7 +54,7 @@ fxc.exe /O2 /T fx_2_0 /Fo   objectsARPBR.fxo   PBR5-10-objects-ARPBR.FX
 
 float4 SPM_threshold //SPM的界限
 <   string UIName = "SPM_threshold"; 	string UIWidget = "Color";
-> ={ 0.75, 0.125, 0.125, 1 }; //分别是：红色金属阈值，绿色金属阈值，蓝色阵营色阈值，发光倍数
+> ={ 0.75, 0.125, 0.125, 1 }; //分别是：红色金属阈值，绿色金属阈值，蓝色阵营色阈值，发光(<=1!)
 
 float MinRoughness //最低粗糙度（要用倒数更精确吗？）
 <   string UIName = "MinRoughness"; //MAXglossiness
@@ -76,7 +66,7 @@ bool InfantrySkin //当作步兵  允许软绑定  同时关闭法线图
 
 #else // USE_ARPBR_W3X_CONSTANT?
 
-static const float4 SPM_threshold = { 0.75, 0.25, 0.125, 1 };
+static const float4 SPM_threshold = { 0.75, 0.125, 0.125, 1 }; //careful gen evo values
 static const float MinRoughness = 0.125 ;
 static const bool InfantrySkin = 0 ;
 
@@ -147,9 +137,10 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     SUNcolor = PV_SunlightColor ;
   #endif
 
-    float4 ditherline = frac(i.vpos.yyyy / float4(1,2,4,8));
+    //float4 ditherline = frac(i.vpos.yyyy / float4(1,2,4,8));
     bool2 dither2x2 = frac(i.vpos /2) < 0.375 ;
     bool alreadystealth = (OpacityOverride < 0.985) ;
+    
 
 
   //条件编译功能
@@ -167,6 +158,9 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     spm.b = (spm.b > SPM_threshold.b)? spm.b : 0 ;
     hcmask = lerp(1,  realHC, spm.b);
     albedo *= hcmask ;
+    #ifndef INCREASE_HC_SATURATION
+    albedo *= hcmask ;
+    #endif
   #else
     albedo *= albedo ;
   #endif
@@ -183,22 +177,18 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     float extra_alpha = 1 ;
 
 
-
   #ifdef OPACITY_OVERRIDE_CLIP
     extra_alpha *= OpacityOverride ;
   #endif
-
 
   #ifdef ALLOW_CLIP_TEXTURE_ALPHA
     //dif.w = (dif.w < 0.5)? 0 : dif.w ;
     extra_alpha *= dif.w ;
   #endif
 
-
   #ifdef ALLOW_CLIP_VERTEX_ALPHA
     extra_alpha *= i.VertexColor.w ;
   #endif
-
 
   #ifdef IS_BUILDNG //建筑损伤
     float4 dmgtex = tex2D(DamagedTextureSampler , i.MainTexUV.zw);
@@ -207,18 +197,38 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     #ifdef DAMAGE_BURNRED
       float burnred = 1 - dmgtex.w  ; //max 0.625
       extra_glow.r += pow(burnred, 2) ;
-      extra_glow.g += pow(burnred, 3) *1.5 ;
+      extra_glow.g += pow(burnred, 4) ;
     #endif
     albedo.rgb *= dmgtex.rgb * dmgtex.a ;
     spm.r *= dmgtex.r * dmgtex.g * dmgtex.b ;
   #endif
-
 
   #ifdef IS_NANO_BUILDUP
     float2 nanobuildupMASK_alpha_glow = hp_nano_build(i.VertexColor.w, i.MainTexUV.xy);
     extra_alpha *= nanobuildupMASK_alpha_glow.x ;
     extra_glow += realHC * nanobuildupMASK_alpha_glow.y ;
     extra_cavity *= 1- nanobuildupMASK_alpha_glow.y;
+  #endif
+
+
+      
+  //lets ignore the damn pass alpha test and do it here
+
+  #ifdef FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN
+    clip(extra_alpha - 0.375) ;
+  #else
+    if(AlphaTestEnable) {clip(extra_alpha - 0.375) ; };
+  #endif
+  // EXTRA_ALPHA WILL NOT EXPORT TO OUTCOLOR
+
+
+
+    //glow will x4 at the end
+  #ifdef SUPPORT_LIGHTMAP
+    extra_glow += getLightMap(i.MainTexUV.zw, Time) ; 
+  #endif
+  #ifdef SUPPORT_TESLA
+    extra_glow += getTeslaMap( i.vpos, Time, EYEtilt) ;
   #endif
 
 
@@ -232,16 +242,7 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
   //opacity is multiplied before, in both extra_alpha and OUTCOLOR
   //stealth alpha will be applied at shader end, not here
 
-      
-  //lets ignore the damn pass alpha test and do it here
 
-  #ifdef FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN
-    clip(extra_alpha - 0.375) ;
-  #else
-    if(AlphaTestEnable) {clip(extra_alpha - 0.375) ; };
-  #endif
-
-  // EXTRA_ALPHA WILL NOT EXPORT TO OUTCOLOR
 
 
   //还原通道信息 ========================
@@ -281,7 +282,8 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     float3 cloudReflectionMultipler = hp_dynamic_cloud_reflection(i.FogCloudUV.zw, R, Lsun, (roughness *4))  ; 
     skybox_color *= cloudReflectionMultipler ;
   #else
-    skybox_color *= lerp(1, NoCloudMultiplier, saturate(R.z)); 
+    //float3 noCloudSkyMultipler =
+    skybox_color *= lerp(1, NoCloudMultiplier , saturate(R.z)); 
   #endif
  
     float3 ambientALL = float3(0,0,0) ; //环境光BRDF
@@ -295,24 +297,25 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     SUNcolor *= (sun_tilt > 0 )? 1 : 0 ; 
     SUNcolor *= (vertex_suntilt > 0 )? 1 : 0 ; 
 
-    if(HasShadow){
-      float3 ShadowMapUV = i.ShadowCS.xyz / i.ShadowCS.w ;
-      float transition_range_mult = 2 - vertex_suntilt ;
-      float transition_start_bias_mult = 1 ;
-      #ifdef SHADOW_DITHER
-        float2 smbias = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
-        smbias = (dither2x2.x)? smbias.xy : smbias.yx ; //x to flip axis
-        smbias = (dither2x2.y)? smbias    : - smbias  ; //y to flip direction     
-        ShadowMapUV.xy += smbias * vertex_suntilt ;
-        transition_range_mult = 1 ;
-        transition_start_bias_mult = 1 ;
-      #endif
-      SUNcolor *= hp_invshadow_trilinear(ShadowMapUV, transition_range_mult, transition_start_bias_mult) ;
-    };
+    //if(HasShadow){
+    float3 ShadowMapUV = i.ShadowCS.xyz / i.ShadowCS.w ;
+    float transition_range_mult = 2 - vertex_suntilt ;
+    float transition_start_bias_mult = 1 ;
+    #ifdef SHADOW_DITHER
+      float2 smbias = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
+      smbias = (dither2x2.x)? smbias.xy : smbias.yx ; //x to flip axis
+      smbias = (dither2x2.y)? smbias    : - smbias  ; //y to flip direction     
+      ShadowMapUV.xy += smbias * vertex_suntilt ;
+      transition_range_mult = 1 ;
+      transition_start_bias_mult = 1 ;
+    #endif
+    SUNcolor *= hp_invshadow_trilinear(ShadowMapUV, transition_range_mult, transition_start_bias_mult) ;
+    //cubic hermit is in helper function, open when no dither
+    //};
 
 
   #ifndef _3DSMAX_ //高画质都有云，但预览没有
-    float3 cloudcolor = tex2D(CloudTextureSampler, i.FogCloudUV.zw);
+    float3 cloudcolor = tex2D(CloudTextureSampler, i.FogCloudUV.zw).rgb;
     SUNcolor *= cloudcolor * cloudcolor ;
   #endif
 
@@ -346,7 +349,7 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
       if(PLdist > PLrangeMAX) {continue;}; //排除太远的点光源
       float3 PLL = PLpos / PLdist ; //normalized light vector
       float  PLtilt = dot(PLL, N) ;
-      if(PLtilt < 0) {continue;}; //排除背光面
+      if(PLtilt < 0) {PLcolor = 0 ;}; //排除背光面
 
       float3 thisBRDF = float3(0,0,0) ;
       thisBRDF += diffcolor * PLtilt  ; 
@@ -366,7 +369,7 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     OUTCOLOR.xyz += extra_glow * 4; //all glow
 
   #ifndef _3DSMAX_ //预览没有迷雾
-    OUTCOLOR.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy) ;
+    OUTCOLOR.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy).rgb ;
   #endif
 
   #ifdef ALLOW_STEALTH
@@ -381,8 +384,10 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
   #endif
 
     OUTCOLOR.a = saturate(OUTCOLOR.a); //for safety
-    OUTCOLOR.xyz *= TintColor ;
-    OUTCOLOR.xyz *= hcmask ;
+    OUTCOLOR.rgb *= TintColor ;
+    #ifdef INCREASE_HC_SATURATION
+    OUTCOLOR.rgb *= hcmask ;
+    #endif
 
     //alpha clipping is in macro function stage
     //ONLY STEALTH AND OPACITY OVERRIDE AFFECT OUTCOLOR ALPHA
@@ -395,6 +400,170 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 };
 
 //高画质PBR pixel shader结束====================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//中低画质的PS ====================
+
+
+float4 PS_LOW_ARPBR (PS_H_input i) : COLOR 
+{
+    float3 N = i.WorldN;
+    float3 Lsun     = DirectionalLight[0].Direction.xyz ;
+    float3 SUNcolor = DirectionalLight[0].Color.xyz * NoCloudMultiplier;
+    float sun_tilt = dot(N, Lsun);
+    float3 sundiffuselight = (sun_tilt > 0)? SUNcolor : 0 ;
+
+    float3 ShadowMapUV = i.ShadowCS.xyz / i.ShadowCS.w ;
+    ShadowMapUV.z -= (2 - sun_tilt) * Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w ;
+    float shadowterm = hp_invshadow_trilinear(ShadowMapUV, 4, 1); //no shadow alt is inside
+    shadowterm = saturate(shadowterm *2 -0.5);// hp_cubic_hermit(bUD) ; //* bUD;
+    sundiffuselight *= shadowterm ;
+
+    float3 albedocolor = 1 ;
+    float  texalpha = 1 ;
+    float  HCchannel = 0 ;
+
+    float  extra_glow = 0 ; //add
+    float3 extra_cavity = 1 ; //mult
+    float  extra_alpha = 1 ; //
+
+    //conditioanl functions, affect clipping
+
+    #ifdef OPACITY_OVERRIDE_CLIP
+    extra_alpha *= OpacityOverride ;
+    #endif
+
+    #ifdef ALLOW_CLIP_VERTEX_ALPHA
+    extra_alpha *= i.VertexColor.w ; //ALLOW_CLIP_VERTEX_ALPHA
+    #endif
+
+    #ifdef ALLOW_CLIP_TEXTURE_ALPHA
+    extra_alpha *= texalpha ;
+    #endif
+
+    #ifdef IS_BUILDNG
+    float4 dmgtex = tex2D(DamagedTextureSampler , i.MainTexUV.zw) ;
+    dmgtex = (i.VertexColor.w < 0.375)? dmgtex : 1;
+    extra_cavity *= dmgtex.rgb ;
+    extra_alpha *= dmgtex.w ;
+    //clip(dmgtex.w - 0.375) ;
+    #endif 
+
+    #ifdef IS_NANO_BUILDUP
+    float2 nanobuildupMASK_alpha_glow = hp_nano_build(i.VertexColor.w, i.MainTexUV.xy);
+    extra_alpha *= nanobuildupMASK_alpha_glow.x ;
+    extra_glow +=  nanobuildupMASK_alpha_glow.y ;
+    HCchannel += nanobuildupMASK_alpha_glow.y * 2 ;
+    //clip(nanobuildupMASK_alpha_glow.x - 0.375) ; 
+    #endif
+
+
+
+
+  #ifdef SUPPORT_LIGHTMAP
+    //extra_glow += getLightMap(i.MainTexUV.zw, 0) ; 
+  #endif
+  #ifdef SUPPORT_TESLA
+    extra_glow += abs( frac(Time + N.z) *2 -1 ) ;
+    extra_cavity *= float3(0.5, 1, 2) ;
+  #endif
+
+    //now for albedo colors
+    
+  #ifdef IS_BASIC_W3D_SHADER 
+    float4 tmp0 = tex2D(Texture_0Sampler,  i.MainTexUV.xy );
+    albedocolor = tmp0.xyz ;
+    HCchannel += tmp0.w ;
+  #endif
+
+  #ifdef IS_OBJECT_BUILDING_SHADER
+    float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
+    albedocolor = dif.xyz ;
+    texalpha = dif.w ;
+    float4 spm = tex2D(SpecMapSampler, i.MainTexUV.xy) ;
+    HCchannel += spm.b ;
+    extra_glow += 1 - spm.a ;
+  #endif
+
+  #ifndef FORBID_FACTION_COLOR
+    float3 realHC = (HasRecolorColors)? RecolorColor : 1 ; ;
+    albedocolor *= lerp(1, realHC, saturate(HCchannel)) ;
+  #endif
+
+    float4 OUTCOLOR = 0;
+    OUTCOLOR.rgb += sundiffuselight + AmbientLightColor ;
+    OUTCOLOR.rgb *= extra_cavity ;
+    OUTCOLOR.rgb = lerp( OUTCOLOR.rgb, 1, saturate(extra_glow));
+    OUTCOLOR.rgb *= albedocolor ;
+    OUTCOLOR.rgb *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy).xyz ;
+    OUTCOLOR.rgb *= TintColor ;
+
+    //
+    #ifdef FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN
+    clip(extra_alpha - 0.375) ;
+    #else
+    if(AlphaTestEnable) {clip(extra_alpha - 0.375) ; };
+    #endif
+
+
+    OUTCOLOR.w = 1;// extra_alpha ;
+    #ifdef OPACITY_OVERRIDE_OUTPUT
+    OUTCOLOR.w *= OpacityOverride ;
+    #endif
+
+    return OUTCOLOR ;
+};
+
+// low ps end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// EXPRESSIONS AND TECHNIQUE
+
+#ifdef COMPILE_SOFTSKIN_VS
 
 int VSchooserExpr() 
 { 
@@ -421,22 +590,46 @@ VertexShader VS_Shadow_Array[3] = {
     //compile vs_2_0 VS_ShadowMaker_CLIPALL(), 
 };
 
+#else
+
+int VSchooserExpr() 
+{   return clamp(NumJointsPerVertex, 0, 1) ; }
+
+VertexShader VS_H_Array[2] = {
+    compile vs_3_0 VS_H_00skin(), 
+    compile vs_3_0 VS_H_11skin(), 
+};
+
+VertexShader VS_L_Array[2] = {
+    compile vs_3_0 VS_L_00skin(), 
+    compile vs_3_0 VS_L_11skin(), 
+};
+
+VertexShader VS_Shadow_Array[2] = {
+    compile vs_2_0 VS_ShadowMaker_00skin(), 
+    compile vs_2_0 VS_ShadowMaker_11skin(), 
+};
+
+#endif
+
+int SMPSchooserExpr() 
+{ 
+  int index = (AlphaTestEnable)? 1 : 0 ;
+  //#ifdef FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN
+  index = 1 ;
+  //#endif
+  return index ; 
+}
+
 PixelShader PS_Shadow_Array[2] = {
   compile ps_2_0 PS_ShadowMaker_NoAlphaTest(),
   compile ps_2_0 PS_ShadowMaker_AlphaTest(),
 };
 
-int SMPSchooserExpr() 
-{ 
-  int index = (AlphaTestEnable)? 1 : 0 ;
-  #ifdef FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN
-  index = 1 ;
-  #endif
-  return index ; 
-}
-
-
 #ifdef _3DSMAX_ //预览
+
+  #define REPLACE_DEFAULT_TECHNIQUE // forbid ingame technique
+
 technique MAXPREV
 {    pass p0 
     {
@@ -451,7 +644,11 @@ technique MAXPREV
     }
 }
 
-#else  //================= ingame
+#endif  //  _3DSMAX_ ?
+
+//================= ingame
+
+#ifndef REPLACE_DEFAULT_TECHNIQUE
 
 
 technique Default
@@ -480,19 +677,20 @@ technique Default
 
 technique Default_M 
 {    pass p0
+  #ifndef IS_BUILDNG
+  <string ExpressionEvaluator = "Objects";>
+  #endif
   {
     VertexShader = VS_L_Array[ VSchooserExpr() ]; 
-    PixelShader  = compile ps_3_0 PS_LOW_INFANTRY(); 
+    PixelShader  = compile ps_3_0 PS_LOW_ARPBR(); 
     ZEnable = 1;
     ZFunc = 4;
     ZWriteEnable = 1;
     CullMode = 2;
     AlphaFunc = 7;
     AlphaRef = 96;
-    AlphaBlendEnable = 0;
+    //AlphaBlendEnable = 0;
     AlphaTestEnable = 0;
-    //DepthBias = -1.0f / 4096 ;
-
   } 
 }
 
@@ -501,7 +699,12 @@ technique _CreateShadowMap
 {    pass p0    
   {
     VertexShader = VS_Shadow_Array[ VSchooserExpr()  ]; 
-    PixelShader  = PS_Shadow_Array[ SMPSchooserExpr()  ];
+    PixelShader  = 
+    #ifdef FORBID_SHADOW_ALPHATEST
+    compile ps_2_0 PS_ShadowMaker_NoAlphaTest() ;
+    #else
+    PS_Shadow_Array[ SMPSchooserExpr()  ];
+    #endif
     ZEnable = 1;
     ZFunc = 4;
     ZWriteEnable = 1;
@@ -511,7 +714,7 @@ technique _CreateShadowMap
   } 
 }
 
-#endif
+#endif  // REPLACE_DEFAULT_TECHNIQUE ?
 
 
 

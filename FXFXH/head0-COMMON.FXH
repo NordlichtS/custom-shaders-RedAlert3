@@ -22,6 +22,7 @@ string DefaultParameterScopeBlock = "material";
 
 //这有什么用？看起来很重要
 #ifndef SPECIAL_SAS_HEADER
+
 int _SasGlobal : SasGlobal  
 <
     int3 SasVersion = int3(1, 0, 0);
@@ -29,15 +30,10 @@ int _SasGlobal : SasGlobal
     int MaxSupportedInstancingMode = 1;
     int MaxLocalLights = 8;
 > = 0;
+
 #endif
 //先留着吧
 /*
-#ifdef MAX_POINT_LIGHT
-    int MaxLocalLights = MAX_POINT_LIGHT; 
-#else
-    int MaxLocalLights = 8;
-#endif
-
 #if defined(SUPPORT_FORMATIONPREVIEW)	
 	string RenderBin = "StaticSort1";
 #elif defined(SUPPORT_XRAY)
@@ -86,8 +82,8 @@ shared float3 TintColor
 <   string SasBindAddress = "TintColor";    bool unmanaged = true;> 
 = float3(1, 1, 1);
 
-//也是个占位的
-shared float3 NoCloudMultiplier  //EdgeFadeOut ？
+//低画质没有云的时候模拟阴天用
+shared float3 NoCloudMultiplier  
 : register(vs, c3) : register(ps, c3)
 <   bool unmanaged = true;> 
 = 1 ;
@@ -110,16 +106,18 @@ DirectionalLight[3]
 0.4, 0.5, 0.6,   0, 1, 0, 
 0.3, 0.2, 0.1,   1, 0, 0 };
 
+//looks like these two dont really have specified registers?
+
 //用于设置战争迷雾坐标
-struct ShroudSetup {float4 ScaleUV_OffsetUV;} 
-Shroud //为什么它有struct而不是一整个float4？
-: register(vs, c11)  //只能用于VS ！
+struct {float4 ScaleUV_OffsetUV;} Shroud 
+//为什么它有struct而不是一整个float4？
+//: register(vs, c11)  //只能用于VS ?
 <   string UIWidget="None"; string SasBindAddress = "Terrain.Shroud";> 
 = { 1, 1, 0, 0 };
 
 //阴影图一个像素在阴影采样坐标里的长度，可用于模糊阴影边缘
 float4 Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize 
-: register(ps, c11) //只能用于PS ！
+//: register(ps, c11) //只能用于PS ?
 <   string UIWidget ="None"; string SasBindAddress = "Sas.Shadow[0].Zero_Zero_OneOverMapSize_OneOverMapSize";>;
 // #define  SMtexel  Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize //名字太长了换个短的！
 
@@ -137,8 +135,7 @@ shared column_major float4x4 ShadowMapWorldToShadow
 <    bool unmanaged = true;>;
 
 //用来设置云的UV, C117-118
-shared struct CloudSetup {float4 WorldPositionMultiplier_XYZZ; float2 CurrentOffsetUV;} 
-Cloud 
+shared struct {float4 WorldPositionMultiplier_XYZZ; float2 CurrentOffsetUV;} Cloud 
 : register(c117) 
 <    bool unmanaged = true;>;
 
@@ -204,7 +201,19 @@ float2 MapCellSize
 //当前帧距离游戏开局的秒数，可以用来做呼吸灯和履带滚动
 float Time : Time;
 
+#ifndef FORBID_CLIPPING_CONSTANT
+//bool AlphaBlendEnable < string UIName = "Alpha Blend Enable";> ;//= 0;
 
+extern bool AlphaTestEnable //主贴图镂空
+<    string UIName = "Alpha Test Enable";> = 1;
+
+extern bool CullingEnable //好像是允许背面不渲染来优化？
+<    string UIName = "Culling Enable";> = 1;
+
+extern bool DepthWriteEnable //写入深度buffer 但好像是用阴影图制作器单独生成的屏幕空间深度？
+<    string UIName = "Depth Write Enable";> = 1;
+
+#endif // FORBID_CLIPPING_CONSTANT ?
 
 
 //上面的都并没有直接记录在W3X的SHADER段，但引擎会分配
@@ -276,6 +285,62 @@ sampler2D ShroudTextureSampler
     AddressV = 3;
 };
 
+
+
+
+/*
+ FROM OFFICIAL  "REGISTERMAP.FXH"
+
+// Float constant registers
+
+// Why are these register numbers all over the place? Why not just declare them starting with 0 upwards?
+// There is a problem with PS2.0 shaders: They can only support 32 constant registers.
+// In total we have much more than that, but our PS2.0 shaders themselves use less than 32 registers.
+// By moving all the registers we need in PS2.0 into the range of 0-31 these shaders compile.
+// All registers that are not used there then can be put into the range above 32 without problems.
+// To leave the largest possible "unmapped" area in the middle, let's assign those registers backwards from 255.
+
+
+// Skinning
+#define MaxSkinningBones 64 // Every bone uses 2 registers each, ie 128 registers total
+#define REGISTER_SKINNING_BONE_TRANSFORMS           128 // up to 255
+#define REGISTER_NON_SKINNING_WORLD_MATRIX_FIRST    124
+#define REGISTER_NON_SKINNING_WORLD_MATRIX_LAST     127
+
+// Camera related
+#define REGISTER_CAMERA_POSITION                    123
+#define REGISTER_VIEWPROJECTION_MATRIX_FIRST        119
+#define REGISTER_VIEWPROJECTION_MATRIX_LAST         122
+
+// Color
+#define REGISTER_RECOLOR_COLOR                      0
+#define REGISTER_OPACITY_OVERRIDE                   1
+#define REGISTER_TINT_COLOR                         2
+
+// Cloud related
+#define REGISTER_CLOUD_SETUP                        117 // 2 registers used
+#define REGISTER_NO_CLOUD_MULTIPLIER                3
+
+// Shadowmap
+#define REGISTER_MAT_WORLD_TO_SHADOW                113 // 4 registers
+
+// Lighting
+#define REGISTER_AMBIENT_LIGHT_COLOR                4
+#define REGISTER_DIRECTIONAL_LIGHTS_FIRST           5 // 6 registers
+#define REGISTER_DIRECTIONAL_LIGHTS_LAST            10
+#define REGISTER_POINT_LIGHTS_FIRST                 89 // 24 registers
+#define REGISTER_POINT_LIGHTS_LAST                  112
+
+// Integer constant registers
+#define IREGISTER_NUM_POINT_LIGHTS                  0
+#define IREGISTER_NUM_SHADOWS                       1
+
+// Boolean constant registers
+#define BREGISTER_HAS_RECOLOR_COLORS                0
+#define BREGISTER_HAS_SHADOW                        1
+
+
+*/
 
 
 /*

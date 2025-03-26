@@ -1,7 +1,7 @@
 
 
 // #define IS_BASIC_W3D_SHADER
-// #define FORBID_PIPELINE_CONSTANT
+// #define FORBID_CLIPPING_CONSTANT
 
 
 #include "head3-vsps.FXH"
@@ -34,7 +34,8 @@ float4 PS_H_bubble (PS_infantry_input i) : COLOR
     float3 N = normalize(i.WorldN);
     float3 V = hp_ps_getViewVector(i.WorldP) ;
     float3 realHC = (HasRecolorColors)? RecolorColor : abs(N.rgb) ;
-    float fresnel = 1- dot(N,V);
+    float eyetilt = saturate( dot(N,V)) ;
+    float fresnel = 1- eyetilt;
 
     float3 gridcoord = i.WorldP;
     gridcoord.xy = mul(gridcoord.xy , float2x2(1,-1,1,1));
@@ -45,7 +46,7 @@ float4 PS_H_bubble (PS_infantry_input i) : COLOR
     #ifdef USE_HOLO_GRID
         dist2grid = max(gridcoord.z, max(gridcoord.x, gridcoord.y)); 
         //dist2grid = dot(gridcoord, 1);
-        dist2grid -= (HasRecolorColors)? 0 : fresnel ;
+        dist2grid *= (HasRecolorColors)? 1 : eyetilt ;
     #endif
 
     float scanline = frac(i.WorldP.z /32 - Time  );
@@ -58,11 +59,10 @@ float4 PS_H_bubble (PS_infantry_input i) : COLOR
     alpha = min(alpha, (1- dist2grid));
     alpha *= lerp((scanline *0.5 ), 1, fresnel ); //why f0 is like this
     
-    float3 extrasaturation = 1;
-    extrasaturation = (HasRecolorColors)? RecolorColor : 0.5 ;
+    float3 extrasaturation = lerp(RecolorColor , 1, scanline ) ;
 
     OUTCOLOR.rgb += lerp(realHC , 1, fresnel )  ;
-    OUTCOLOR.rgb *= lerp(extrasaturation , 1, scanline ) ;
+    OUTCOLOR.rgb *= (HasRecolorColors)? extrasaturation : 1 ;
     OUTCOLOR.a = saturate(alpha) ; //min alpha 0.25
 
     return OUTCOLOR;

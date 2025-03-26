@@ -1,16 +1,18 @@
 @echo off
 setlocal
 
-:: Set the path to fxc.exe (assuming it's in the same directory as this script)
-set FXC_PATH=fxc.exe
+:: Define the output directory
+set OUTPUT_DIR=FXO
 
-:: Set the output directory (same as the script directory)
-set OUTPUT_DIR=.
+:: Check if the FXO directory exists; if not, create it
+if not exist "%OUTPUT_DIR%" (
+    mkdir "%OUTPUT_DIR%"
+)
 
-:: Find and compile all .fx files starting with "object" or "building"
+:: Compile all .fx files starting with "object" or "building"
 for %%f in (object*.fx building*.fx) do (
     echo Compiling %%f...
-    %FXC_PATH% /O2 /T fx_2_0 /Fo %%~nf.fxo %%f
+    fxc.exe /O2 /T fx_2_0 /Fo "%OUTPUT_DIR%\%%~nf.fxo" "%%f"
     if errorlevel 1 (
         echo Error compiling %%f
     ) else (

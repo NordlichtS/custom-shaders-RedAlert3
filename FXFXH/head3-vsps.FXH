@@ -160,14 +160,6 @@ VS_H_output  VS_H_11skin (VS_H_11skin_input  i)  //1 bone skin
     o.WorldT = mul(i.tangent.xyz, bone3x3matrix);
     o.WorldB = mul(i.binormal.xyz, bone3x3matrix);
 
-    /* 
-        float4 This_Quaternion   = WorldBones[i.blendindices.x * 2 ];
-        o.WorldP = QuaternionRotate( This_Quaternion , i.position.xyz) + This_offset_alpha.xyz ;
-        o.WorldN = QuaternionRotate( This_Quaternion , i.normal.xyz);
-        o.WorldT = QuaternionRotate( This_Quaternion , i.tangent.xyz);
-        o.WorldB = QuaternionRotate( This_Quaternion , i.binormal.xyz);
-    */
-
     //以上要换成双骨骼软绑定相关的代码，以下保留======
 
     WorldPosition.xyz = o.WorldP  ; //四维世界坐标
@@ -177,6 +169,11 @@ VS_H_output  VS_H_11skin (VS_H_11skin_input  i)  //1 bone skin
     o.ShadowCS = mul(WorldPosition, ShadowMapWorldToShadow); ;
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
     o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;
+
+    #ifdef SUPPORT_TREAD_SCROLLING
+    o.MainTexUV.x += o.VertexColor.a ;
+    o.VertexColor.a = 1 ;
+    #endif
 
     o.Position = mul(WorldPosition, ViewProjection); //给rasterizer的clip space坐标
 
@@ -337,6 +334,10 @@ VS_notgt_output  VS_L_00skin (VS_00skin_notgt_input  i)//, uniform bool UseShado
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
     o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;
     o.ShadowCS = mul(WorldPosition, ShadowMapWorldToShadow); ;
+
+    //#ifdef SUPPORT_TREAD_SCROLLING
+    //o.MainTexUV.x += OpacityOverride ;
+    //#endif
     
     o.Position = mul(WorldPosition, ViewProjection); //给rasterizer的clip space坐标
 
@@ -372,9 +373,15 @@ VS_notgt_output  VS_L_11skin (VS_11skin_notgt_input  i)//, uniform bool UseShado
     WorldPosition.xyz = o.WorldP  ; //四维世界坐标
     o.WorldN = normalize(o.WorldN);
     o.VertexColor.rgb = hp_getAccentLight(o.WorldN)/2;
+    o.VertexColor.w = bone_offset_alpha.w ;
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
     o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;
     o.ShadowCS = mul(WorldPosition, ShadowMapWorldToShadow); ;
+
+    #ifdef SUPPORT_TREAD_SCROLLING
+    o.MainTexUV.x += o.VertexColor.a ;
+    o.VertexColor.a = 1 ;
+    #endif
     
     o.Position = mul(WorldPosition, ViewProjection); //给rasterizer的clip space坐标
 
@@ -421,7 +428,7 @@ VS_notgt_output  VS_L_22skin (VS_22skin_notgt_input  i)//, uniform bool UseShado
 
     o.WorldP = lerp( worldP1 , worldP0 , i.blendweight.x) ;
     o.WorldN = lerp( worldN1 , worldN0 , i.blendweight.x) ;
-    o.VertexColor.w *= lerp(bone_offset_alpha_1.w , bone_offset_alpha_0.w , i.blendweight.x) ; 
+    o.VertexColor.w = lerp(bone_offset_alpha_1.w , bone_offset_alpha_0.w , i.blendweight.x) ; 
 
     //以上是物体到世界空间相关的代码，以下保留======
 
@@ -438,92 +445,6 @@ VS_notgt_output  VS_L_22skin (VS_22skin_notgt_input  i)//, uniform bool UseShado
     return o;
 };
 
-//中低画质的PS ====================
-struct PS_LOW_input
-{
-    float4 VertexColor : COLOR0;  //顶点颜色
-    float3 CoordOBJ  : COLOR1; //物体空间
-    float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV
-    float2 FogCloudUV : TEXCOORD2; //迷雾UV
-    float3 WorldP : TEXCOORD3;  //世界空间位置
-    float3 WorldN : TEXCOORD4;//_centroid; //世界法线Z
-};
-
-float4 PS_LOW_INFANTRY (PS_LOW_input i) : COLOR 
-{
-    float3 N = i.WorldN;
-    float3 Lsun     = DirectionalLight[0].Direction.xyz ;
-    float3 SUNcolor = DirectionalLight[0].Color.xyz * NoCloudMultiplier;
-    float sun_tilt = dot(N, Lsun);
-    float3 surfacediffuselight = (sun_tilt > 0)? SUNcolor : i.VertexColor.rgb ;
-
-    float3 albedocolor = 1 ;
-    float  texalpha = 1 ;
-    float  HCchannel = 0 ;
-
-  #ifdef IS_BASIC_W3D_SHADER 
-    float4 tmp0 = tex2D(Texture_0Sampler,  i.MainTexUV.xy );
-    albedocolor = tmp0.xyz ;
-    HCchannel = tmp0.w ;
-  #endif
-
-  #ifdef IS_OBJECT_BUILDING_SHADER
-    float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
-    albedocolor = dif.xyz ;
-    texalpha = dif.w ;
-    HCchannel = tex2D(SpecMapSampler, i.MainTexUV.xy).b ;
-  #endif
-
-  #ifndef FORBID_FACTION_COLOR
-    float3 realHC = (HasRecolorColors)? RecolorColor : 1 ; ;
-    albedocolor *= lerp(1, realHC, HCchannel) ;
-  #endif
-
-    float4 OUTCOLOR = 0;
-    OUTCOLOR.rgb += surfacediffuselight + AmbientLightColor ;
-    OUTCOLOR.rgb *= albedocolor ;
-    OUTCOLOR.rgb *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy).xyz ;
-    OUTCOLOR.rgb *= TintColor ;
-
-    //
-    float extra_alpha = 1 ; //
-
-    #ifdef OPACITY_OVERRIDE_CLIP
-    extra_alpha *= OpacityOverride ;
-    #endif
-
-    #ifdef ALLOW_CLIP_VERTEX_ALPHA
-    extra_alpha *= i.VertexColor.w ; //ALLOW_CLIP_VERTEX_ALPHA
-    #endif
-
-    #ifdef ALLOW_CLIP_TEXTURE_ALPHA
-    extra_alpha *= texalpha ;
-    #endif
-
-    #ifdef IS_BUILDNG
-    float dmgalpha = tex2D(DamagedTextureSampler , i.MainTexUV.zw).w ;
-    dmgalpha = (i.VertexColor.w < 0.375)? dmgalpha : 1;
-    extra_alpha *= dmgalpha ;
-    #endif 
-
-    #ifdef IS_NANO_BUILDUP
-    extra_alpha = hp_nano_build(i.VertexColor.w, i.MainTexUV.xy).x;
-    #endif
-
-    #ifdef FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN
-    clip(extra_alpha - 0.375) ;
-    #else
-    if(AlphaTestEnable) {clip(extra_alpha - 0.375) ; };
-    #endif
-
-    #ifdef OPACITY_OVERRIDE_OUTPUT
-    OUTCOLOR.w = OpacityOverride ;
-    #else
-    OUTCOLOR.w = 1 ;
-    #endif
-
-    return OUTCOLOR ;
-};
 
 
 //===========================================
@@ -669,7 +590,7 @@ float4 PS_ShadowMaker_AlphaTest(VS_ShadowMaker_output i) : COLOR
     #endif 
 
     #ifdef IS_NANO_BUILDUP
-    extra_alpha = hp_nano_build(i.Valpha, i.MainTexUV.xy).x;
+    extra_alpha *= hp_nano_build(i.Valpha, i.MainTexUV.xy).x;
     #endif
 
     clip(extra_alpha - 0.375);

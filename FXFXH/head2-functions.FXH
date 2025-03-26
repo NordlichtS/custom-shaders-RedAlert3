@@ -154,7 +154,7 @@ float hp_invshadow_bilinear ( float3 SMUV )
 
     float2 SM01T = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
     float2 UVlerpw = frac(SMUV.xy / SM01T.y);
-    float object_depth = SMUV.z - SM01T.y ;//(3- 2* sun_tilt) ; //  1.0 / 512.0 ;
+    float object_depth = SMUV.z ;//- SM01T.y ;//
     //tbd : use suntilt to fix side offset
 
     float4 fourSamples = float4(   //四个角的阴影图深度
@@ -169,15 +169,14 @@ float hp_invshadow_bilinear ( float3 SMUV )
     float2 bLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
     float  bUD = lerp(bLR.x   , bLR.y   , UVlerpw.y);
     float lightmid = bUD ;
-    #ifndef SHADOW_DITHER
-        lightmid = saturate(bUD *2 -0.5);// hp_cubic_hermit(bUD) ; //* bUD;
-    #endif
+    //no more cubic hermit, its in ps
+
     return lightmid ;
 }
 
 float hp_invshadow_trilinear(float3 SMUV, float transition_range_mult, float transition_start_bias_mult)
 {
-    if(! HasShadow)   {return 1;}; 
+    if(! HasShadow) {return 1;}; 
 
     float2 SM01T = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
     float2 UVlerpw = frac(SMUV.xy / SM01T.y);
@@ -335,11 +334,14 @@ float hp_specdist_patch(float glossiness, float3 R, float3 L) //glossiness as OO
     return  specdist ; //spec multiply is not here
 }
 
-float hp_specdist_simple(float3 R, float3 L)
+float hp_specdist_simple(float ooa, float3 R, float3 L, int exponent)
 {
-    float cosRL = dot(R,L) * 0.5 + 0.5 ;
-    float specdist = pow(cosRL , 8) ;
-    return specdist ;
+    float cosRL = dot(R,L) ;  //no need saturate
+    float specdist = cosRL  * ooa - ooa + 1 ;
+    specdist = saturate(specdist);
+    specdist = pow(specdist, exponent) ; //smooth tail
+
+    return  specdist ; //spec multiply is not here
 }
 
 float hp_specdist_power(int exponent, float3 R, float3 L)

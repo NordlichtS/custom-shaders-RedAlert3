@@ -1,6 +1,6 @@
 // #define _3DSMAX_
 // #define IGNORE_NRM
-// #define FORBID_PIPELINE_CONSTANT
+// #define FORBID_CLIPPING_CONSTANT
 // dont change any above
 
 // #define SPMG_GLOWPULSE

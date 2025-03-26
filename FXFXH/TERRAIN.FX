@@ -5,7 +5,7 @@ fxc.exe /O2 /T fx_2_0 /Fo   terrain.fxo   TERRAIN.FX
 */
 
 
-#define FORBID_PIPELINE_CONSTANT
+#define FORBID_CLIPPING_CONSTANT
 #define FORBID_FACTION_COLOR
 #define MAX_POINT_LIGHT 8 // 6?
 #define IS_TERRAIN
@@ -64,13 +64,13 @@ DirectionalLight[3]
 
 //
 struct ShroudSetup {float4 ScaleUV_OffsetUV;} Shroud //
-: register(vs, c11)  //only VS !
+//: register(vs, c11)  //only VS ?
 < string SasBindAddress = "Terrain.Shroud";> 
 = { 1, 1, 0, 0 };
 
 //
 float4 Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize 
-: register(ps, c11)  //only PS !
+//: register(ps, c11)  //only PS ?
 < string SasBindAddress = "Sas.Shadow[0].Zero_Zero_OneOverMapSize_OneOverMapSize";>
 = float4(0,0,1,1) /1024   ;
 
@@ -100,14 +100,16 @@ shared float3 EyePosition
 : register(c123)
 <    bool unmanaged = true;>;
 
-//C124-C127  //TERRAIN DOESNT HAVE THIS ?
-shared column_major float4x3 World : World 
-: register(c124);
+//TERRAIN DOESNT HAVE THIS ?
+
+//C124-C127  
+//shared column_major float4x3 World : World 
+//: register(c124);
 
 //C128-C255
-float4 WorldBones[128] //shared  ? 
-: register(vs, c128)
-<    bool unmanaged = true;>; 
+//float4 WorldBones[128] //shared  ? 
+//: register(vs, c128)
+//<    bool unmanaged = true;>; 
 
 // other extern variables ========================================
 
@@ -191,7 +193,7 @@ sampler2D ShadowMapSampler // : register(ps_3_0, s5)
 > = sampler_state
 {
     Texture = <ShadowMap>;  //changed filter, 1 point  2 linear 3 aniso 6 PyramidQuad 7 GaussianQuad
-    MinFilter = 1;
+    MinFilter = 1; //1
     MagFilter = 1;
     MipFilter = 0;
     AddressU = 3;
@@ -639,10 +641,10 @@ VSOutputDefault VS_TerrainScorch(
     VSOutputDefault Out;
     float3 Position = Position_BlendWeight1.xyz;
 
-	// Unpack vertex data
+	// Unpack vertex data, but why ?
 	float3 Normal = (Normal_unpack.xyz * 255 / 100.0) - 1.0;
 	float3 Tangent = (Tangent_unpack.xyz * 255 / 100.0) - 1.0;
-	float3 Binormal = (Tangent_unpack.xyz * 255 / 100.0) - 1.0;
+	float3 Binormal = (Binormal_unpack.xyz * 255 / 100.0) - 1.0;
 
     BaseTexCoord = (BaseTexCoord / 30000.0);
 
@@ -747,7 +749,7 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
     float3 diffcolor = baseColor.rgb ;
     float3 speccolor = specmap + 0.125 ; //also spec peak color
 
-    float specAO = saturate(dot(R, i.WorldN) +1) ;
+    //float specAO = saturate(dot(R, i.WorldN) +1) ;
     float diffAO = N.z *0.5 + 0.5 ; //1- normalintensity;
 
     //ambient BRDF
@@ -757,8 +759,8 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
     float env_f_term = pow(saturate(1- dot(V,N)) , 4) ;
 
     float3 ambientALL = 0 ; 
-    ambientALL += irradi_color * diffcolor * diffAO * diffAO ; 
-    ambientALL += skybox_color * speccolor * specAO * env_f_term; 
+    ambientALL += irradi_color * diffcolor * diffAO ; 
+    ambientALL += skybox_color * speccolor * env_f_term; 
 
 
     //sun BRDF
@@ -799,12 +801,12 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
 	{
         float3 PLpos = PointLight[itpl].Position - i.WorldP ;
         float3 PLcolor = PointLight[itpl].Color ;
-        float  PLrangeMAX = PointLight[itpl].Range_Inner_Outer.y  ;
         float  PLrangeMIN = PointLight[itpl].Range_Inner_Outer.x  ;
+        float  PLrangeMAX = PointLight[itpl].Range_Inner_Outer.y + PLrangeMIN  ;
 
         if(PLrangeMAX < 1) {continue;}; //排除无用的点光源
         float  PLdist = length(PLpos) ;
-        if(PLdist > PLrangeMAX) {PLcolor = 0;}; //排除太远的点光源
+        if(PLdist > PLrangeMAX) {continue;}; //排除太远的点光源
         float3 PLL = PLpos / PLdist ; //normalized light vector
         float  PLtilt = dot(PLL, N) ;
         if(PLtilt < 0) {PLcolor = 0;}; //排除背光面
@@ -980,9 +982,9 @@ float4 PS_DefaultLOW(   //LOW QUALITY PS .
 
     //ambient BRDF
 
-    float3 irradi_color = i.Color_Accent_Blend.rgb ;
-    irradi_color *= N.z *0.5 + 0.5 ;
-    irradi_color += AmbientLightColor ;
+    float3 irradi_color = AmbientLightColor ;
+    //irradi_color *= N.z *0.5 + 0.5 ;
+    //irradi_color += i.Color_Accent_Blend.rgb ;
 
     float3 ambientALL = 0 ; 
     ambientALL += irradi_color * diffcolor  ; 
@@ -991,13 +993,13 @@ float4 PS_DefaultLOW(   //LOW QUALITY PS .
 	float3 sunColor = DirectionalLight[0].Color;
 	float3 sunDir = DirectionalLight[0].Direction ;
 
-	float suntilt = dot(sunDir, N); //no saturate yet
-    float diffterm = 1- pow( (1- suntilt) , 3 );
+	//float suntilt = dot(sunDir, N); //no saturate yet
+    float diffterm = 1;//1- pow( (1- suntilt) , 3 );
 
-	float shadowterm = (suntilt > 0)? 1 : 0 ; //replace saturate
+	float shadowterm = (i.Color_Shroud_Suntilt.y > 0)? 1 : 0 ; //replace saturate
 	if (HasShadow) // not the uniform bool hasShadow
     {   
-        float3 ShadowMapUV = i.ShadowMapClipSpace.xyz / i.ShadowMapClipSpace.w;
+        float3 ShadowMapUV = i.ShadowMapClipSpace.xyz / i.ShadowMapClipSpace.w ;
         ShadowMapUV.z -= Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.z ;
         shadowterm *= bilinearShadow(ShadowMapUV); 
         shadowterm = saturate(shadowterm *2 - 0.5) ; // NO NEED IN SRGB?

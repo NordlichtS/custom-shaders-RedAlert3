@@ -28,7 +28,38 @@
 // #define IS_NANO_BUILDUP  //启用帝国建筑的建造动画。 与上两者冲突 不可同时用
 
 
+#define SUPPORT_LIGHTMAP
+
+
+texture LightMap <string UIName = "LightMap";>; 
+sampler2D LightMapSampler 
+<string Texture = "LightMap"; > = sampler_state
+{
+    Texture = <LightMap>; 
+    MinFilter = 2;
+    MagFilter = 2;
+    MipFilter = 2;
+    //MaxAnisotropy = 8;
+    AddressU = 3;
+    AddressV = 3;
+};
+
+float3 getLightMap(float2 secondUV, float time)
+{
+    float3 lightmapcolor = tex2D(LightMapSampler , secondUV).xyz ;
+    lightmapcolor *= lightmapcolor ; 
+    float blinkclock = abs( frac(time /4 ) *2 -1 )  ;
+    lightmapcolor *= 1 + blinkclock ; //will x4 in ps end
+    return lightmapcolor ;
+}
+
 
 #include "PBR5-10-objects-ARPBR.FX"
 
-//this is : objectsgeneric.fxo
+//this is : objects generic light map
+
+
+/*
+fxc.exe /O2 /T fx_2_0 /Fo   objectsgenericlightmap.fxo   objectsgenericlightmap.fx
+
+*/
