@@ -12,6 +12,8 @@ Compiled+packed game-ready patch, download it here: (updated on 2025.01.06) http
 
 To compile your own shader: find "fxc.exe" in TOOLS folder (or from microsoft's official website), place it in the same folder with your FX and FXH files, open a command prompt here by type CMD on the path bar and use following command: ` fxc.exe /O2 /T fx_2_0 /Fo  OutputFileName.fxo   SourceFileName.fx  `
 
+YOU CAN ALSO USE MY "COMPILEALL.BAT" FILE TO BATCH COMPILE ALL SHADERS AT ONE CLICK
+
 My latest and most complete implementation, with the ability of previewing near in-game result in 3dsmax. It was originally made for the brilliant RiMian dev team
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/pointlightpreview.gif)
 there are these adjustable parameters: (either get them from texture, or just a constant variable, or hardcoded)：

@@ -205,7 +205,7 @@ float Time : Time;
 //bool AlphaBlendEnable < string UIName = "Alpha Blend Enable";> ;//= 0;
 
 extern bool AlphaTestEnable //主贴图镂空
-<    string UIName = "Alpha Test Enable";> = 1;
+<    string UIName = "Alpha Test Enable";> = 0;
 
 extern bool CullingEnable //好像是允许背面不渲染来优化？
 <    string UIName = "Culling Enable";> = 1;

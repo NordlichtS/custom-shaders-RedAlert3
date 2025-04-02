@@ -54,7 +54,7 @@ fxc.exe /O2 /T fx_2_0 /Fo   objectsARPBR.fxo   PBR5-10-objects-ARPBR.FX
 
 float4 SPM_threshold //SPM的界限
 <   string UIName = "SPM_threshold"; 	string UIWidget = "Color";
-> ={ 0.75, 0.125, 0.125, 1 }; //分别是：红色金属阈值，绿色金属阈值，蓝色阵营色阈值，发光(<=1!)
+> ={ 2, 0.5, 0.25, 1 }; //分别是：红色金属阈值，绿色金属阈值，蓝色阵营色阈值，发光(<=1!)
 
 float MinRoughness //最低粗糙度（要用倒数更精确吗？）
 <   string UIName = "MinRoughness"; //MAXglossiness
@@ -273,7 +273,7 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
   //环境光相关 
     float3 upper_color = i.VertexColor.rgb + AmbientLightColor;  //already /2 in vs
-    float3 lower_color = (ismetal)? (AmbientLightColor /2) : 0;
+    float3 lower_color = (ismetal)? (AmbientLightColor) : 0 ; //  0.5 ?
     float3 irradi_color = hp_fake_irradiance(0 , upper_color , N.z) ;
     float3 skybox_color = hp_fake_skybox(lower_color , upper_color , R.z , (glossiness * 0.5)) ; 
     skybox_color *= (ismetal)? 1 :  spm.r ;

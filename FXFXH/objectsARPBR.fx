@@ -13,6 +13,8 @@
  #define DYNAMIC_CLOUD_REF //允许动态云背景反射。对金属和玻璃质感很重要 仅玩家
  #define ALLOW_STEALTH //允许隐身时有特殊的全息投影特效, player object only ! 建筑和中立都关
 // #define RENDER_BACKFACE //only for tengu, objectsjapan
+#define FORBID_SHADOW_ALPHATEST  //for terrain like stuff
+
 
 // #define OPACITY_OVERRIDE_CLIP  //仅玩家的OBJECT开
  #define OPACITY_OVERRIDE_OUTPUT //玩家的OBJECT和BUILDING 开
@@ -24,7 +26,7 @@
 
 
 //下面三个互相冲突的（顶点ALPHA功能）功能只能选一个
- #define ALLOW_CLIP_VERTEX_ALPHA //允许骨骼透明度隐藏零件。building不要。objects ? 
+// #define ALLOW_CLIP_VERTEX_ALPHA //允许骨骼透明度隐藏零件。building不要。objects ? 
 // #define IS_BUILDNG //仅building要。这是损伤破洞功能。与上下两者冲突 不可同时用
 // #define IS_NANO_BUILDUP  //启用帝国建筑的建造动画。 与上两者冲突 不可同时用
 
@@ -32,3 +34,8 @@
 #include "PBR5-10-objects-ARPBR.FX"
 
 //this is : objectsARPBR.fxo
+/*
+fxc.exe /O2 /T fx_2_0 /Fo   objectsARPBR.fxo   objectsARPBR.fx
+
+
+*/
