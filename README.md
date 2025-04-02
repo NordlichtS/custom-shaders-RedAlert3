@@ -14,6 +14,12 @@ To compile your own shader: find "fxc.exe" in TOOLS folder (or from microsoft's 
 
 YOU CAN ALSO USE MY "COMPILEALL.BAT" FILE TO BATCH COMPILE ALL SHADERS AT ONE CLICK
 
+=== 2025.march  Terrain Update =============
+
+Finally the blocky shadow and wierd displace on the ground is fixed !
+
+=== 2025.feb. ==================
+
 My latest and most complete implementation, with the ability of previewing near in-game result in 3dsmax. It was originally made for the brilliant RiMian dev team
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/pointlightpreview.gif)
 there are these adjustable parameters: (either get them from texture, or just a constant variable, or hardcoded)：
