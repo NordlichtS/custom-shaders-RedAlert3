@@ -258,7 +258,7 @@ float hp_invshadow_easy ( float3 ShadowProjection )
 float3 hp_dynamic_cloud_reflection(float2 pixelcloudUV, float3 R, float3 Lsun, float cloudLOD)
 {
   #ifdef _3DSMAX_
-    return float3(1,1,1);
+    return NoCloudMultiplier; //float3(1,1,1);
   #endif
     float2 UVbias = R.xy / R.z -  Lsun.xy / Lsun.z ;
     //cloud color dont change on sunlight direction, consider the same UV
@@ -268,7 +268,7 @@ float3 hp_dynamic_cloud_reflection(float2 pixelcloudUV, float3 R, float3 Lsun, f
     float3 cloudcolor = tex2Dlod(CloudTextureSampler, cloudUVwithLOD).rgb;
     float3 skycolor_multplier = lerp( 1, cloudcolor, saturate(R.z) );
     skycolor_multplier *= skycolor_multplier ; //gamma
-    return skycolor_multplier ;
+    return skycolor_multplier  ;
 }
 
 

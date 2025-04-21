@@ -1,7 +1,7 @@
 //for batch compiling
 
 // #define FORBID_CLIPPING_CONSTANT //只有强制开 ALPHA TEST 的可以开
-//  #define USE_ARPBR_W3X_CONSTANT
+//  #define USE_SPECIAL_PBR_W3X_CONSTANT
 // #define REPLACE_DEFAULT_TECHNIQUE //only for objects terrain
 // #define COMPILE_SOFTSKIN_VS //USUALLY OFF
 // 上面的最好别乱动 dont change any above 
@@ -44,12 +44,12 @@ sampler2D LightMapSampler
     AddressV = 3;
 };
 
-float3 getLightMap(float2 secondUV, float time)
+float3 getLightMap(float2 secondUV, float phase)
 {
     float3 lightmapcolor = tex2D(LightMapSampler , secondUV).xyz ;
     lightmapcolor *= lightmapcolor ; 
-    float blinkclock = abs( frac(time /4 ) *2 -1 )  ;
-    lightmapcolor *= 1 + blinkclock ; //will x4 in ps end, also need to x diffcolor
+    float blinkclock = abs( frac(phase ) *2 -1 )  ;
+    lightmapcolor *= 1 + blinkclock  ; //will x4 in ps end, also need to x diffcolor
     return lightmapcolor ;
 }
 

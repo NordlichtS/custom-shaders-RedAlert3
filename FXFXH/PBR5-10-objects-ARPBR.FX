@@ -11,7 +11,7 @@
 #define IS_OBJECT_BUILDING_SHADER
 
 // #define FORBID_CLIPPING_CONSTANT //只有强制开 ALPHA TEST 的可以开
-//  #define USE_ARPBR_W3X_CONSTANT
+//  #define USE_SPECIAL_PBR_W3X_CONSTANT
 // #define REPLACE_DEFAULT_TECHNIQUE //only for objects terrain
 // #define COMPILE_SOFTSKIN_VS //USUALLY OFF
 // 上面的最好别乱动 dont change any above 
@@ -50,27 +50,17 @@ fxc.exe /O2 /T fx_2_0 /Fo   objectsARPBR.fxo   PBR5-10-objects-ARPBR.FX
 #include "head3-vsps.FXH" //WILL INCLUDE EVERYTHING
 
 
-#ifdef USE_ARPBR_W3X_CONSTANT
 
-float4 SPM_threshold //SPM的界限
-<   string UIName = "SPM_threshold"; 	string UIWidget = "Color";
-> ={ 2, 0.5, 0.25, 1 }; //分别是：红色金属阈值，绿色金属阈值，蓝色阵营色阈值，发光(<=1!)
 
-float MinRoughness //最低粗糙度（要用倒数更精确吗？）
-<   string UIName = "MinRoughness"; //MAXglossiness
-    float UIMax = 0.5; float UIMin = 0.005; float UIStep = 0.005; 
-> ={ 0.125 }; 
 
-bool InfantrySkin //当作步兵  允许软绑定  同时关闭法线图
-<    string UIName = "InfantrySkin";> = 0;
+#ifndef USE_SPECIAL_PBR_W3X_CONSTANT
 
-#else // USE_ARPBR_W3X_CONSTANT?
-
-static const float4 SPM_threshold = { 0.75, 0.125, 0.125, 1 }; //careful gen evo values
+static const float4 SPM_threshold = { 0.985, 0.125, 0.125, 1 }; //careful gen evo values
 static const float MinRoughness = 0.125 ;
+static const float specbase_mult = 0.125 ; 
 static const bool InfantrySkin = 0 ;
 
-#endif //USE_ARPBR_W3X_CONSTANT ?
+#endif //USE_SPECIAL_PBR_W3X_CONSTANT ?
 
 
 struct PS_H_input
@@ -143,19 +133,20 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     
 
 
-  //条件编译功能
+  //条件编译功能 =========================================================
     float3 extra_glow = 0 ; //add
     float3 extra_cavity = 1 ; //mult
 
     // hc mixer and gamma
     float3 realHC = 1 ;
     float3 hcmask = 1 ;
+    float whiteHCpart = max(max(albedo.r, albedo.g), albedo.b);
   #ifndef FORBID_FACTION_COLOR
     realHC = (HasRecolorColors)? RecolorColor : realHC ;
-    float whiteHCpart = dot(albedo.rgb, 0.375) ;//max(max(albedo.r, albedo.g), albedo.b);
-    albedo = lerp((albedo * albedo) , whiteHCpart.xxx , spm.b); 
-    //gamma only for no hc part
-    spm.b = (spm.b > SPM_threshold.b)? spm.b : 0 ;
+    albedo *= albedo ;
+    bool isHC = spm.b > SPM_threshold.b ;
+    albedo = (isHC)? whiteHCpart.xxx : albedo; //gamma only for no hc part
+    spm.b = (isHC)? spm.b : 0 ;
     hcmask = lerp(1,  realHC, spm.b);
     albedo *= hcmask ;
     #ifndef INCREASE_HC_SATURATION
@@ -221,11 +212,11 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
   #endif
   // EXTRA_ALPHA WILL NOT EXPORT TO OUTCOLOR
 
-
+  //finish clipping calc =======================================================
 
     //glow will x4 at the end
   #ifdef SUPPORT_LIGHTMAP
-    extra_glow += getLightMap(i.MainTexUV.zw, Time) * albedo; 
+    extra_glow += albedo * getLightMap(i.MainTexUV.zw, Time * 0.25); 
   #endif
   #ifdef SUPPORT_TESLA
     extra_glow += getTeslaMap( i.vpos, Time, EYEtilt) ;
@@ -249,24 +240,25 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     
     float roughness = lerp(1, MinRoughness, spm.r) ;
     float glossiness = 1 / roughness ; //
-    float specbase_mult = 0.25; 
 
     bool ismetal = (spm.r > SPM_threshold.r) || (spm.g > SPM_threshold.g)  ;
 
     float4 colortone = hp_saturation_luminance(albedo, 0.0625 );
     float3 diffcolor = (ismetal)? 0 : albedo ;
-    float3 speccolor = (ismetal)? colortone.rgb : 1 ;  ; //same beightness
+    float3 speccolor = (ismetal)? colortone.rgb : 1 ;  //same beightness
 
     //float blacklineavoid = saturate(dot(dif.xyz, 1) + dot(spm.rg, 2));
     //speccolor *= blacklineavoid ;
 
     float f0_env = (ismetal)? colortone.w : 0 ;
-    float f0_dir = (1 - colortone.w) * spm.r ;
-    f0_dir = (ismetal)? 1 : f0_dir  ;
+    float f0_dir = (1 - whiteHCpart) * spm.r ;
+    f0_dir = (ismetal)? 1 : f0_dir ;
 
     extra_cavity *= spm.w ; //NO AFFECT WITH GLOW BRIGHTNESS
     float glowchannel = saturate( SPM_threshold.w - spm.w);
     extra_glow += albedo * glowchannel ;
+
+    float AOchannel = nrm.w ;
 
 
   //BRDF=========================================
@@ -289,6 +281,7 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     float3 ambientALL = float3(0,0,0) ; //环境光BRDF
     ambientALL += irradi_color * diffcolor  ; 
     ambientALL += skybox_color * speccolor * hp_fresnel(R, V, f0_env, 8); 
+    ambientALL *= AOchannel ;
 
   //阳光相关  
     float vertex_suntilt = dot(i.WorldN, Lsun);
@@ -357,6 +350,10 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
       thisBRDF *= PLcolor * PLdecayfactor(PLrangeMIN, PLrangeMAX, PLdist, 2);
 
       PLtotal += thisBRDF ; //叠加所有点光源
+
+    #ifdef _3DSMAX_
+      break ;
+    #endif
     };
     PLtotal *= 1 ;
 
@@ -385,9 +382,9 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
     OUTCOLOR.a = saturate(OUTCOLOR.a); //for safety
     OUTCOLOR.rgb *= TintColor ;
-    #ifdef INCREASE_HC_SATURATION
+  #ifdef INCREASE_HC_SATURATION
     OUTCOLOR.rgb *= hcmask ;
-    #endif
+  #endif
 
     //alpha clipping is in macro function stage
     //ONLY STEALTH AND OPACITY OVERRIDE AFFECT OUTCOLOR ALPHA
@@ -443,8 +440,13 @@ float4 PS_LOW_ARPBR (PS_H_input i) : COLOR
     float3 albedocolor = 1 ;
     float  texalpha = 1 ;
     float  HCchannel = 0 ;
+    float3 realHC = 1 ;
 
-    float  extra_glow = 0 ; //add
+  #ifndef FORBID_FACTION_COLOR
+    realHC = (HasRecolorColors)? RecolorColor : 1 ; 
+  #endif
+
+    float3  extra_glow = 0 ; //add
     float3 extra_cavity = 1 ; //mult
     float  extra_alpha = 1 ; //
 
@@ -473,8 +475,8 @@ float4 PS_LOW_ARPBR (PS_H_input i) : COLOR
     #ifdef IS_NANO_BUILDUP
     float2 nanobuildupMASK_alpha_glow = hp_nano_build(i.VertexColor.w, i.MainTexUV.xy);
     extra_alpha *= nanobuildupMASK_alpha_glow.x ;
-    extra_glow +=  nanobuildupMASK_alpha_glow.y ;
-    HCchannel += nanobuildupMASK_alpha_glow.y * 2 ;
+    extra_glow +=  nanobuildupMASK_alpha_glow.y * realHC *2;
+    extra_cavity *= 1 - nanobuildupMASK_alpha_glow.y ;
     //clip(nanobuildupMASK_alpha_glow.x - 0.375) ; 
     #endif
 
@@ -482,11 +484,10 @@ float4 PS_LOW_ARPBR (PS_H_input i) : COLOR
 
 
   #ifdef SUPPORT_LIGHTMAP
-    //extra_glow += getLightMap(i.MainTexUV.zw, 0) ; 
+    extra_glow += getLightMap(i.MainTexUV.zw, 0) ; 
   #endif
   #ifdef SUPPORT_TESLA
-    extra_glow += abs( frac(Time + N.z) *2 -1 ) ;
-    extra_cavity *= float3(0.5, 1, 2) ;
+    extra_glow += abs( frac(Time + N.z) *2 -1 ) * float3(0.25, 0.5, 1);
   #endif
 
     //now for albedo colors
@@ -503,19 +504,19 @@ float4 PS_LOW_ARPBR (PS_H_input i) : COLOR
     texalpha = dif.w ;
     float4 spm = tex2D(SpecMapSampler, i.MainTexUV.xy) ;
     HCchannel += spm.b ;
-    extra_glow += 1 - spm.a ;
+    extra_glow += (1 - spm.a) * albedocolor * realHC ;
+    extra_cavity *= spm.a ;
   #endif
 
-  #ifndef FORBID_FACTION_COLOR
-    float3 realHC = (HasRecolorColors)? RecolorColor : 1 ; ;
+
     albedocolor *= lerp(1, realHC, saturate(HCchannel)) ;
-  #endif
+
 
     float4 OUTCOLOR = 0;
     OUTCOLOR.rgb += sundiffuselight + AmbientLightColor ;
-    OUTCOLOR.rgb *= extra_cavity ;
-    OUTCOLOR.rgb = lerp( OUTCOLOR.rgb, 1, saturate(extra_glow));
     OUTCOLOR.rgb *= albedocolor ;
+    OUTCOLOR.rgb *= extra_cavity ;
+    OUTCOLOR.rgb += extra_glow ;
     OUTCOLOR.rgb *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy).xyz ;
     OUTCOLOR.rgb *= TintColor ;
 
@@ -537,7 +538,41 @@ float4 PS_LOW_ARPBR (PS_H_input i) : COLOR
 
 // low ps end
 
+// shadow ps with alpha test 
 
+
+float4 PS_ShadowMaker_ARPBR(VS_ShadowMaker_output i) : COLOR 
+{  
+    float extra_alpha = 1 ;
+
+    //#ifdef OPACITY_OVERRIDE_CLIP
+    //extra_alpha *= OpacityOverride ;
+    //#endif
+
+    #ifdef ALLOW_CLIP_VERTEX_ALPHA
+    extra_alpha *= i.Valpha;
+    #endif
+
+    #ifdef ALLOW_CLIP_TEXTURE_ALPHA
+    extra_alpha *= tex2D(DiffuseEasySampler , i.MainTexUV.xy).w ;
+    #endif
+
+    #ifdef IS_BUILDNG
+    float dmgalpha = tex2D(DamagedTextureSampler , i.MainTexUV.zw).w ;
+    dmgalpha = (i.Valpha < 0.375)? dmgalpha : 1;
+    extra_alpha *= dmgalpha ;
+    #endif 
+
+    #ifdef IS_NANO_BUILDUP
+    extra_alpha *= hp_nano_build(i.Valpha, i.MainTexUV.xy).x;
+    #endif
+
+    clip(extra_alpha - 0.375);
+    return (i.ClipSpace.z / i.ClipSpace.w) ; 
+}
+
+
+//end shadow 
 
 
 
@@ -615,15 +650,18 @@ VertexShader VS_Shadow_Array[2] = {
 int SMPSchooserExpr() 
 { 
   int index = (AlphaTestEnable)? 1 : 0 ;
-  //#ifdef FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN
+  #ifdef FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN
   index = 1 ;
-  //#endif
+  #endif
+  #ifdef FORBID_SHADOW_ALPHATEST
+  index = 0 ;
+  #endif
   return index ; 
 }
 
 PixelShader PS_Shadow_Array[2] = {
   compile ps_2_0 PS_ShadowMaker_NoAlphaTest(),
-  compile ps_2_0 PS_ShadowMaker_AlphaTest(),
+  compile ps_2_0 PS_ShadowMaker_ARPBR(),
 };
 
 #ifdef _3DSMAX_ //预览
@@ -699,12 +737,7 @@ technique _CreateShadowMap
 {    pass p0    
   {
     VertexShader = VS_Shadow_Array[ VSchooserExpr()  ]; 
-    PixelShader  = 
-    #ifdef FORBID_SHADOW_ALPHATEST
-    compile ps_2_0 PS_ShadowMaker_NoAlphaTest() ;
-    #else
-    PS_Shadow_Array[ SMPSchooserExpr()  ];
-    #endif
+    PixelShader  = PS_Shadow_Array[ SMPSchooserExpr()  ];
     ZEnable = 1;
     ZFunc = 4;
     ZWriteEnable = 1;

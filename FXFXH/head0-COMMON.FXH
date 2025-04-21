@@ -194,9 +194,8 @@ bool HasShadow
 <   string UIWidget="None"; string SasBindAddress = "Sas.HasShadow";> = 0 ;
 
 //世界坐标10单位长度为一个地编格，但建造格其实是 20x根号2 ，大约28.3
-float2 MapCellSize
-<   string UIWidget="None"; string SasBindAddress = "Terrain.Map.CellSize";>
-= { 10, 10 };
+// float2 MapCellSize 
+// <   string UIWidget="None"; string SasBindAddress = "Terrain.Map.CellSize";> = { 10, 10 };
 
 //当前帧距离游戏开局的秒数，可以用来做呼吸灯和履带滚动
 float Time : Time;

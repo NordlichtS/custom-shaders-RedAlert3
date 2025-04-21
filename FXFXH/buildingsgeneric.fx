@@ -3,7 +3,7 @@
  //只有强制开 ALPHA TEST 的可以开
 #define FORBID_CLIPPING_CONSTANT
 static const bool AlphaTestEnable = 1 ;
-//  #define USE_ARPBR_W3X_CONSTANT
+//  #define USE_SPECIAL_PBR_W3X_CONSTANT
 // #define REPLACE_DEFAULT_TECHNIQUE //only for objects terrain
 // #define COMPILE_SOFTSKIN_VS //USUALLY OFF
 // 上面的最好别乱动 dont change any above 

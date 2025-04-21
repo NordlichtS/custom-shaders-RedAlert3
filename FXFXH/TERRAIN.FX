@@ -782,7 +782,7 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
 
         float3 ShadowMapUV = i.ShadowMapClipSpace.xyz / i.ShadowMapClipSpace.w;
         ShadowMapUV.xy += smuvbias * i.Color_Shroud_Suntilt.y ;
-        shadowterm *= trilinearShadow(ShadowMapUV, (2- i.Color_Shroud_Suntilt.y) , 1); 
+        shadowterm *= trilinearShadow(ShadowMapUV, 3 , 1); //(2- i.Color_Shroud_Suntilt.y)
     }
 	sunColor *= shadowterm ;
 

@@ -565,39 +565,7 @@ VS_ShadowMaker_output VS_ShadowMaker_CLIPALL()
 float4 PS_ShadowMaker_NoAlphaTest(VS_ShadowMaker_output i) : COLOR 
 {    return (i.ClipSpace.z / i.ClipSpace.w) ; }
 
-#ifdef IS_OBJECT_BUILDING_SHADER
 
-float4 PS_ShadowMaker_AlphaTest(VS_ShadowMaker_output i) : COLOR 
-{  
-    float extra_alpha = 1 ;
-
-    #ifdef OPACITY_OVERRIDE_CLIP
-    extra_alpha *= OpacityOverride ;
-    #endif
-
-    #ifdef ALLOW_CLIP_VERTEX_ALPHA
-    extra_alpha *= i.Valpha;
-    #endif
-
-    #ifdef ALLOW_CLIP_TEXTURE_ALPHA
-    extra_alpha *= tex2D(DiffuseEasySampler , i.MainTexUV.xy).w ;
-    #endif
-
-    #ifdef IS_BUILDNG
-    float dmgalpha = tex2D(DamagedTextureSampler , i.MainTexUV.zw).w ;
-    dmgalpha = (i.Valpha < 0.375)? dmgalpha : 1;
-    extra_alpha *= dmgalpha ;
-    #endif 
-
-    #ifdef IS_NANO_BUILDUP
-    extra_alpha *= hp_nano_build(i.Valpha, i.MainTexUV.xy).x;
-    #endif
-
-    clip(extra_alpha - 0.375);
-    return (i.ClipSpace.z / i.ClipSpace.w) ; 
-}
-
-#endif 
 
 // 二次元描边=======================================
 #ifdef _3DSMAX_ 
