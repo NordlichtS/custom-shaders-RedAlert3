@@ -599,7 +599,7 @@ float hp_glossiness(float roughmap)
 
 float hp_specdist_new(float OOA, float specpeak, float3 R, float3 L)
 {
-    //float specpeak = glossiness * specbase_mult;
+    //float specpeak = glossiness * SpecBaseMultiply;
     float cosRL = dot(R,L);
     cosRL = saturate(cosRL);
     //float OOA = glossiness * glossiness ; //one over alpha
@@ -607,7 +607,7 @@ float hp_specdist_new(float OOA, float specpeak, float3 R, float3 L)
     float specdist = cosRL * OOA - OOA +1 ;
     specdist = saturate(specdist);
     specdist = pow(specdist , 2 ); //smooth tails
-    //float peakbrightness = glossiness * specbase_mult ; 
+    //float peakbrightness = glossiness * SpecBaseMultiply ; 
     //specdist *= peakbrightness ;
     return specdist  ;
 };

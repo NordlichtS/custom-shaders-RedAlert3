@@ -5,7 +5,7 @@
 
 
 // #define FORBID_CLIPPING_CONSTANT //只有强制开 ALPHA TEST 的可以开
-//  #define USE_SPECIAL_PBR_W3X_CONSTANT
+  #define USE_SPECIAL_PBR_W3X_CONSTANT
 // #define REPLACE_DEFAULT_TECHNIQUE //only for objects terrain
 // #define COMPILE_SOFTSKIN_VS //USUALLY OFF
 // 上面的最好别乱动 
@@ -30,6 +30,13 @@
 // #define ALLOW_CLIP_VERTEX_ALPHA //允许骨骼透明度隐藏零件。building不要。objects ? 
 // #define IS_BUILDNG //仅building要。这是损伤破洞功能。与上下两者冲突 不可同时用
 // #define IS_NANO_BUILDUP  //启用帝国建筑的建造动画。 与上两者冲突 不可同时用
+
+
+
+static const float4 SPM_threshold = { 0.985, 0.125, 0.125, 1 }; //careful gen evo values
+static const float MinRoughness = 0.125 ;
+static const float SpecBaseMultiply = 0.125 ; 
+static const bool InfantrySkin = 0 ;
 
 
 #include "PBR5-10-objects-ARPBR.FX"

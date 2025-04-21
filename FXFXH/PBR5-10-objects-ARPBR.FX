@@ -16,6 +16,7 @@
 // #define COMPILE_SOFTSKIN_VS //USUALLY OFF
 // 上面的最好别乱动 dont change any above 
 
+// #define DEDICATED_METAL_CHANNEL  //for compatibility 
 // #define FORBID_FACTION_COLOR //中立单位要禁止阵营色 generic on
 // #define DYNAMIC_CLOUD_REF //允许动态云背景反射。对金属和玻璃质感很重要 仅玩家
 // #define ALLOW_STEALTH //允许隐身时有特殊的全息投影特效, player object only ! 建筑和中立都关
@@ -55,9 +56,9 @@ fxc.exe /O2 /T fx_2_0 /Fo   objectsARPBR.fxo   PBR5-10-objects-ARPBR.FX
 
 #ifndef USE_SPECIAL_PBR_W3X_CONSTANT
 
-static const float4 SPM_threshold = { 0.985, 0.125, 0.125, 1 }; //careful gen evo values
+static const float4 SPM_threshold = { 0.75, 0.125, 0.125, 1 }; //careful gen evo values
 static const float MinRoughness = 0.125 ;
-static const float specbase_mult = 0.125 ; 
+static const float SpecBaseMultiply = 0.125 ; 
 static const bool InfantrySkin = 0 ;
 
 #endif //USE_SPECIAL_PBR_W3X_CONSTANT ?
@@ -136,6 +137,7 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
   //条件编译功能 =========================================================
     float3 extra_glow = 0 ; //add
     float3 extra_cavity = 1 ; //mult
+    float  AOchannel = 1 ; //mult
 
     // hc mixer and gamma
     float3 realHC = 1 ;
@@ -221,6 +223,15 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
   #ifdef SUPPORT_TESLA
     extra_glow += getTeslaMap( i.vpos, Time, EYEtilt) ;
   #endif
+  #ifdef NRM_BLUE_CAVITY
+    extra_cavity *= nrm.b ;
+  #endif
+  #ifdef NRM_BLUE_AO
+    AOchannel *= nrm.b ;
+  #endif
+  #ifdef NRM_ALPHA_AO
+    AOchannel *= nrm.a ;
+  #endif
 
 
     float4 stealthcolor = 1 ;
@@ -242,6 +253,9 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     float glossiness = 1 / roughness ; //
 
     bool ismetal = (spm.r > SPM_threshold.r) || (spm.g > SPM_threshold.g)  ;
+  #ifdef DEDICATED_METAL_CHANNEL
+    ismetal = (spm.g > SPM_threshold.g) ;
+  #endif
 
     float4 colortone = hp_saturation_luminance(albedo, 0.0625 );
     float3 diffcolor = (ismetal)? 0 : albedo ;
@@ -258,7 +272,6 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     float glowchannel = saturate( SPM_threshold.w - spm.w);
     extra_glow += albedo * glowchannel ;
 
-    float AOchannel = nrm.w ;
 
 
   //BRDF=========================================
@@ -315,7 +328,7 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
     float3 sunALL = float3(0,0,0) ;  //阳光BRDF
     sunALL += diffcolor * sun_tilt ; //* diffuse_mult ;
-    sunALL += speccolor * hp_specdist(glossiness, R, Lsun) * specbase_mult * hp_fresnel(Lsun, V, f0_dir, 4);
+    sunALL += speccolor * hp_specdist(glossiness, R, Lsun) * SpecBaseMultiply * hp_fresnel(Lsun, V, f0_dir, 4);
     sunALL *= SUNcolor ; //*= sunlight_mult ;
 
 
@@ -346,7 +359,7 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
       float3 thisBRDF = float3(0,0,0) ;
       thisBRDF += diffcolor * PLtilt  ; 
-      thisBRDF += speccolor * hp_specdist(glossiness, R, PLL) * specbase_mult  ;
+      thisBRDF += speccolor * hp_specdist(glossiness, R, PLL) * SpecBaseMultiply  ;
       thisBRDF *= PLcolor * PLdecayfactor(PLrangeMIN, PLrangeMAX, PLdist, 2);
 
       PLtotal += thisBRDF ; //叠加所有点光源

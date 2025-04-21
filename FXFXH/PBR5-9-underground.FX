@@ -157,7 +157,7 @@ float4 PS_H_UNDERGROUND (VS_to_PS_H_UNDERGROUND i) : COLOR
     dif.xyz *= lerp(dif.xyz , realHC , spm.b); //gamma without hc
 
     float glossiness = spm.r * 8 + 1  ; //
-    float specbase_mult = 0.125 ;
+    float SpecBaseMultiply = 0.125 ;
     float  AOchannel = nrm.w ;
     //float horizon_extra_sharp = 0.5 ;
 
@@ -201,7 +201,7 @@ float4 PS_H_UNDERGROUND (VS_to_PS_H_UNDERGROUND i) : COLOR
     //sun diff
     sunALL += diffcolor * sun_tilt ; //* diffuse_mult ;
     //sun spec
-    sunALL += speccolor * hp_specdist(glossiness, R, Lsun) * specbase_mult * hp_fresnel(Lsun, V, f0_dir, 4);
+    sunALL += speccolor * hp_specdist(glossiness, R, Lsun) * SpecBaseMultiply * hp_fresnel(Lsun, V, f0_dir, 4);
     sunALL *= SUNcolor ; //*= sunlight_mult ;
 
   //点光源BRDF
@@ -234,7 +234,7 @@ float4 PS_H_UNDERGROUND (VS_to_PS_H_UNDERGROUND i) : COLOR
       //pl diff
       thisBRDF += diffcolor * PLtilt  ; 
       //pl spec  
-      thisBRDF += speccolor * hp_specdist(glossiness, R, PLL) * specbase_mult ;//* hp_fresnel(PLL, V, f0_dir, 2) ;
+      thisBRDF += speccolor * hp_specdist(glossiness, R, PLL) * SpecBaseMultiply ;//* hp_fresnel(PLL, V, f0_dir, 2) ;
       //pl colo
       thisBRDF *= PLcolor * PLdecayfactor(PLrangeMIN, PLrangeMAX, PLdist, 2);
 
