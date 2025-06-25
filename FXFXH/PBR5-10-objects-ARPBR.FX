@@ -66,7 +66,7 @@ static const bool InfantrySkin = 0 ;
 
 struct PS_H_input
 {
-    float vface : VFACE ; // + facing camera, - backface ?
+    float vface : VFACE ; // + facing camera, - backface ? NO, INVERTED
     float2 vpos : VPOS ; //screen pixel 
     float4 VertexColor : COLOR0;  //顶点颜色
     float3 CoordOBJ  : COLOR1; 
@@ -100,7 +100,6 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
 
   //有用的向量
-    float3 albedo = dif.xyz ;
     float3 N = i.WorldN;
   #ifdef RENDER_BACKFACE
     N = (i.vface > 0)? -N : N ; //BACKFACE NRM CORRECTION
@@ -110,6 +109,9 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
       nrm.xy *= -BumpScale ;
       N += nrm.x * i.WorldB + nrm.y * i.WorldT ;
     };  //利用世界空间的切线去拉扯法线
+  #ifdef GEOFLATFACE //DIRIVATIVE REPLACE GEO SHADER
+    N = cross(ddy(i.WorldP), ddx(i.WorldP)) ;
+  #endif
     N = normalize(N); 
     //float3x3 TangentSpaceToWorldMatrix = float3x3(i.WorldB, i.WorldT, i.WorldN) ; //T B exchanged!
     //N = mul( float3(nrm.xy, 1), TangentSpaceToWorldMatrix) ;
@@ -120,6 +122,8 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     R = (EYEtilt <0) ? -V : R ;
     EYEtilt = saturate(EYEtilt);
     float fresnelbase = 1- EYEtilt;
+
+    float3 albedo = dif.xyz ;
 
     float3 Lsun     = DirectionalLight[0].Direction.xyz ;
     float3 SUNcolor = DirectionalLight[0].Color.xyz ;
@@ -298,6 +302,9 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
   //阳光相关  
     float vertex_suntilt = dot(i.WorldN, Lsun);
+  #ifdef GEOFLATFACE //DIRIVATIVE REPLACE GEO SHADER
+    vertex_suntilt = dot(N, Lsun);
+  #endif
 
     float  sun_tilt  = dot(N,Lsun) ;
     SUNcolor *= (sun_tilt > 0 )? 1 : 0 ; 
@@ -690,7 +697,7 @@ technique MAXPREV
         ZFunc = 4;
         ZWriteEnable = 1;
         CullMode = 2;
-        AlphaBlendEnable = 0 ;
+        AlphaBlendEnable = (OpacityOverride < 0.985); ;
         AlphaTestEnable = 0 ;
     }
 }
@@ -720,7 +727,7 @@ technique Default
   #endif
     AlphaFunc = 7;
     AlphaRef = 95; //95<0.375<96
-    //AlphaBlendEnable = 0;
+    AlphaBlendEnable = (OpacityOverride < 0.985);
     AlphaTestEnable = 0;//default to 0 ?
   } 
 }
@@ -740,7 +747,7 @@ technique Default_M
     CullMode = 2;
     AlphaFunc = 7;
     AlphaRef = 96;
-    //AlphaBlendEnable = 0;
+    AlphaBlendEnable =  (OpacityOverride < 0.985);
     AlphaTestEnable = 0;
   } 
 }

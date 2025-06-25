@@ -144,6 +144,15 @@ float hp_round_transition( float invalue, float centerpoint, float margin)
 
 //PS===================================
 
+// https://learn.microsoft.com/en-us/windows/win32/direct3d10/d3d10-graphics-programming-guide-resources-coordinates?
+float4 dx9vpos_2NDCXY_2ScreenTexUV(float2 vpos, float2 screenRes)
+{
+    float4 output ;
+    output.xy = vpos / screenRes * 2 -1 ;
+    output.zw = (vpos + 0.5) / screenRes ;
+    return output ;
+}
+
 //柔和阴影
 
 
@@ -304,9 +313,6 @@ float3 getIRRADIANCEcolor (float3 N, float AOchannel)
 
     return nomap_irradiance;
 }
-
-float2 alignScreenTextureUV(float2 vpos, float2 texsize)
-{    return (vpos + 0.5) / texsize ;}
 
 
 

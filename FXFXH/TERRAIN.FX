@@ -732,10 +732,17 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
 	}
 	
 	//now we get our tangent to world matrix !!!
-    float normalintensity = saturate(dot(normalmap, normalmap));
-    normalmap *= -3 * normalintensity; //bumpscale
+    //float normalintensity = saturate(dot(normalmap, normalmap));
+    //normalmap *= -3 * normalintensity; //bumpscale
 	float3 N = i.WorldN ; 
-    N += normalmap.x * i.WorldB + normalmap.y * i.WorldT ;
+
+    float tangentNrmZ = saturate(1 - normalmap.x - normalmap.y) ; //+0.5?
+    N = normalmap.x * i.WorldB + normalmap.y * i.WorldT + tangentNrmZ * i.WorldN;
+
+    #ifdef GEOFLATFACE //DIRIVATIVE REPLACE GEO SHADER
+    N = cross(ddy(i.WorldP), ddx(i.WorldP)) ;
+    #endif
+
 	N = normalize(N);
 
     float3 V = normalize(EyePosition - i.WorldP);
@@ -772,7 +779,7 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
 
 	float shadowterm = 1 ;
     shadowterm *= (suntilt > 0)? 1 : 0 ;
-    shadowterm *= (i.Color_Shroud_Suntilt.y > 0)? 1 : 0 ;
+    //shadowterm *= (i.Color_Shroud_Suntilt.y > 0)? 1 : 0 ;
 	if (HasShadow) // not the uniform bool hasShadow
     {   
         bool2 dither = frac(vpos /2) < 0.3 ;
@@ -782,7 +789,7 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
 
         float3 ShadowMapUV = i.ShadowMapClipSpace.xyz / i.ShadowMapClipSpace.w;
         ShadowMapUV.xy += smuvbias * i.Color_Shroud_Suntilt.y ;
-        shadowterm *= trilinearShadow(ShadowMapUV, 3 , 1); //(2- i.Color_Shroud_Suntilt.y)
+        shadowterm *= trilinearShadow(ShadowMapUV, 2 , 0); //(2- i.Color_Shroud_Suntilt.y)
     }
 	sunColor *= shadowterm ;
 
@@ -1115,7 +1122,8 @@ struct VSOutput_CreateShadowMap
 VSOutput_CreateShadowMap VS_CreateShadowMap(float4 Position : POSITION)
 {
 	VSOutput_CreateShadowMap Out;
-	Out.Position = mul(float4(Position.xyz, 1), ViewProjection);
+    float4 assumedwordpos = float4(Position.x, Position.y, (Position.z -2) , 1);
+	Out.Position = mul(assumedwordpos, ViewProjection);
     Out.ClipSpace = Out.Position ;
 	//Out.Depth = Out.Position.z / Out.Position.w;
 	return Out;

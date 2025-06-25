@@ -29,6 +29,21 @@
 
 
 
+#define SPECIAL_SAS_HEADER
+
+int _SasGlobal : SasGlobal  
+<
+    int3 SasVersion = int3(1, 0, 0);
+    string UIWidget = "None";
+    int MaxSupportedInstancingMode = 1;
+    int MaxLocalLights = 8;
+    
+	string RenderBin = "TerrainLikeGroundObject";
+
+> = 0;
+
+
+
 #include "PBR5-10-objects-ARPBR.FX"
 
 //this is : objects roads

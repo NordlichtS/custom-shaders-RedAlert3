@@ -1,0 +1,520 @@
+;scrapeo parser start
+
+
+00C6B120  db 'EAR',0
+00C6B128  db 'AmbientLight[0].Color',0
+00C6B140  db 'ambient',0
+00C6B148  db 'misc',0
+00C6B150  db 'ProjectionI',0
+00C6B15C  db 'projectioninverse',0
+00C6B170  db 'ViewIT',0
+00C6B178  db 'viewit',0
+00C6B180  db 'ViewI',0
+00C6B188  db 'viewinverse',0
+00C6B194  db 'WorldIT',0
+00C6B19C  db 'worldit',0
+00C6B1A4  db 'WorldI',0
+00C6B1AC  db 'worldinverse',0
+00C6B1BC  db 'WorldViewProjection',0
+00C6B1D0  db 'worldviewprojection',0
+00C6B1E4  db 'WorldViewI',0
+00C6B1F0  db 'worldviewinverse',0
+00C6B204  db 'WorldView',0
+00C6B210  db 'xform',0
+00C6B218  db 'worldview',0
+00C6B224  db 'xform_camera',0
+00C6B234  db 'projection',0
+00C6B240  db 'xform_world',0
+00C6B24C  db 'world',0
+00C6B2E4  db 'IsTransgaming',0
+00C6B2F4  db 'ntdll',0
+00C6B2FC  db 'Begin Event: %s',0
+00C6B30C  db 'End Event: Draw Calls %d',0
+00C6B328  db 'Scrape::Variable',0
+00C6B350  db 'visibleobjects',0
+00C6B360  db 'visibleobjects - sets objects to be visible',0
+00C6B3A0  db 'renderbin',0
+00C6B3AC  db 'renderbin [name] - renders all objects in the named bin',0
+00C6B514  db 'ERROR: SCRAPE Syntax requires + or - before each mask nameRenderThread',0
+00C6B580  db 'vector',0
+00C6B588  db '_SasGlobal',0
+00C6B598  db 'MaterialFactory::CreateMaterial',0
+00C6B5BC  db 'RNAFactory::CreateMesh',0
+00C6B5D4  db 'RNAFactory::CreateStream',0
+00C6B5F0  db 'RNAFactory::CreateDynamicStream',0
+00C6B610  db 'RNAFactory::CreateIndices',0
+00C6B62C  db 'RNAFactory::CreateDynamicIndices',0
+00C6B650  db 'Shadow[%d].Zero_Zero_OneOverMapSize_OneOverMapSize',0
+00C6B684  db 'Shadow[%d].MapSize',0
+00C6B698  db 'Shadow[%d].WorldToShadow',0
+00C6B6B4  db 'HasShadow',0
+00C6B6C0  db 'ShadowMappingEnabled',0
+00C6B6D8  db 'DirectionalLight[%d].Direction',0
+00C6B6F8  db 'DirectionalLight[%d].Color',0
+00C6B714  db 'Skeleton.NumJointsPerVertex',0
+00C6B75C  db 'RenderBin',0
+00C6B768  db 'ErrorMissing.fx',0
+00C6B778  db 'MaxSupportedInstancingMode',0
+00C6B794  db 'MaxLocalLights',0
+00C6B7A4  db 'AllocateTexture',0
+00C6B7B4  db 'AllocateTexture::UserData',0
+00C6B7E8  db 'AlphaTestEnable',0
+00C6B7F8  db 'BlendMode',0
+00C6B804  db 'CullingEnable',0
+00C6B814  db 'material',0
+00C6B820  db 'DepthWriteEnable',0
+
+
+00C6B8C4  db 'WorldBones;',0          
+00C6B8D0  db 'ViewProjection;',0  
+00C6B8E0  db 'EyePosition;',0        
+00C6B8F0  db 'TintColor;',0            
+00C6B8FC  db 'OpacityOverride;',0 
+00C6B910  db 'ShadowMapWorldToShadow;',0
+00C6B928  db 'RecolorColor;',0      
+00C6B938  db 'NoCloudMultiplier;',0
+00C6B94C  db 'Cloud;',0                    
+00C6B954  db 'PointLight;',0          
+00C6B960  db 'DirectionalLight;',0
+00C6B974  db 'AmbientLightColor;',0
+00C6B988  db '".',0                    ; DATA XREF: SomethingThatLoadShader+31F↑o
+
+00C6B98C  db '", Error messages: "',0
+00C6B9A4  db 'Shader compilation failed. File: "',0
+00C6B9C8  db 'C:\BF_RA3_QABUILD_EALA-BUILD20\RA3\code\SageRender\source\Sage\Render\ShaderFactory.cpp:474',0
+00C6BA24  db 'OceanNoVertexTexture.fx',0
+00C6BA3C  db 'Ocean.fx',0
+00C6BA48  db 'Shaders/Compiled/W3XView/',0
+00C6BA78  db 'ShaderTransformMapping',0
+00C6BA94  db 'Render::Init',0
+00C6BAA4  db '_L',0
+00C6BAA8  db '_M',0
+00C6BAB0  db '_U',0
+00C6BAB4  db 'ShaderAsset::Load',0
+00C6BAC8  db 'C:\BF_RA3_QABUILD_EALA-BUILD20\RA3\code\SageRender\source\Sage\Render\MaterialFactory.cpp:216',0
+00C6BB28  db 'Invalid shader parameter type.',0
+00C6BB48  db 'C:\BF_RA3_QABUILD_EALA-BUILD20\RA3\code\SageRender\source\Sage\Render\MaterialFactory.cpp:202',0
+00C6BC54  db 'AlphaNoDepthTest',0
+00C6BC68  db 'AdditiveNoDepthTest',0
+00C6BC7C  db 'Multiplicative',0
+00C6BC8C  db 'AlphaTest',0
+00C6BC98  db 'AdditiveAlphaTest',0
+00C6BCAC  db 'LineRenderers.fx',0
+00C6BD28  db '.fx',0
+00C6BD2C  db 'shaders',0
+00C6BD34  db '*.fx',0
+00C6BD3C  db 'shaders\compiled',0
+00C6BD50  db '*.fxo',0
+00C6BD58  db 'Unknown sub object type',0
+00C6BD70  db 'C:\BF_RA3_QABUILD_EALA-BUILD20\RA3\code\SageRender\source\Sage\Render\RenderObject.cpp:112',0
+00C6BDCC  db 's_rnaDevice != NULL',0
+00C6BDE0  db 'C:\BF_RA3_QABUILD_EALA-BUILD20\RA3\code\SageRender\source\Sage\Render\Core.cpp:332',0
+00C6BE34  db 'TerrainUIRenderDepthBias',0
+00C6BE50  db 'HasRecolorColors',0
+00C6BE64  db 'RecolorColor[0]',0
+00C6BE74  db 'TintColor',0
+00C6BE80  db 'MustRefreshEnvironment',0
+00C6BE98  db 'Fog.IsEnabled',0
+00C6BEA8  db 'Fog.Color',0
+00C6BEB4  db 'Fog.RangeStart',0
+00C6BEC4  db 'Fog.RangeEnd',0
+00C6BED4  db 'Fog.OneOverRangeDelta',0
+00C6BEEC  db 'SSAO.IsEnabled',0
+00C6BEFC  db 'SSAO.SampleRange',0
+00C6BF10  db 'SSAO.OccluderScale',0
+00C6BF24  db 'SSAO.OccluderThreshold',0
+00C6BF3C  db 'Outline.IsEnabled',0
+00C6BF50  db 'Outline.IsSelectedBinPopulated',0
+00C6BF70  db 'Outline.IsHoverSelectBinPopulated',0
+00C6BF94  db 'Outline.IsHoverAttackBinPopulated',0
+00C6BFB8  db 'Outline.SelectedColor',0
+00C6BFD0  db 'Outline.TextureSize',0
+00C6BFE4  db 'IsAntiAliasingEnabled',0
+00C6BFFC  db 'AntiAliasingMode',0
+00C6C010  db 'FrameBufferSizeIfAntiAliasing',0
+00C6C030  db 'IsHdrEnabled',0
+00C6C040  db 'FrameRenderTargetSurfaceFormat',0
+00C6C060  db 'FrameRenderTargetTextureFormat',0
+00C6C080  db 'EnvMapRenderTargetSurfaceFormat',0
+00C6C0A0  db 'EnvMapRenderTargetTextureFormat',0
+00C6C0C0  db 'BasicW3D',0
+00C6C0CC  db 'BasicW3D_CreateShadowMap',0
+00C6C0E8  db 'Objects',0
+00C6C0F0  db 'Buildings',0
+00C6C0FC  db 'DefaultW3D',0
+00C6C108  db 'DrawStartEvent',0
+00C6C118  db 'DrawEndEvent',0
+00C6C240  db 'MeshFactory::Reload',0
+00C6C260  db '4_SAMPLES',0
+00C6C26C  db '2_SAMPLES',0
+00C6C278  db '16_SAMPLES',0
+00C6C284  db '15_SAMPLES',0
+00C6C290  db '14_SAMPLES',0
+00C6C29C  db '13_SAMPLES',0
+00C6C2A8  db '12_SAMPLES',0
+00C6C2B4  db '11_SAMPLES',0
+00C6C2C0  db '10_SAMPLES',0
+00C6C2CC  db '9_SAMPLES',0
+00C6C2D8  db '8_SAMPLES',0
+00C6C2E4  db '7_SAMPLES',0
+00C6C2F0  db '6_SAMPLES',0
+00C6C2FC  db '5_SAMPLES',0
+00C6C308  db '3_SAMPLES',0
+00C6C314  db 'NONMASKABLE',0
+00C6C320  db 'A32B32G32R32F',0
+00C6C330  db 'G32R32F',0
+00C6C338  db 'R32F',0
+00C6C340  db 'A16B16G16R16F',0
+00C6C350  db 'G16R16F',0
+00C6C358  db 'R16F',0
+00C6C360  db 'Q16W16V16U16',0
+00C6C370  db 'INDEX32',0
+00C6C378  db 'INDEX16',0
+00C6C380  db 'VERTEXDATA',0
+00C6C38C  db 'L16',0
+00C6C390  db 'D24FS8',0
+00C6C398  db 'D16',0
+00C6C39C  db 'D24X8',0
+00C6C3A4  db 'D24S8',0
+00C6C3AC  db 'D32',0
+00C6C3B0  db 'DXT4',0
+00C6C3B8  db 'DXT2',0
+00C6C3C0  db 'G8R8_G8B8',0
+00C6C3CC  db 'YUY2',0
+00C6C3D4  db 'R8G8_B8G8',0
+00C6C3E0  db 'UYVY',0
+00C6C3E8  db 'A2W10V10U10',0
+00C6C3F4  db 'V16U16',0
+00C6C3FC  db 'Q8W8V8U8',0
+00C6C408  db 'X8L8V8U8',0
+00C6C414  db 'L6V5U5',0
+00C6C41C  db 'V8U8',0
+00C6C424  db 'A8L8',0
+00C6C42C  db 'L8',0
+00C6C430  db 'A16B16G16R16',0
+00C6C440  db 'A2R10G10B10',0
+00C6C44C  db 'G16R16',0
+00C6C454  db 'X8B8G8R8',0
+00C6C460  db 'A8B8G8R8',0
+00C6C46C  db 'A2B10G10R10',0
+00C6C478  db 'X4R4G4B4',0
+00C6C484  db 'A8',0
+00C6C488  db 'A4R4G4B4',0
+00C6C494  db 'A1R5G5B5',0
+00C6C4A0  db 'X1R5G5B5',0
+00C6C4AC  db 'CxV8U8',0
+00C6C4B4  db 'MULTI2_ARGB8',0
+00C6C4C4  db 'D32F_LOCKABLE',0
+00C6C4D4  db 'D24X4S4',0
+00C6C4DC  db 'D15S1',0
+00C6C4E4  db 'D16_LOCKABLE',0
+00C6C4F4  db 'A4L4',0
+00C6C4FC  db 'P8',0
+00C6C500  db 'A8P8',0
+00C6C508  db 'A8R3G3B2',0
+00C6C514  db 'R3G3B2',0
+00C6C51C  db 'R8G8B8',0
+00C6C584  db 'DrawCallDebugger: Drawing up to %d of %d',0
+00C6C5B0  db 'Begin Draw Call Log',0
+00C6C5C4  db 'End Draw Call Log: Total Draw Calls %d',0
+00C6C5EC  db 'WARNING: %s not found within %s, using default technique
+    ERROR: SCRAPE Current render targets are not a valid set (size, format or MSAA mismatch), at command %d (%s)
+    ERROR: SCRAPE Depth surface smaller than color surface(s) - not allowed!
+    ERROR: SCRAPE MSAA mismatch between color and depth surfaces',0Ah
+00C6C724  db '
+    ERROR: SCRAPE No color or depth surfaces active!
+    ERROR: SCRAPE MSAA mismatch between color surfacesA16B16G16R16_EDRAM',0
+00C6C7B4  db 'A16B16G16R16F_EXPAND',0
+00C6C7CC  db 'G16R16F_EXPAND',0
+00C6C7DC  db 'G16R16_EDRAM',0
+00C6C7EC  db 'L32',0
+00C6C7F0  db 'L8_LIN',0
+00C6C7F8  db 'A8R8G8B8_LINEAR',0
+00C6C808  db 'depthformat',0
+00C6C814  db 'format',0
+00C6C81C  db '
+    ERROR: SCRAPE Error resolving constant %s
+    ERROR: SCRAPE Error converting format from constant %s
+    ERROR: SCRAPE Error converting MSAA type from constant %sRNAX::SCRAPE Duplicate function found: %ssetshader',0
+00C6C908  db 'setshader [name] [(optional) technique]- sets the current shader to use during process',0Ah
+00C6C95F db '  Shader is not bound until a render call is made',0Ah
+00C6C991 db '  Technique can optionally be set with this call 
+    (and may be a SCOPE variable by specifying the block and parm name, e.g. ',27h,'setshader my_shader scope_block scope_parm',27h,')',0
+00C6CA50  db 'setshaderoverride',0
+00C6CA68  db 'setshaderoverride [name] [technique] - sets the technique for the shader to use.',0
+00C6CAD0  db 'clearshaderoverride',0
+00C6CAE8  db 'clearshaderoverride [name] - resets the technique for the shader to use back to default.',0
+00C6CB58  db 'settexture',0
+00C6CB68  db 'settexture [scopeBlock] [scopeParm] [name] 
+    - set the texture specified by [name] into the specific Scope Block and Scope Parm',0
+00C6CBFC  db 'settosize',0
+00C6CC08  db 'settosize [scopeBlock] [scopeParm] [texture or surface name] 
+    - set the size of the texture or surface into the specific Scope Block and Scope Parm. 
+    The Scope Parm needs to be of VECTOR2 type, that will be filled with width and height. 
+    For 3D textures the depth is disregarded.',0
+00C6CD34  db 'casttexture',0
+00C6CD40  db 'casttexture [name] [format] - cast the texture into the specified format',0
+00C6CD8C  db 'D3DEffectMapping',0
+00C6CDB4  db '
+    NumNPatchSegments changed by Effect! (not allowed) 
+    TweenFactor changed by Effect! (not allowed) 
+    PointScaleC changed by Effect! (not allowed) 
+    PointScaleB changed by Effect! (not allowed) 
+    PointScaleA changed by Effect! (not allowed) 
+    PointScaleEnable changed by Effect! (not allowed) 
+    VertexBlend changed by Effect! (not allowed) 
+    EmissiveMaterialSource changed by Effect! (not allowed) 
+    AmbientMaterialSource changed by Effect! (not allowed) 
+    SpecularMaterialSource changed by Effect! (not allowed) 
+    DiffuseMaterialSource changed by Effect! (not allowed) 
+    NormalizeNormals changed by Effect! (not allowed) 
+    LocalViewer changed by Effect! (not allowed) 
+    ColorVertex changed by Effect! (not allowed) 
+    FogVertexMode changed by Effect! (not allowed) 
+    Ambient changed by Effect! (not allowed) 
+    Lighting changed by Effect! (not allowed) 
+    Clipping changed by Effect! (not allowed) 
+    TextureFactor changed by Effect! (not allowed) 
+    RangeFogEnable changed by Effect! (not allowed) 
+    FogDensity changed by Effect! (not allowed) 
+    FogEnd changed by Effect! (not allowed) 
+    FogStart changed by Effect! (not allowed) 
+    FogTableMode changed by Effect! (not allowed) 
+    FogColor changed by Effect! (not allowed) 
+    SpecularEnable changed by Effect! (not allowed) 
+    FogEnable changed by Effect! (not allowed) 
+    DitherEnable changed by Effect! (not allowed) 
+    LastPixel changed by Effect! (not allowed) 
+    ShadeMode changed by Effect! (not allowed) 
+    ColorWriteEnable3[3] changed by Effect! (not allowed) 
+    ColorWriteEnable3[2] changed by Effect! (not allowed) 
+    ColorWriteEnable3[1] changed by Effect! (not allowed) 
+    ColorWriteEnable3[0] changed by Effect! (not allowed) 
+    ColorWriteEnable2[3] changed by Effect! (not allowed) 
+    ColorWriteEnable2[2] changed by Effect! (not allowed) 
+    ColorWriteEnable2[1] changed by Effect! (not allowed) 
+    ColorWriteEnable2[0] changed by Effect! (not allowed) 
+    ColorWriteEnable1[3] changed by Effect! (not allowed) 
+    ColorWriteEnable1[2] changed by Effect! (not allowed) 
+    ColorWriteEnable1[1] changed by Effect! (not allowed) 
+    ColorWriteEnable1[0] changed by Effect! (not allowed) 
+    PointSizeMax changed by Effect! (not allowed) 
+    MultiSampleMask changed by Effect! (not allowed) 
+    MultiSampleAntiAlias changed by Effect! (not allowed) 
+    PointSpriteEnable changed by Effect! (not allowed) 
+    PointSizeMin changed by Effect! (not allowed) 
+    PointSize changed by Effect! (not allowed) 
+    ClipPlaneEnable changed by Effect! (not allowed) 
+    StencilWriteMask changed by Effect! (not allowed) 
+    StencilMask changed by Effect! (not allowed) 
+    StencilRef changed by Effect! (not allowed) 
+    StencilFunc changed by Effect! (not allowed) 
+    StencilPass changed by Effect! (not allowed) 
+    StencilZFail changed by Effect! (not allowed) 
+    StencilFail changed by Effect! (not allowed) 
+    StencilEnable changed by Effect! (not allowed) 
+    FillMode changed by Effect! (not allowed) 
+    Unexpected error retrieving current renderstate!DefaultParameterScopeBlock',0
+00C6D96C  db 'Warning: unknown matrix order %s (should be d3d or gl)gl',0
+00C6D9AC  db 'MatrixOrder',0
+00C6D9B8  db 'aliasSemantic',0
+00C6DA6C  db 'stretchrect',0
+00C6DA78  db 'stretchrect [srcSurfaceOrTexture] [destSurfaceOrTexture] [(optional) filterType] [(optional) srcLevel] [(optional) destLevel] 
+    - copy a surface to another.',0Ah
+00C6DB13 db ' filterType can be "none", "point" or "linear". 
+    srcLevel and destLevel can be specified if the src or dest are textures, and a certain mip level should be used',0
+00C6DBB8  db 'DATA
+    ERROR: RNABuilderTarget::Quantize: Element (%c) index (%d) has a garbage number.mesh',0
+00C6DC54  db 'setviewport',0
+00C6DC60  db 'setviewport [value] [value] [value] [value] - sets the extents of render viewport with 4 int values specified (left, top, right, bottom) ',0Ah
+00C6DCEA db ' setviewport [value] [value] [name] sets the extents of the viewport with 2 int values (left, top) and size of surface/texture ',0Ah
+00C6DD6A db ' setviewport [name] - sets the extents of render viewport from surface/texture',0
+00C6DDD0  db 'setscissor',0
+00C6DDE0  db 'setscissor [value] [value] [value] [value] - sets the extents of render scissor with 4 int values specified (left, top, right, bottom) ',0Ah
+00C6DE68 db ' setscissor [value] [value] [name] sets the extents of the scissor with 2 int values (left, top) and size of surface/texture ',0Ah
+00C6DEE6 db ' setscissor [name] - sets the extents of render scissor from surface/texture',0
+00C6DF48  db 'setcamera',0
+00C6DF58  db 'setcamera [name] - sets the current camera to use.  Camera will set view and projection matrices on the device.',0
+00C6DFDC  db 'ifnot',0
+00C6DFE8  db 'ifnot [scopeBlock] [scopeParm] - start of conditional execution block.  Needs matching endif command',0
+00C6E068  db 'if [scopeBlock] [scopeParm] - start of conditional execution block.  Needs matching endif command',0
+00C6E0E0  db 'endif',0
+00C6E0E8  db 'endif - end of conditional execution block.  Needs matching if/ifnot command',0
+00C6E14C  db 'elif',0
+00C6E158  db 'elif [scopeBlock] [scopeParm] - additional conditional execution block.  Needs matching if and endif commands',0
+00C6E1DC  db 'elifnot',0
+00C6E1E8  db 'elifnot [scopeBlock] [scopeParm] - additional conditional execution block.  Needs matching if and endif commands',0
+00C6E270  db 'else - opposing conditional execution block.  Needs matching if and endif commands',0
+00C6E2D8  db 'goto',0
+00C6E2E0  db 'goto [name] - jump to label (set with : Label) and continue execution',0
+00C6E33C  db 'clear - clears the current target (color, depth, and stencil)',0
+00C6E390  db 'clearcolor',0
+00C6E39C  db 'clearcolor - clears the color channels of the current target',0
+00C6E3F0  db 'cleartarget',0
+00C6E400  db 'cleartarget [index] - set the surface for the specified target (0-3 for render targets, 4 for depth) to NULL',0
+00C6E470  db '
+    ERROR: SCRAPE Target index out of range (%d)
+    ERROR: SCRAPE Can',27h,'t parse target index (0-3)clearz',0
+00C6E4EC  db 'clearz - clear the depth and stencil values on current target',0
+00C6E540  db 'setclearcolor',0
+00C6E550  db 'setclearcolor [red] [green] [blue] [alpha] - sets the clear color to use when clearing color buffer (4 float values)',0
+00C6E5DC  db 'setcleardepth',0
+00C6E5F0  db 'setcleardepth [depth] [(optional) stencil] - sets depth value to use when target is cleared.  
+    NOTE: Currently sets stencil clear value to 0 if not specified',0
+00C6E6A4  db 'setdepth',0
+00C6E6B0  db 'setdepth [name] - sets the current depth buffer to surface specified by name. name can be NULL to unset depth buffer.',0
+00C6E73C  db 'settarget',0
+00C6E748  db 'settarget [index] [name] [(PS3) textureVarName] [(optional) cubemapface] 
+    - sets the current render target on the device',0Ah
+00C6E7C0 db '  [index] is rendertarget index (0-3 for color buffers, 4 for depth)',0Ah
+00C6E805 db ' [name] is name of texture or surface variable, can be NULL to unset target',0Ah
+00C6E851 db ' 
+    PC can render to surfaces or textures, 
+    Xenon can render to surfaces only, 
+    PS3 can render to surfaces or textures (with additional parameter) 
+    [cubemapface] set target to this cubemap',27h,'s face (0-5), Windows or PS3
+    ',0
+00C6E93C  db 'beginevent',0
+00C6E948  db 'beginevent [name] - tags an event for profiling system (PIX)',0
+00C6E99C  db 'endevent',0
+00C6E9A8  db 'endevent [name] - marks the end of an event for profiling system (PIX)',0
+00C6EA04  db 'setmarker',0
+00C6EA10  db 'setmarker [name] - sets a marker for profiling system (PIX)',0
+00C6EA60  db 'proc',0
+00C6EA68  db 'proc [name] - defines procedure entry point when Scrape process is executed',0
+00C6EAC8  db 'endproc',0
+00C6EAD0  db 'endproc - marks the end of a procedure defintion.  Every proc call must have matching endproc',0
+00C6EB48  db ': [name] - sets a label for process to skip to during execution with goto command',0
+00C6EBB0  db 'callproc',0
+00C6EBBC  db 'callproc [name] - calls the named procedure',0
+00C6EC00  db 'return - returns from the current procedure to the parent caller',0
+00C6EC58  db 'renderquad',0
+00C6EC68  db 'renderquad [(optional) red] [(optional) green] [(optional) blue] [(optional) alpha] 
+    - renders a large triangle to fill current viewport dimensions',0Ah
+00C6ECFB db '  Can optionally assign a color to the quad',0
+00C6ED3C  db 'renderfullquad',0
+00C6ED50  db 'renderfullquad [(optional) red] [(optional) green] [(optional) blue] [(optional) alpha] 
+    - renders a quad based on current viewport dimensions',0Ah
+00C6EDDE db '  Can optionally assign a color to the quad',0
+00C6EE20  db 'setfloat',0
+00C6EE30  db 'setfloat [scopeblock] [parmName] [value] [(optional) value] [(optional) value] [(optional) value] 
+    - sets the values of specified scope parameter',0Ah
+00C6EEC1 db '  The number of values entered determines the type of scope parm',0
+00C6EF18  db 'setint',0
+00C6EF20  db 'setint [scopeblock] [parmName] [value] - sets the value of specified scope parameter',0
+00C6EF8C  db 'setbool',0
+00C6EF98  db 'setbool [scopeblock] [parmName] [value] - sets the values of specified scope parameter
+    ERROR: SCRAPE Unknown shader %s
+    ERROR: SCRAPE Unknown texture %sDATA
+    ERROR: Effect [',27h,'%s',27h,', technique %d, pass %d] sets non-saved+restored renderstate! 
+    The state sets should be removed from the effect file or the save+restore code should be updated (see DeviceC::SaveEffectRenderState()), 
+    otherwise there will be unexpected renderstate behavior...D3DXEffect: %s',0
+00C6F190  db '
+    ERROR: SCRAPE Unknown texture filter mode: ',27h,'%s',27h,'. Has to be none, point, or linearlinear',0
+00C6F1EC  db 'point',0
+00C6F1F4  db '
+    ERROR: SCRAPE Unknown texture or surface %s
+    ERROR: SCRAPE StretchRect operation failed (command %d)
+    WARNING: attempting to get rid of stream with ref count of %d. 
+    the max at this point should be two, one from the m_pStream, one from m_pMesh(AddStream).
+    ERROR: SCRAPE unknown texture/surface %s
+    ERROR: SCRAPE ambiguous texture/surface %s
+    ERROR: Not enough integer arguments for setviewportbyvar command',0Ah
+00C6F3A4  db '
+    ERROR: SCRAPE Unknown Camera %s
+    ERROR: SCRAPE Unknown surface %s
+    ERROR: SCRAPE Unknown surface or texture %s
+    ERROR: SCRAPE Cube Face Type index out of range (0-5) -> (%d)',0Ah
+00C6F45C  db '
+    ERROR: SCRAPE Cant parse Cube face type (0-5)Scrape::Process::AllocateTexture',0
+00C6F4B0  db 'fromscope',0
+00C6F4BC  db 'Surface',0
+00C6F4C8  db '
+    ERROR: SCRAPE Could not create EDRAM surface (%s, width: %d, height: %d, MSAA: %s)other',0
+00C6F524  db 'errorMissing.fx',0
+00C6F53C  db 'stream',0
+00C6F544  db 'void',0
+00C6F54C  db 'matrix44',0
+00C6F558  db 'vector4',0
+00C6F560  db 'vector2',0
+00C6F568  db 'vector3',0
+00C6F570  db '
+    ERROR: SCRAPE Error duplicate label name
+    ERROR: SCRAPE Nested procedure definitions are not allowed.
+    ERROR: SCRAPE Unknown texture or surface%sEffectParm',0
+00C6F6C0  db '%s[%i]',0
+00C6F6C8  db 'Warning: Array parameter used without [*] in the SasBindAddress.',0
+00C6F70C  db 'SCRAPE::CommandManager',0
+00C6F724  db '
+    ERROR: SCRAPE Unknown command %s
+    ERROR: SCRAPE Unknown type %smatrix',0
+00C6F770  db 'camera',0
+00C6F778  db 'scene',0
+00C6F780  db 'shader',0
+00C6F788  db '
+    ERROR: SCRAPE Unknown texture typeautogenmipmap',0
+00C6F7BC  db '
+    ERROR: SCRAPE duplicate variable nametexture3d',0
+00C6F7F0  db 'texturecube',0
+00C6F7FC  db 'texture',0
+00C6F804  db 'surfacegroup',0
+00C6F814  db '
+    ERROR: SCRAPE Unknown surface sub-type %s
+    ERROR: SCRAPE Unknown MSAA type %s 
+    (choose from ',27h,'1x',27h,', ',27h,'2x',27h,', ',27h,'4x',27h,', ',27h,'4xr',27h,'(ps3 only), 
+    ',27h,'6x',27h,', ',27h,'8x',27h,', ',27h,'16x',27h,' (windows only)), line %d
+    ERROR: SCRAPE Unknown surface format %sedramdepth',0
+00C6F8F8  db 'depth',0
+00C6F900  db 'color3',0
+00C6F908  db 'color2',0
+00C6F910  db 'color1',0
+00C6F918  db 'color0',0
+00C6F920  db 'edram',0
+00C6F928  db '
+    ERROR: SCRAPE surfaces in RAM are not supported (use textures)',0Ah
+00C6F96C  db '
+    ERROR: SCRAPE Error duplicate variable namesurface',0
+00C6F9A4  db 'staticvar',0
+00C6F9B4  db '
+    ERROR: SCRAPE Error tokenizing line
+    ERROR: SCRAPE Unresolved goto/callproc target "%s".
+    ERROR: SCRAPE Compile error line %d: %s
+    ERROR: SCRAPE Unexpected end of file, missing ',27h,'endproc',27h
+00C6FA77 db '.custom',0
+00C6FAF8  db '4f16',0
+00C6FB00  db '2f16',0
+00C6FB08  db '3s11n',0
+00C6FB10  db '3s10n',0
+00C6FB18  db '3u10',0
+00C6FB20  db '4s16n',0
+00C6FB28  db '2s16n',0
+00C6FB30  db '4u8nEndianSwapped',0
+00C6FB44  db '4u8EndianSwapped',0
+00C6FB58  db '4u8n',0
+00C6FB60  db '4u8',0
+00C6FB64  db '4s8',0
+00C6FB68  db '4s16',0
+00C6FB70  db '4s32',0
+00C6FB78  db '4f32',0
+00C6FB80  db '3s8',0
+00C6FB84  db '3s16',0
+00C6FB8C  db '3s32',0
+00C6FB94  db '3f32',0
+00C6FB9C  db '2s8',0
+00C6FBA0  db '2s16',0
+00C6FBA8  db '2s32',0
+00C6FBB0  db '2f32',0
+00C6FBB8  db '1s8',0
+00C6FBBC  db '1s16',0
+00C6FBC4  db '1s32',0
+00C6FBCC  db '1f32',0
+00C6FBD4  db 'DECR',0
+00C6FBDC  db 'INCR',0
+00C6FBE4  db 'INVERT',0
+00C6FBEC  db 'DECRSAT',0
+00C6FBF4  db 'INCRSAT',0
+00C6FBFC  db 'REPLACE',0
+00C6FC04  db 'KEEP',0
+00C6FC0C  db 'WIREFRAME',0
+
+;end ?
