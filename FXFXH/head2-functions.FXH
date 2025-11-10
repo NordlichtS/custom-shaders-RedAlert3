@@ -139,7 +139,19 @@ float hp_round_transition( float invalue, float centerpoint, float margin)
     return lerp(invalue , edges , lerpw ) ;
 }
 
+float3 hp_facet_nrm(float3 anyPosition)
+{
+    float3 N = cross(ddy(anyPosition), ddx(anyPosition)) ;
+    return normalize(N); //backface correction not needed
+}
 
+float hp_edgefageout(float dnv , float efo)
+{
+    float fterm = dnv;
+    fterm /= (efo == 0)? 1 : efo ;
+    fterm += (efo < 0.01)? 1 : 0 ;
+    return fterm ;
+}
 
 
 //PS===================================
@@ -154,7 +166,7 @@ float4 dx9vpos_2NDCXY_2ScreenTexUV(float2 vpos, float2 screenRes)
 }
 
 //柔和阴影
-
+#ifndef IGNORE_FOG_CLOUD_SHADOW
 
 float hp_invshadow_bilinear ( float3 SMUV ) 
 { 
@@ -261,7 +273,14 @@ float hp_invshadow_easy ( float3 ShadowProjection )
 }
 */
 
-
+float hp_vertex_shadow(float3 ShadowProjection)
+{
+    float2 uv = ShadowProjection.xy ;
+    uv += Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.zw * 0.5;
+    float shadowmapZ = tex2Dlod(ShadowMapSampler, float4(uv, 0, 0));
+    float sunlikelyness = shadowmapZ - ShadowProjection.z ;
+    return saturate(sunlikelyness * 512 +1);
+}
 
 
 float3 hp_dynamic_cloud_reflection(float2 pixelcloudUV, float3 R, float3 Lsun, float cloudLOD)
@@ -298,23 +317,7 @@ float3 getSKYBOXcolor (float3 reflectedView, float roughness, float AOchannel)
 #endif
 
 
-float3 getIRRADIANCEcolor (float3 N, float AOchannel) 
-{
-    float difAO = AOchannel * AOchannel ;
-
-    //  if(use_irradiance_box)
-    // { return     texCUBE(IrradianceTextureSampler, N) * difAO ;    };
-
-    //没有辐照贴图就拟合一个
-    float3 nomap_irradiance = AmbientLightColor ;
-
-    float downwarddecay = saturate(N.z + 1.125) ;
-    nomap_irradiance *= min(difAO , downwarddecay) ; //真的要么
-
-    return nomap_irradiance;
-}
-
-
+#endif //IGNORE_FOG_CLOUD_SHADOW
 
 //高光分布
 float hp_specdist(float glossiness, float3 R, float3 L)
@@ -379,19 +382,6 @@ float3 hp_normalmapper(float2 TEXtangent, float tangent_xy_mult)
     return nrm ;
 };
 
-float3 hp_getAccentLight (float3 vectype)
-{
-    #if defined(_3DSMAX_)
-    return PV_accentlight ;
-    #endif
-
-    float3 skybox1 = DirectionalLight[1].Color ;
-    skybox1 *= dot(DirectionalLight[1].Direction, vectype) +1 ;
-    float3 skybox2 = DirectionalLight[2].Color ;
-    skybox2 *= dot(DirectionalLight[2].Direction, vectype) +1;
-    //already double bright
-    return (skybox1 + skybox2) /2 ; 
-}
 
 
 float3 hp_fake_irradiance( float3 groundcolor, float3 skycolor, float NZ)
@@ -423,6 +413,23 @@ float PLdecayfactor(float PLrangeMIN, float PLrangeMAX, float PLdist, int expone
     float decay = (PLdist - PLrangeMAX) / (PLrangeMIN - PLrangeMAX) ;
     decay = saturate(decay);
     return pow(decay, exponent);
+}
+
+float cheap_pl_diffuse_perpixel(float3 pixelNrm, float3 sourceVec, float maxR, float core)
+{
+    float3 lightvec = sourceVec / maxR ; //length on rim becomes 1
+    lightvec /= dot(lightvec, lightvec);
+    float diffuse = dot(lightvec, pixelNrm) * core - core; //core about 0.2-0.25
+    return saturate(diffuse) ;
+}
+
+float cheap_pl_diffuse_pervertex(float3 pixelNrm, float3 sourceVec, float maxR, float core)
+{
+    float3 lightvec = sourceVec / maxR ; //length on rim becomes 1
+    float sqlength = dot(lightvec, lightvec);
+    float diffuse = dot(lightvec, pixelNrm) / sqlength * core;
+     //core about 0.2-0.25
+    return clamp(diffuse, -1, 1) ;
 }
 
 float4 hp_saturation_luminance(float3 inputcolor, float margin)

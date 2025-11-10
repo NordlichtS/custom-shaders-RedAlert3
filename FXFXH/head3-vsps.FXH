@@ -398,17 +398,7 @@ VS_notgt_output  VS_L_22skin (VS_22skin_notgt_input  i)//, uniform bool UseShado
 
     int2 BoneIndex = floor(i.blendindices.xy * 2)  ;
 
-    /*
-        // 一个四元数旋转似乎是8个指令，而制造矩阵至少9个，矩阵乘法3个
-        float3x3 bone_matrix_0 = Quaternion2Matrix( WorldBones[BoneIndex.x] ) ;
-        float3x3 bone_matrix_1 = Quaternion2Matrix( WorldBones[BoneIndex.y] ) ;
-        float4 bone_offset_alpha_0 = WorldBones[BoneIndex.x + 1];
-        float4 bone_offset_alpha_1 = WorldBones[BoneIndex.y + 1];
-        float3 worldP0 = mul(i.position0.xyz, bone_matrix_0) + bone_offset_alpha_0.xyz ;
-        float3 worldP1 = mul(i.position1.xyz, bone_matrix_1) + bone_offset_alpha_1.xyz ;
-        float3 worldN0 = mul(i.normal0.xyz, bone_matrix_0) ;
-        float3 worldN1 = mul(i.normal1.xyz, bone_matrix_1) ;
-    */
+
 
     float4 bone_Quaternion_0   = WorldBones[BoneIndex.x];
     float4 bone_Quaternion_1   = WorldBones[BoneIndex.y];
@@ -446,7 +436,17 @@ VS_notgt_output  VS_L_22skin (VS_22skin_notgt_input  i)//, uniform bool UseShado
 };
 
 
-
+    /*
+        // 一个四元数旋转似乎是8个指令，而制造矩阵至少9个，矩阵乘法3个
+        float3x3 bone_matrix_0 = Quaternion2Matrix( WorldBones[BoneIndex.x] ) ;
+        float3x3 bone_matrix_1 = Quaternion2Matrix( WorldBones[BoneIndex.y] ) ;
+        float4 bone_offset_alpha_0 = WorldBones[BoneIndex.x + 1];
+        float4 bone_offset_alpha_1 = WorldBones[BoneIndex.y + 1];
+        float3 worldP0 = mul(i.position0.xyz, bone_matrix_0) + bone_offset_alpha_0.xyz ;
+        float3 worldP1 = mul(i.position1.xyz, bone_matrix_1) + bone_offset_alpha_1.xyz ;
+        float3 worldN0 = mul(i.normal0.xyz, bone_matrix_0) ;
+        float3 worldN1 = mul(i.normal1.xyz, bone_matrix_1) ;
+    */
 //===========================================
 //制造阴影图的  VS + PS
 //===========================================
@@ -536,13 +536,8 @@ VS_ShadowMaker_output VS_ShadowMaker_22skin(VS_ShadowMaker_22skin_input i)
     float4 bone_Quaternion_1   = WorldBones[BoneIndex.y];
     float4 bone_offset_alpha_1 = WorldBones[BoneIndex.y + 1];
 
-    float2 bonescale = 1 ;
-    #ifdef BONE_ALPHA_SHRINK
-    bonescale = float2(bone_offset_alpha_0.w , bone_offset_alpha_1.w ) ;
-    #endif
-
-    float3 worldP0 = QuaternionRotate( bone_Quaternion_0 , (i.position0.xyz * bonescale.x)) + bone_offset_alpha_0.xyz ;
-    float3 worldP1 = QuaternionRotate( bone_Quaternion_1 , (i.position1.xyz * bonescale.y)) + bone_offset_alpha_1.xyz ;
+    float3 worldP0 = QuaternionRotate( bone_Quaternion_0 , i.position0.xyz ) + bone_offset_alpha_0.xyz ;
+    float3 worldP1 = QuaternionRotate( bone_Quaternion_1 , i.position1.xyz ) + bone_offset_alpha_1.xyz ;
     WorldPosition.xyz = lerp( worldP1 , worldP0 , i.blendweight.x) ;
     o.Valpha = lerp(bone_offset_alpha_1.w , bone_offset_alpha_0.w , i.blendweight.x) ;//* OpacityOverride ; 
     //以下是阴影空间投影
@@ -555,7 +550,7 @@ VS_ShadowMaker_output VS_ShadowMaker_22skin(VS_ShadowMaker_22skin_input i)
 VS_ShadowMaker_output VS_ShadowMaker_CLIPALL()
 {   
     VS_ShadowMaker_output  o;
-    o.Position = float4(2,2,2,1) ;
+    o.Position = float4(0,0,-2,1) ;
     o.ClipSpace = o.Position ;
     return o ;
 }

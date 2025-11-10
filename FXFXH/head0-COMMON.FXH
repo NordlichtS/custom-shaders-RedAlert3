@@ -52,7 +52,7 @@ int _SasGlobal : SasGlobal
 shared float3 RecolorColor 
 : register(vs, c0) : register(ps, c0)
 <   bool unmanaged = true;
-	string UIName = "PV_(Faction)RecolorColor";
+	string UIName = "PV_RecolorColor";
 	string UIWidget = "Color";
 	bool ExportValue = false;
 > = { 
@@ -106,20 +106,6 @@ DirectionalLight[3]
 0.4, 0.5, 0.6,   0, 1, 0, 
 0.3, 0.2, 0.1,   1, 0, 0 };
 
-//looks like these two dont really have specified registers?
-
-//用于设置战争迷雾坐标
-struct {float4 ScaleUV_OffsetUV;} Shroud 
-//为什么它有struct而不是一整个float4？
-//: register(vs, c11)  //只能用于VS ?
-<   string UIWidget="None"; string SasBindAddress = "Terrain.Shroud";> 
-= { 1, 1, 0, 0 };
-
-//阴影图一个像素在阴影采样坐标里的长度，可用于模糊阴影边缘
-float4 Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize 
-//: register(ps, c11) //只能用于PS ?
-<   string UIWidget ="None"; string SasBindAddress = "Sas.Shadow[0].Zero_Zero_OneOverMapSize_OneOverMapSize";>;
-// #define  SMtexel  Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize //名字太长了换个短的！
 
 //==== from here , sm 2.0 end, below can only used by sm 3.0 ====
 
@@ -175,6 +161,22 @@ float4 WorldBones[128] //shared  ? C128-C255
 
 //下面的constant没有写定的寄存器，不过也是引擎看SAS和semantic注入的
 
+//looks like these two dont really have specified registers?
+
+//用于设置战争迷雾坐标
+struct {float4 ScaleUV_OffsetUV;} Shroud 
+//为什么它有struct而不是一整个float4？
+//: register(vs, c11)  //只能用于VS ?
+<   string UIWidget="None"; string SasBindAddress = "Terrain.Shroud";> 
+= { 1, 1, 0, 0 };
+
+//阴影图一个像素在阴影采样坐标里的长度，可用于模糊阴影边缘
+float4 Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize 
+//: register(ps, c11) //只能用于PS ?
+<   string UIWidget ="None"; string SasBindAddress = "Sas.Shadow[0].Zero_Zero_OneOverMapSize_OneOverMapSize";>;
+// #define  SMtexel  Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize //名字太长了换个短的！
+
+
 
 
 //当前帧要接收几个点光源。// register i0 ?
@@ -220,69 +222,6 @@ extern bool DepthWriteEnable //写入深度buffer 但好像是用阴影图制作
 //贴图与采样器========================================
 //除了很重要的，别的都放其它文件了
 
-
-// 阴影贴图，记录阳光投影空间的深度，或者说到天空的距离
-texture ShadowMap
-<
-    string UIWidget = "None";
-    string SasBindAddress = "Sas.Shadow[0].ShadowMap";
->;
-sampler2D ShadowMapSampler
-<
-    string Texture = "ShadowMap";
-    string SasBindAddress = "Sas.Shadow[0].ShadowMap";
-> = sampler_state {
-    Texture = < ShadowMap >;
-    MinFilter = 1 ; 
-    MagFilter = 1 ; // 原版的临近采样
-    MipFilter = 0;
-    AddressU = 4; //3=clamp, 4=border
-    AddressV = 4;
-    //AddressW = 3;
-};
-
-
-// 云的贴图
-texture CloudTexture
-<
-    string UIWidget = "None";
-    string SasBindAddress = "Terrain.Cloud.Texture";
-    string ResourceName = "ShaderPreviewCloud.dds";
->;
-sampler2D CloudTextureSampler
-<
-    string Texture = "CloudTexture";
-    string SasBindAddress = "Terrain.Cloud.Texture";
-    string ResourceName = "ShaderPreviewCloud.dds";
-> = sampler_state {
-    Texture = < CloudTexture >;
-    MinFilter = 2;
-    MagFilter = 2;
-    MipFilter = 2;
-    AddressU = 1;
-    AddressV = 1;
-    //AddressW = 3;
-};
-
-
-// 战争迷雾贴图
-texture ShroudTexture
-<
-    string UIWidget = "None";
-    string SasBindAddress = "Terrain.Shroud.Texture";
->;
-sampler2D ShroudTextureSampler
-<
-    string Texture = "ShroudTexture";
-    string SasBindAddress = "Terrain.Shroud.Texture";
-> = sampler_state {
-    Texture = < ShroudTexture >;
-    MinFilter = 2;
-    MagFilter = 2;
-    MipFilter = 1;
-    AddressU = 3;
-    AddressV = 3;
-};
 
 
 
@@ -366,24 +305,44 @@ typedef enum D3DTEXTUREADDRESS {
 
 */
 
-/*
-废弃代码
+// RENDERSTATE ENUMS
 
-float RoughnessOverride //手动规定非金属的粗糙度，<=0 则取用SPM贴图的红色反转
-<string UIName = "RoughnessOverride(0=SPM)"; float UIMax = 1; float UIMin = -1; float UIStep = 0.05; > 
-={ 0.5 }; 
+// Taken from d3d9types.h D3DBLEND enum
+#define D3DBLEND_ZERO               1
+#define D3DBLEND_ONE                2
+#define D3DBLEND_SRCCOLOR           3
+#define D3DBLEND_INVSRCCOLOR        4
+#define D3DBLEND_SRCALPHA           5
+#define D3DBLEND_INVSRCALPHA        6
+#define D3DBLEND_DESTALPHA          7
+#define D3DBLEND_INVDESTALPHA       8
+#define D3DBLEND_DESTCOLOR          9
+#define D3DBLEND_INVDESTCOLOR       10
+#define D3DBLEND_SRCALPHASAT        11
+#define D3DBLEND_BOTHSRCALPHA       12
+#define D3DBLEND_BOTHINVSRCALPHA    13
+#define D3DBLEND_BLENDFACTOR        14 /* Only supported if D3DPBLENDCAPS_BLENDFACTOR is on */
+#define D3DBLEND_INVBLENDFACTOR     15 /* Only supported if D3DPBLENDCAPS_BLENDFACTOR is on */
 
-float ReflectivityOverride //手动规定非金属的反光度，<=0 则取用SPM贴图的红色
-<string UIName = "ReflectivityOverride(0=SPM)"; float UIMax = 1; float UIMin = -1; float UIStep = 0.05; > 
-={ 0 }; 
+// Taken from d3d9types.h D3DCULL enum
+#define D3DCULL_NONE                1
+#define D3DCULL_CW                  2
+#define D3DCULL_CCW                 3
 
+// Taken from d3d9types.h D3DCMPFUNC enum
+#define D3DCMP_NEVER                1
+#define D3DCMP_LESS                 2
+#define D3DCMP_EQUAL                3
+#define D3DCMP_LESSEQUAL            4
+#define D3DCMP_GREATER              5
+#define D3DCMP_NOTEQUAL             6
+#define D3DCMP_GREATEREQUAL         7
+#define D3DCMP_ALWAYS               8
 
-float  dielectric_roughness = (RoughnessOverride <=0)? metal_roughness : RoughnessOverride ;
-float  dielectric_reflectivity = (ReflectivityOverride <=0)? spm.x : ReflectivityOverride ;
-float  roughness = lerp( dielectric_roughness , metal_roughness , metalness) ;
+// Taken from d3d9types.h. Flags to construct D3DRS_COLORWRITEENABLE
+#define D3DCOLORWRITEENABLE_RED     1 //(1L<<0)
+#define D3DCOLORWRITEENABLE_GREEN   2 //(1L<<1)
+#define D3DCOLORWRITEENABLE_BLUE    4 //(1L<<2)
+#define D3DCOLORWRITEENABLE_ALPHA   8 //(1L<<3)
+#define D3DCOLORWRITEENABLE_ALL     0xf     // Xbox 360 extension [LLatta 2006-09-06: Copied to Windows version too]
 
-const float dielectrics_roughness =  0.66 ; //非金属的恒定粗糙度
-const float MinRoughness =  0.125 ; //最低粗糙度，如果下面false会影响整个粗糙度的尺度
-const bool  SimpleRoughness = false ; //如果上面那个值非常小，可以再化简光滑度函数
-
-*/

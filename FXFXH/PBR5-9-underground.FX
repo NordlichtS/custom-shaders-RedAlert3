@@ -106,7 +106,7 @@ VS_to_PS_H_UNDERGROUND  VS_H_UNDERGROUND (VS_tmp_input  i)  //no bone skin
     o.HorizonRelative_eyeXY_sunXY = float4(squeez2EYE.xy, squeez2SUN.xy) - worldoffset.xyxy;
     o.Position = mul(float4(squeez2EYE, 1), ViewProjection); //给rasterizer的clip space坐标
   #ifdef _3DSMAX_
-    o.Position = mul( mul(float4(squeez2EYE, 1), MAXView) , MAXProjection );
+    o.Position = mul( mul(float4(squeez2EYE, 1), MAXview) , MAXprojection );
   #endif
 
     return o;

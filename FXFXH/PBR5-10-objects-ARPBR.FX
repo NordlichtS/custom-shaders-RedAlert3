@@ -347,8 +347,8 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
 
       float3 PLpos = PointLight[itpl].Position - i.WorldP ;
       float3 PLcolor = PointLight[itpl].Color ;
-      float  PLrangeMIN = PointLight[itpl].Range_Inner_Outer.x ;
-      float  PLrangeMAX = PointLight[itpl].Range_Inner_Outer.y + PLrangeMIN ;
+      float PLrangeMAX = PointLight[itpl].Range_Inner_Outer.y  ;
+      float PLcore = clamp( PointLight[itpl].Range_Inner_Outer.x / PLrangeMAX, 0.125, 0.5);
 
     #ifdef _3DSMAX_ //读取预览点光源数据
       PLpos = PV_pointlightPOS - i.WorldP; // relative!
@@ -357,17 +357,20 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
       PLrangeMIN = 0 ;
     #endif
 
+
       if(PLrangeMAX < 1) {continue;}; //排除无用的点光源
-      float  PLdist = length(PLpos) ;
-      if(PLdist > PLrangeMAX) {continue;}; //排除太远的点光源
+      float3 PLrelative = PLpos / PLrangeMAX ;
+      float  PLdist = length(PLrelative) ;
+      if(PLdist > 1) {continue;};
       float3 PLL = PLpos / PLdist ; //normalized light vector
       float  PLtilt = dot(PLL, N) ;
       if(PLtilt < 0) {PLcolor = 0 ;}; //排除背光面
 
+
       float3 thisBRDF = float3(0,0,0) ;
       thisBRDF += diffcolor * PLtilt  ; 
       thisBRDF += speccolor * hp_specdist(glossiness, R, PLL) * SpecBaseMultiply  ;
-      thisBRDF *= PLcolor * PLdecayfactor(PLrangeMIN, PLrangeMAX, PLdist, 2);
+      thisBRDF *= PLcolor * saturate(PLcore / PLdist - PLcore * PLdist);
 
       PLtotal += thisBRDF ; //叠加所有点光源
 

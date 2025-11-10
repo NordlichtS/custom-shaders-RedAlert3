@@ -38,8 +38,6 @@ sampler2D Texture_0Sampler   //: register(ps, s1)
 int BlendMode //WTF IS THIS
 <string UIName = "BlendMode(0=opaque,1=alpha,2=add)"; int UIMin = 0; int UIMax = 2;> = 0 ;
 
-
-
 float3 ColorAmbient 
 <string UIName = "ColorAmbient"; string UIWidget = "Color";> = { 1, 1, 1 };
 
@@ -78,7 +76,7 @@ sampler2D DiffuseTextureSampler
 sampler2D DiffuseEasySampler //给阴影图用的简便版
 <string Texture = "DiffuseTexture";> = sampler_state {
     Texture = < DiffuseTexture >;
-    MinFilter = 2;
+    MinFilter = 1;
     MagFilter = 2;
     MipFilter = 1;
     MIPMAPLODBIAS = -1 ;
@@ -217,8 +215,78 @@ samplerCUBE IrradianceTextureSampler
 
 #endif  //ALLOW_CUBE_MAP_SAMPLER  ?
 //=================================
-//shader specific helper function
 
+
+#ifndef IGNORE_FOG_CLOUD_SHADOW
+
+// 阴影贴图，记录阳光投影空间的深度，或者说到天空的距离
+texture ShadowMap
+<
+    string UIWidget = "None";
+    string SasBindAddress = "Sas.Shadow[0].ShadowMap";
+>;
+sampler2D ShadowMapSampler
+<
+    string Texture = "ShadowMap";
+    string SasBindAddress = "Sas.Shadow[0].ShadowMap";
+> = sampler_state {
+    Texture = < ShadowMap > ;
+    #ifdef SHADOW_LINEAR_FILTER
+    MinFilter = 2 ; 
+    MagFilter = 2 ; 
+    #else
+    MinFilter = 1 ; 
+    MagFilter = 1 ; 
+    #endif
+    MipFilter = 0;
+    AddressU = 4; //3=clamp, 4=bordercolor
+    AddressV = 4;
+    //AddressW = 3;
+};
+
+// 云的贴图
+texture CloudTexture
+<
+    string UIWidget = "None";
+    string SasBindAddress = "Terrain.Cloud.Texture";
+    string ResourceName = "ShaderPreviewCloud.dds";
+>;
+sampler2D CloudTextureSampler
+<
+    string Texture = "CloudTexture";
+    string SasBindAddress = "Terrain.Cloud.Texture";
+    string ResourceName = "ShaderPreviewCloud.dds";
+> = sampler_state {
+    Texture = < CloudTexture >;
+    MinFilter = 2;
+    MagFilter = 2;
+    MipFilter = 1;
+    AddressU = 1;
+    AddressV = 1;
+    //AddressW = 3;
+};
+
+
+// 战争迷雾贴图
+texture ShroudTexture
+<
+    string UIWidget = "None";
+    string SasBindAddress = "Terrain.Shroud.Texture";
+>;
+sampler2D ShroudTextureSampler
+<
+    string Texture = "ShroudTexture";
+    string SasBindAddress = "Terrain.Shroud.Texture";
+> = sampler_state {
+    Texture = < ShroudTexture >;
+    MinFilter = 2;
+    MagFilter = 2;
+    MipFilter = 1;
+    AddressU = 3;
+    AddressV = 3;
+};
+
+#endif  //IGNORE_FOG_CLOUD_SHADOW
 
 
 #if defined(_3DSMAX_) 
@@ -228,8 +296,8 @@ samplerCUBE IrradianceTextureSampler
 float4x4 MAXwvp : WorldViewProjection;
 float4x4 MAXworld : WORLD;
 float4x4 ViewI : VIEWINVERSE; 
-float4x4 MAXView : View;         
-float4x4 MAXProjection : Projection; 
+float4x4 MAXview : View;         
+float4x4 MAXprojection : Projection; 
 
 
 // sun light direction (world space)
@@ -298,20 +366,53 @@ bool PV_SRGB
 //预览用constant结束=============================
 
 
+float3 getSUNdir(){
+    #ifdef _3DSMAX_
+    return PV_SunlightDirection ;
+    #else
+    return DirectionalLight[0].Direction ;
+    #endif
+}
+
+float3 getSUNcolor(){
+    #ifdef _3DSMAX_
+    return PV_SunlightColor ;
+    #else
+    return DirectionalLight[0].Color ;
+    #endif
+}
+
+float3 hp_getAccentLight (float3 nrm){
+    #if defined(_3DSMAX_)
+    return PV_accentlight ;
+    #else
+
+    float3 skybox1 = DirectionalLight[1].Color ;
+    skybox1 *= dot(DirectionalLight[1].Direction, nrm) +1 ;
+    float3 skybox2 = DirectionalLight[2].Color ;
+    skybox2 *= dot(DirectionalLight[2].Direction, nrm) +1;
+    return (skybox1 + skybox2) /2 ; //already double bright
+    #endif
+}
+
+float3 getEYEpos() {   
+    #ifdef _3DSMAX_
+    return ViewI[3].xyz ;
+    #else
+    return EyePosition ;
+    #endif
+}
+
+float4x4 getVPmatrix(){  
+    #ifdef _3DSMAX_
+    return mul(MAXview, MAXprojection) ;
+    #else
+    return ViewProjection ;
+    #endif
+}
+
 /*
-sampler2D ShadowMapSamplerLinear
-<
-    string Texture = "ShadowMap";
-    string SasBindAddress = "Sas.Shadow[0].ShadowMap";
-> = sampler_state {
-    Texture = < ShadowMap >;
-    MinFilter = 2 ; 
-    MagFilter = 2 ; // 用线性可防止斜面锯齿?
-    MipFilter = 0;
-    AddressU = 4;
-    AddressV = 4;
-    AddressW = 3;
-};
+
 */
 
 /*

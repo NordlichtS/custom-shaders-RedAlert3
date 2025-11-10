@@ -9,7 +9,7 @@
 struct VS_facet_output
 {
     float4 Position : POSITION;   //VS一定要输出的clip space渲染坐标
-    float4 VertexColor : COLOR0;  //顶点颜色，可能现在没用了？W还有用
+    float4 VertexColor : COLOR0;  //顶点颜色，直接照抄RGB， W还有用
     float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV, ZW是建筑损伤图 (并没有反)
     float4 ShadowCS : TEXCOORD1; // 阴影的 CLIP SPACE 坐标，像素里还得除
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
@@ -94,7 +94,6 @@ VS_facet_output  VS_facet_11skin (VS_facet_input  i)  //HARD bone skin
     int BoneIndex = floor(i.blendindices.x * 2)  ;
     float4 bone_Quaternion   = WorldBones[BoneIndex.x];
     float4 bone_offset_alpha = WorldBones[BoneIndex.x + 1];
-    o.VertexColor.w = bone_offset_alpha.w ;
 
     float3 BoneSpacePos = i.position.xyz ;
     #ifdef BONE_ALPHA_SHRINK
@@ -103,7 +102,9 @@ VS_facet_output  VS_facet_11skin (VS_facet_input  i)  //HARD bone skin
     #endif
 
     WorldPosition.xyz = QuaternionRotate( bone_Quaternion, BoneSpacePos) + bone_offset_alpha.xyz ;
-    
+    o.VertexColor.w = bone_offset_alpha.w ;
+
+
     o.WorldEyeDir = WorldPosition.xyz - EyePosition ;
     //if(HasShadow) 
     o.ShadowCS = mul(WorldPosition, ShadowMapWorldToShadow); ;
@@ -137,7 +138,6 @@ VS_facet_output  VS_facet_22skin (VS_facet_input  i)  //SOFT bone skin
     float4 bone_Quaternion_1   = WorldBones[BoneIndex.y];
     float4 bone_offset_alpha_0 = WorldBones[BoneIndex.x + 1];
     float4 bone_offset_alpha_1 = WorldBones[BoneIndex.y + 1];
-    o.VertexColor.w = lerp(bone_offset_alpha_0.w , bone_offset_alpha_1.w , secondBlend) ; 
 
     float3 BoneSpacePos0 = i.position.xyz ;
     float3 BoneSpacePos1 = i.position1.xyz ;
@@ -150,6 +150,7 @@ VS_facet_output  VS_facet_22skin (VS_facet_input  i)  //SOFT bone skin
     float3 worldP0 = QuaternionRotate( bone_Quaternion_0 , BoneSpacePos0) + bone_offset_alpha_0.xyz ;
     float3 worldP1 = QuaternionRotate( bone_Quaternion_1 , BoneSpacePos1) + bone_offset_alpha_1.xyz ;
     WorldPosition.xyz = lerp(worldP0, worldP1, secondBlend) ;
+    o.VertexColor.w = lerp(bone_offset_alpha_0.w , bone_offset_alpha_1.w , secondBlend) ; 
 
     o.WorldEyeDir = WorldPosition.xyz - EyePosition ;
     //if(HasShadow) 
@@ -185,10 +186,7 @@ float4 PS_H_FACET (PS_facet_input i) : COLOR
 
     //先算出面法线
     float3 N = cross(ddy(i.WorldEyeDir), ddx(i.WorldEyeDir)) ;
-    N = normalize(N); 
-  #ifdef RENDER_BACKFACE
-    N = (i.vface > 0)? -N : N ; 
-  #endif
+    N = normalize(N); //backface correction not needed
     float3 V = - normalize(i.WorldEyeDir) ;
     float3 R = reflect(-V , N) ;
 
@@ -301,7 +299,7 @@ VertexShader VS_Shadow_Array[3] = {
     compile vs_2_0 VS_ShadowMaker_00skin(), 
     compile vs_2_0 VS_ShadowMaker_11skin(), 
     compile vs_2_0 VS_ShadowMaker_22skin(), 
-    //compile vs_2_0 VS_ShadowMaker_CLIPALL(), 
+    
 };
 
 // all alpha test are forbidden

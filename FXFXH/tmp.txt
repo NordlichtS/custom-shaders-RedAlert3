@@ -1,0 +1,260 @@
+
+
+// ----------------------------------------------------------------------------
+// RENDERSTATE ENUMS
+// ----------------------------------------------------------------------------
+
+// Taken from d3d9types.h D3DBLEND enum
+#define D3DBLEND_ZERO               1
+#define D3DBLEND_ONE                2
+#define D3DBLEND_SRCCOLOR           3
+#define D3DBLEND_INVSRCCOLOR        4
+#define D3DBLEND_SRCALPHA           5
+#define D3DBLEND_INVSRCALPHA        6
+#define D3DBLEND_DESTALPHA          7
+#define D3DBLEND_INVDESTALPHA       8
+#define D3DBLEND_DESTCOLOR          9
+#define D3DBLEND_INVDESTCOLOR       10
+#define D3DBLEND_SRCALPHASAT        11
+#define D3DBLEND_BOTHSRCALPHA       12
+#define D3DBLEND_BOTHINVSRCALPHA    13
+#define D3DBLEND_BLENDFACTOR        14 /* Only supported if D3DPBLENDCAPS_BLENDFACTOR is on */
+#define D3DBLEND_INVBLENDFACTOR     15 /* Only supported if D3DPBLENDCAPS_BLENDFACTOR is on */
+
+// Taken from d3d9types.h D3DCULL enum
+#define D3DCULL_NONE                1
+#define D3DCULL_CW                  2
+#define D3DCULL_CCW                 3
+
+// Taken from d3d9types.h D3DCMPFUNC enum
+#define D3DCMP_NEVER                1
+#define D3DCMP_LESS                 2
+#define D3DCMP_EQUAL                3
+#define D3DCMP_LESSEQUAL            4
+#define D3DCMP_GREATER              5
+#define D3DCMP_NOTEQUAL             6
+#define D3DCMP_GREATEREQUAL         7
+#define D3DCMP_ALWAYS               8
+
+// Taken from d3d9types.h. Flags to construct D3DRS_COLORWRITEENABLE
+#define D3DCOLORWRITEENABLE_RED     1 //(1L<<0)
+#define D3DCOLORWRITEENABLE_GREEN   2 //(1L<<1)
+#define D3DCOLORWRITEENABLE_BLUE    4 //(1L<<2)
+#define D3DCOLORWRITEENABLE_ALPHA   8 //(1L<<3)
+#define D3DCOLORWRITEENABLE_ALL     0xf     // Xbox 360 extension [LLatta 2006-09-06: Copied to Windows version too]
+
+
+
+
+float3 ColorAmbient : register(vs_2_0, c23) : register(vs_3_0, c26) <string UIName = "Ambient Material Color"; string UIWidget = "Color";> = { 1, 1, 1 };
+float3 ColorDiffuse : register(vs_2_0, c24) : register(vs_3_0, c27) <string UIName = "Diffuse Material Color"; string UIWidget = "Color";> = { 1, 1, 1 };
+float3 ColorSpecular <string UIName = "Specular Material Color"; string UIWidget = "Color";>;
+float Shininess : register(vs_2_0, c26) : register(vs_3_0, c29) <string UIName = "Specular Shininess"; string UIWidget = "Slider"; float UIMax = 100;> = { 1 };
+float3 ColorEmissive <string UIName = "Emissive Material Color"; string UIWidget = "Color";>;
+float EmissiveHDRMultipler <string UIName = "Emissive HDR Multiplier"; string UIWidget = "Slider"; float UIMax = 200;> = { 1 };
+float Opacity : register(vs_2_0, c27) : register(vs_3_0, c30) <string UIName = "Opacity"; string UIWidget = "Slider";> = { 1 };
+float EdgeFadeOut <string UIName = "Edge fade out"; string UIWidget = "Slider";>;
+
+
+bool UseRecolorColors <string UIName = "Allow House Color";>;
+bool HouseColorPulse : register(vs_2_0, c28) : register(vs_3_0, c31) <string UIName = "House Color Pulse Enable";>;
+bool UseWorldCords : register(vs_2_0, c29) : register(vs_3_0, c32) <string UIName = "World UV Enable";>;
+
+bool DepthWriteEnable <string UIName = "Depth Write Enable";> = { 1 };
+bool AlphaTestEnable <string UIName = "Alpha Test Enable";>;
+bool CullingEnable <string UIName = "Culling Enable";> = { 1 };
+
+int BlendMode <string UIName = "Blend mode (0: opaque, 1: alpha, 2: additive)"; int UIMin = 0; int UIMax = 2;>;
+int SecondaryTextureBlendMode <string UIName = "Sec tex func (0: mul, 1: mul2x, 2: alph, 3: specularAlph)"; int UIMin = 0; int UIMax = 3;>;
+int NumTextures <string UIName = "Number of textures to use"; int UIMin = 0; int UIMax = 2;> = { 1 };
+int TexCoordMapper_0 <string UIName = "TexMapper0 (0: direct, 1: scl/move, 2: video)"; int UIMin = 0; int UIMax = 2;>;
+int TexCoordMapper_1 <string UIName = "TexMapper1 (0: direct, 1: scl/move)"; int UIMin = 0; int UIMax = 1;>;
+
+float4 TexCoordTransform_0 <string UIName = "UV0 Scl/Move"; string UIWidget = "Spinner"; int UIMin = 0xfffffc18; int UIMax = 1000;> = { 1, 1, 0, 0 };
+float4 TextureAnimation_FPS_NumPerRow_LastFrame_FrameOffset_0 <string UIName = "UV0 Video Tex"; string UIWidget = "Spinner"; float4 UIMin = float4(-100, 1, 1, 0); float4 UIMax = float4(100, 32, 1024, 1024);> = { 0, 1, 1, 0 };
+float4 TexCoordTransform_1 : register(vs_2_0, c30) : register(vs_3_0, c33) <string UIName = "UV1 Scl/Move"; string UIWidget = "Spinner"; int UIMin = 0xfffffc18; int UIMax = 1000;> = { 1, 1, 0, 0 };
+
+texture Texture_0 <string UIName = "Base Texture";>; 
+sampler2D Texture_0Sampler : register(ps_2_0, s1) : register(ps_3_0, s1) <string Texture = "Texture_0"; string UIName = "Base Texture";> =
+sampler_state{
+    Texture = <Texture_0>; 
+    MinFilter = 3; //aniso
+    MagFilter = 2; //linear
+    MipFilter = 2;
+    AddressU = 1;
+    AddressV = 1;
+};
+texture Texture_1 <string UIName = "Secondary Texture";>; 
+sampler2D Texture_1Sampler <string Texture = "Texture_1"; string UIName = "Secondary Texture";> =
+sampler_state{
+    Texture = <Texture_1>; 
+    MinFilter = 2;
+    MagFilter = 2;
+    MipFilter = 2;
+    AddressU = 1;
+    AddressV = 1;
+};
+
+
+technique Default
+{
+	pass P0
+	<
+		USE_EXPRESSION_EVALUATOR("DefaultW3D")
+	>
+	{
+		VertexShader = ARRAY_EXPRESSION_VS( VS_Array, min(NumJointsPerVertex, 2)
+			+ min(TexCoordMapper_0, MaxTexCoordMapper_0) * VS_Multiplier_TexCoordMapper0
+			+ min(TexCoordMapper_1, MaxTexCoordMapper_1) * VS_Multiplier_TexCoordMapper1
+			+ (HasRecolorColors && UseRecolorColors) * VS_Multiplier_ApplyHouseColor,
+			compile VS_VERSION VS_Xenon()
+		);
+		PixelShader = ARRAY_EXPRESSION_PS( PS_Array, min( NumTextures, 2 )
+			+ SecondaryTextureBlendMode * PS_Multiplier_SecondaryTextureBlendMode
+#if SUPPORT_FOG
+			+ (Fog.IsEnabled ? (BlendMode == BlendMode_Additive ? FogMode_Additive : FogMode_Opaque) : FogMode_Disabled) * PS_Multiplier_FogMode
+#else // #if SUPPORT_FOG
+			+ (FogMode_Disabled) * PS_Multiplier_FogMode
+#endif // #if SUPPORT_FOG
+			+ HasShadow * PS_Multiplier_NumShadows,
+			compile PS_VERSION PS_Xenon()
+		);
+
+		ZEnable = true;
+		ZFunc = ZFUNC_INFRONT;
+		AlphaFunc = GreaterEqual;
+		AlphaRef = DEFAULT_ALPHATEST_THRESHOLD;
+		
+#if !EXPRESSION_EVALUATOR_ENABLED
+		CullMode = ( CullingEnable ? D3DCULL_CW : D3DCULL_NONE );
+		AlphaBlendEnable = ( BlendMode != BlendMode_Opaque || OpacityOverride < 0.99 );
+		SrcBlend = ( BlendMode == BlendMode_Additive && OpacityOverride > 0.99 ? D3DBLEND_ONE : D3DBLEND_SRCALPHA );
+		DestBlend = ( BlendMode == BlendMode_Additive ? D3DBLEND_ONE : D3DBLEND_INVSRCALPHA );
+
+		ZWriteEnable = ( DepthWriteEnable );
+		AlphaTestEnable = ( AlphaTestEnable );
+#endif
+	}  
+}
+
+
+//basic w3d 
+
+
+technique Default
+{
+	pass P0
+#if !defined(SUPPORT_FROZEN) && !defined(SUPPORT_CHRONORIFT)
+	<
+		USE_EXPRESSION_EVALUATOR("BasicW3D")
+	>
+#endif
+	{
+		VertexShader = ARRAY_EXPRESSION_VS(VS_Array,
+			min(NumJointsPerVertex, 2) * VS_Multiplier_NumJointsPerVertex,
+			// Non-array alternative:
+			compile VS_VERSION VS_Xenon(false)
+		);
+		PixelShader = ARRAY_EXPRESSION_PS(PS_Array,
+			(Fog.IsEnabled ? (BlendMode == BlendMode_Additive ? FogMode_Additive : FogMode_Opaque) : FogMode_Disabled) * PS_Multiplier_FogMode
+			+ HasShadow * PS_Multiplier_NumShadows
+			+ HasRecolorColors * PS_Multiplier_RecolorEnable,
+			// Non-array alternative:
+			compile PS_VERSION PS_Xenon(false)
+		);
+
+		ZEnable = true;
+		ZFunc = ZFUNC_INFRONT;
+
+#if defined(SUPPORT_FROZEN)
+		ZWriteEnable = true;
+		CullMode = CW;
+		AlphaBlendEnable = false;
+		AlphaTestEnable = false;
+
+#elif defined(SUPPORT_CHRONORIFT)
+		ZWriteEnable = true;
+		CullMode = CW;
+
+		AlphaBlendEnable = true;
+		SrcBlend = One;
+		DestBlend = One;
+		
+		AlphaTestEnable = true;
+
+#elif !EXPRESSION_EVALUATOR_ENABLED
+		ZWriteEnable = ( DepthWriteEnable );
+		CullMode = ( CullingEnable ? D3DCULL_CW : D3DCULL_NONE );
+		
+		AlphaBlendEnable = ( BlendMode != BlendMode_Opaque || OpacityOverride < 0.99 );
+		SrcBlend = ( BlendMode == BlendMode_Additive && OpacityOverride >= 0.99 ? D3DBLEND_ONE : D3DBLEND_SRCALPHA );
+		DestBlend = ( BlendMode == BlendMode_Additive ? D3DBLEND_ONE : D3DBLEND_INVSRCALPHA );
+		
+		AlphaTestEnable = ( AlphaTestEnable );
+#endif
+
+		AlphaFunc = GreaterEqual;
+		AlphaRef = DEFAULT_ALPHATEST_THRESHOLD;
+	}
+	
+#if defined(SUPPORT_FROZEN)
+	pass p1
+	{
+		VertexShader = ARRAY_EXPRESSION_VS(VS_Frozen_Array,
+			min(NumJointsPerVertex, 2) * VS_Multiplier_NumJointsPerVertex,
+			// Non-array alternative:
+			compile VS_VERSION VS_Xenon(true)
+		);
+		PixelShader = ARRAY_EXPRESSION_PS(PS_Frozen_Array,
+			(Fog.IsEnabled ? (BlendMode == BlendMode_Additive ? FogMode_Additive : FogMode_Opaque) : FogMode_Disabled) * PS_Multiplier_FogMode
+			+ HasShadow * PS_Multiplier_NumShadows
+			+ HasRecolorColors * PS_Multiplier_RecolorEnable,
+			// Non-array alternative:
+			compile PS_VERSION PS_Xenon(true)
+		);
+
+		ZEnable = true;
+		ZFunc = ZFUNC_INFRONT;
+		ZWriteEnable = false;
+		CullMode = CW;
+
+		AlphaBlendEnable = true;
+		SrcBlend = One;
+		DestBlend = One;
+		
+		AlphaTestEnable = false;
+		
+		StencilEnable = false;
+	}
+#endif // SUPPORT_FROZEN
+}
+
+
+//decompiled basic w3d 
+
+technique Default
+{
+    pass P0 <string ExpressionEvaluator = "BasicW3D";>
+    {
+        VertexShader = VS_Array[Default_Expression31()]; 
+        PixelShader = PS_Array[Default_Expression30()]; 
+        ZEnable = 1;
+        ZFunc = 4;
+        AlphaFunc = 7;
+        AlphaRef = 96;
+    }
+}
+
+//decompiled default w3d 
+technique Default
+{
+    pass P0 <string ExpressionEvaluator = "DefaultW3D";>
+    {
+        VertexShader = VS_Array[Default_Expression234()]; 
+        PixelShader = PS_Array[Default_Expression233()]; 
+        ZEnable = 1;
+        ZFunc = 4;
+        AlphaFunc = 7;
+        AlphaRef = 96;
+    }
+}
