@@ -1,6 +1,7 @@
 //use a second texture as mask ? or the first alpha
 /*
 fxc.exe /O2 /T fx_2_0 /Fo   basicw3dMASK.fxo   basicw3dMASK.FX
+fxc.exe /O2 /T fx_2_0 /Fo   (FOR_3DSMAX_ONLY)basicw3dMASK.fxo   basicw3dMASK.FX
 
 
 */
@@ -8,7 +9,22 @@ fxc.exe /O2 /T fx_2_0 /Fo   basicw3dMASK.fxo   basicw3dMASK.FX
 //#define _3DSMAX_
 
 
-int BlendMode <string UIName = "BlendMode(012:opaque/alpha/add)"; int UIMin = 0; int UIMax = 2;> = 1 ;
+#define SPECIAL_SAS_HEADER
+
+int _SasGlobal : SasGlobal  
+<
+    int3 SasVersion = int3(1, 0, 0);
+    string UIWidget = "None";
+    int MaxSupportedInstancingMode = 1;
+    int MaxLocalLights = 0;
+    
+	string RenderBin = "StaticSort1";
+
+> = 0;
+
+
+
+int BlendMode <string UIName = "BlendMode(012:opaque/alpha/add)"; int UIMin = 0; int UIMax = 2;> = 2 ;
 
 int BaseUV <string UIName = "BaseUV(0123:uv0/uv1/world/screen)"; int UIMin = 0; int UIMax = 4;> = 0;
 int MaskUV <string UIName = "MaskUV(0123:uv0/uv1/world/screen)"; int UIMin = 0; int UIMax = 4;> = 2;
@@ -19,9 +35,11 @@ bool HouseColorPulse  <string UIName = "HouseColorPulse";> = 0;
 //bool UseSunlight <string UIName = "UseSunlight(USELESS)";> = 0;
 //float3 ColorDiffuse  <string UIName = "ColorDiffuse"; string UIWidget = "Color";> = 1;
 float3 ColorEmissive <string UIName = "ColorEmissive"; string UIWidget = "Color";> = 1;
-// ACTUAL COLOR = TEXTURE * EMMISIVE
+float EmissiveHDRMultipler <string UIName = "EmissiveHDRMultipler"; string UIWidget = "Slider";float UIMin = 0; float UIMax = 64;> =1.25;
 
-float Opacity <string UIName = "Opacity(Center)"; string UIWidget = "Slider"; float UIMin = 0; float UIMax = 1;> = 0.5 ;
+// ACTUAL COLOR = TEXTURE * (EMMISIVE or HC) * HDR
+
+float Opacity <string UIName = "Opacity(Center)"; string UIWidget = "Slider"; float UIMin = 0; float UIMax = 1;> = 0.25 ;
 float EdgeFadeOut <string UIName = "EdgeFadeOut"; string UIWidget = "Spinner"; float UIMin = -1; float UIMax = 1;> = -0.5 ;
 //EFO <0 means edge alpha = 1 , usually 0
 //float RimFadeOut <string UIName = "RimFadeOut"; string UIWidget = "Spinner"; float UIMin = -1; float UIMax = 1;> = 0 ;
@@ -49,6 +67,7 @@ sampler_state{
     AddressU = 1;
     AddressV = 1;
 };
+
 
 #include "head2-functions.FXH"  // hahahahahahahaha
 
@@ -209,9 +228,9 @@ float4 PS_gradient_mask (PSmask_in i) : COLOR
     };
 
     //hiding is decided here =========================
-    #ifndef _3DSMAX_
+    //#ifndef _3DSMAX_
     if(scanvalue < maskvalue) return float4(0,0,0,0) ; 
-    #endif
+    //#endif
     //hide pixel, early terminate ====================
 
     float4 baseTEXcolor = tex2D(Texture_0Sampler, baseuv)  ;  //sample base
@@ -221,13 +240,14 @@ float4 PS_gradient_mask (PSmask_in i) : COLOR
     if(HouseColorPulse) //ripple effect
     {  colorMultiplier += realHC * frac(maskvalue - Time) ; }
     colorMultiplier *= baseTEXcolor.rgb ;
-    colorMultiplier *= colorMultiplier ; //SRGB to linear
+    colorMultiplier *= colorMultiplier * EmissiveHDRMultipler ; //SRGB to linear
 
     //opacity handle
     alphaMultiplier *= i.dotsun_fresnel_Valpha_Balpha.z ;
     float edgeAlpha = (EdgeFadeOut <0 )? 1 : 0 ;
     float fresnel = smoothstep(0, 1, abs(i.dotsun_fresnel_Valpha_Balpha.y));
     alphaMultiplier *= lerp(edgeAlpha, Opacity, fresnel) ;
+    alphaMultiplier *= i.dotsun_fresnel_Valpha_Balpha.z ;
 
     // rim handle
     float rim = (scanvalue - maskvalue) *64 ;
@@ -243,7 +263,7 @@ float4 PS_gradient_mask (PSmask_in i) : COLOR
 
     #ifdef _3DSMAX_
     if(PV_SRGB) finalcolor.rgb = sqrt(finalcolor.rgb);
-    if(scanvalue < maskvalue) finalcolor = 0 ; 
+    //if(scanvalue < maskvalue) finalcolor = 0 ; 
     #endif
 
     return finalcolor;
