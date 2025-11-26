@@ -1,6 +1,8 @@
 # custom-shaders-RedAlert3
 Graphic improvements for this old dx9 game "Command Conquer Red Alert 3 " (2008) , based on hlsl code published in CnC3 Tiberium Wars MODSDK by Electronic Arts.
 
+![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/SCANMASKDEMO1.gif)
+
 well looks like EA finally decided to be nice once and open-sourced all shader sourcecode from SAGE engine games, no more need to decompile and reverse engineer! I'll update some better examples soon. Check official source code here:  https://github.com/electronicarts/CnC_Modding_Support/tree/main/Red%20Alert%203/Shaders
 
 old decompiler used to make our first prototype before EA open-sourced all shaders: https://github.com/lanyizi/DXDecompiler (experimental)
@@ -16,12 +18,18 @@ YOU CAN ALSO USE MY "COMPILEALL.BAT" FILE TO BATCH COMPILE ALL SHADERS AT ONE CL
 
 === 2025.march  Terrain Update =============
 
-Finally the blocky shadow and wierd displace on the ground is fixed ! Now the shadow has 2x2 pcf plus dither.
+Finally the blocky shadow and wierd displace on the ground is fixed ! Now the shadow has 2x2 pcf, plus dither to smooth out the edge.
+
+![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/terraindemo.webp)
+
+it also support more realistic point light reflection
 
 === 2025.feb. ==================
 
-My latest and most complete implementation, with the ability of previewing near in-game result in 3dsmax. It was originally made for the brilliant RiMian dev team
+A more complete implementation, with the ability of previewing near in-game result in 3dsmax. It was originally made for our brilliant 日冕 dev team
+
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/pointlightpreview.gif)
+
 there are these adjustable parameters: (either get them from texture, or just a constant variable, or hardcoded)：
 diffuse color, ambient occlusion, insulent's reflectivity, fresnel effect f0, roughness, metalness, metal's reflection spectrum color, team color, emmissive color, emmissive blink frequncy, shadow map smoothing + anti aliasing radius (is currently hardcoded for optimization), and more flexible transparency controls.
 
@@ -33,6 +41,7 @@ the "allow stealth" ability means to switch the render into a semi-transparent h
 (here should be a preview screenshot but i forgot to upload)
 
 Here's also a magical shader i made that can show underground structures without breaking the ground. Because the game engine limits the ability to edit terrain while the game is running, it was impossible to make models like missile silo or mine pit before. Not any more !
+
 ![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/underground1.gif)
 
 It uses optical illusion without actually mess up the screen depth buffer, but the light/shadow/reflection calculations are all made as if they really locates underground.
