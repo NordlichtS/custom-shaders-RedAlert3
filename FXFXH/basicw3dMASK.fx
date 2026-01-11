@@ -26,8 +26,9 @@ int _SasGlobal : SasGlobal
 
 int BlendMode <string UIName = "BlendMode(012:opaque/alpha/add)"; int UIMin = 0; int UIMax = 2;> = 2 ;
 
-int BaseUV <string UIName = "BaseUV(0123:uv0/uv1/world/screen)"; int UIMin = 0; int UIMax = 4;> = 0;
-int MaskUV <string UIName = "MaskUV(0123:uv0/uv1/world/screen)"; int UIMin = 0; int UIMax = 4;> = 2;
+int BaseUV <string UIName = "BaseUV(0123:uv0/uv1/world/screen)"; int UIMin = -1; int UIMax = 4;> = 0;
+int MaskUV <string UIName = "MaskUV(0123:uv0/uv1/world/scrern)"; int UIMin = -1; int UIMax = 4;> = -1;
+
 int MaskChannel <string UIName = "MaskChannel(1234RGBA,-1234invert)"; int UIMin = -4; int UIMax = 4;> = 2;
 bool UseRecolorColors <string UIName = "UseRecolorColors";> = 0;
 bool HouseColorPulse  <string UIName = "HouseColorPulse";> = 0;
@@ -185,7 +186,7 @@ VStmp_out VS_L_Unified(VS_unified_notgt_input i, uniform int BonePerVertex)
     uvtypes[0] = i.texcoord.xy ;
     uvtypes[1] = i.texcoord1.xy ;
     uvtypes[2] = worldP.xy /64 ; 
-    uvtypes[3] = ClipSpacePos.xy / ClipSpacePos.w * 2 ;
+    uvtypes[3] = ClipSpacePos.xy / ClipSpacePos.w * 0.5 + 0.5 ;
     float2 baseuv = uvtypes[ clamp( BaseUV, 0,3) ] ;
     float2 maskuv = uvtypes[ clamp( MaskUV, 0,3) ] ;
 
@@ -211,11 +212,11 @@ struct PSmask_in
 
 float4 PS_gradient_mask (PSmask_in i) : COLOR 
 {
-    //float2 screenspacepos
+    float2 ssTexUV = (i.vpos + 0.5) /256 ;
     float3 colorMultiplier = 1 ;
     float  alphaMultiplier = 1 ;
-    float2 baseuv = i.MainTexUV.xy ;
-    float2 maskuv = i.MainTexUV.zw ;
+    float2 baseuv = (BaseUV == -1) ? ssTexUV : i.MainTexUV.xy ;
+    float2 maskuv = (MaskUV == -1) ? ssTexUV : i.MainTexUV.zw ;    
 
     float maskvalue = -1 ; //default: mask always below scan, always show
     float scanvalue = i.dotsun_fresnel_Valpha_Balpha.a ;
