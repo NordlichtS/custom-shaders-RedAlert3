@@ -153,6 +153,68 @@ float hp_edgefageout(float dnv , float efo)
     return fterm ;
 }
 
+float getFacetFresnelCheap(float3 posRelEye)
+{
+    // 1. Calculate the Squared Distance (V^2)
+    // We work with squares to avoid sqrt() and normalize()
+    float V2 = dot(posRelEye, posRelEye);
+
+    // 2. Calculate "Pixel Size" in World Space (Squared)
+    // ddx(posRelEye) gives the tangent vector along the triangle surface for 1 pixel.
+    // This defines the physical scale of the pixel on the geometry.
+    float3 ddxV = ddx(posRelEye);
+    float3 ddyV = ddy(posRelEye);
+    
+    // We sum X and Y to get an "average" surface scale.
+    float surfScaleSq = dot(ddxV, ddxV) + dot(ddyV, ddyV);
+
+    // 3. Calculate Change in Distance (Gradient of V^2)
+    // We want to know how fast V^2 is changing across the screen.
+    // ddx(V2) is actually very cheap (scalar derivative).
+    float dV2_x = ddx(V2);
+    float dV2_y = ddy(V2);
+    float distChangeSq = (dV2_x * dV2_x) + (dV2_y * dV2_y);
+
+    float2 VdistSQgrad = float2(ddx(V2) , ddy(V2)) ;
+
+
+    // 4. Compute the Ratio (Fresnel Term)
+    // Formula derivation: 
+    // Slope^2 = (ChangeInDistance / SurfaceScale)^2
+    // Due to derivative chain rule on V^2, we need a factor of 1/(4*V2) to normalize.
+    float fresnelTerm = distChangeSq / (4.0 * V2 * surfScaleSq);  // denominator margin + 1e-6
+
+    // 5. optioal : Apply intensity and saturate
+    // The result is 0.0 (Center) to 1.0 (Edge).
+    // Intensity: 1.0 is physically correct-ish. Higher values (2.0+) compress the rim.
+    // fresnelTerm = saturate(fresnelTerm * intensity) ;
+
+    return fresnelTerm;
+}
+
+float hp_getFacetFresnelCheapRewrite(float3 worldEyeDir)
+{   // 需要输入相对于摄像机的世界空间位置
+    // 1. 表面到眼睛距离之平方
+    float VdistSQ = dot(worldEyeDir, worldEyeDir);
+
+    // 2. 用两个切线算出 世界空间里 三角表面上 一个像素大小（的平方）
+    float3 ddxV = ddx(worldEyeDir);    float3 ddyV = ddy(worldEyeDir);
+    float pixelSizeSQ = dot(ddxV, ddxV) + dot(ddyV, ddyV);
+
+    // 3. 到眼睛距离变化率 (gradient of V^2)
+    float2 VdistSQgrad = float2(ddx(VdistSQ) , ddy(VdistSQ)) ;
+    float VdistSQSQgrad = dot(VdistSQgrad, VdistSQgrad);
+
+    // 4. 算出来比例实际上等于 square cosine 的菲涅尔，更柔和 
+    // Slope^2 = (ChangeInDistance / SurfaceScale)^2
+    // due to derivative chain rule on V^2, need 1/(4* V^2) to normalize.
+    float fresnelTerm = VdistSQSQgrad / (4 * VdistSQ * pixelSizeSQ);  
+    // 有 near plane 和有限分辨率， 所以其实不怕遇到除以零
+    // 算出来正对相机的面是 0.0 边缘是 1.0 不存在背面所以不用saturate
+
+    return fresnelTerm;
+}
+
 
 //PS===================================
 
