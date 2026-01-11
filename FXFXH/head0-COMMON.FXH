@@ -28,7 +28,7 @@ int _SasGlobal : SasGlobal
     int3 SasVersion = int3(1, 0, 0);
     string UIWidget = "None";
     int MaxSupportedInstancingMode = 1;
-    int MaxLocalLights = 8;
+    int MaxLocalLights = 0;
 > = 0;
 
 #endif
@@ -75,11 +75,12 @@ shared float OpacityOverride
     float UIMax = 1; float UIMin = 0; float UIStep = 0.1; 
     bool ExportValue = false;
 > = 1;
+// TODO : use SAS indirect constant to let expression read it
 
 //谭雅炸弹的染色，还有鼠标点击变亮
 shared float3 TintColor 
 : register(vs, c2) : register(ps, c2)
-<   string SasBindAddress = "TintColor";    bool unmanaged = true;> 
+<   bool unmanaged = true;> 
 = float3(1, 1, 1);
 
 //低画质没有云的时候模拟阴天用
@@ -195,7 +196,7 @@ bool HasRecolorColors
 bool HasShadow 
 <   string UIWidget="None"; string SasBindAddress = "Sas.HasShadow";> = 0 ;
 
-//世界坐标10单位长度为一个地编格，但建造格其实是 20x根号2 ，大约28.3
+//世界坐标10单位长度为一个地编格，但似乎建造格其实是 20x根号2 大约28.3 ？ 也可能就是30
 // float2 MapCellSize 
 // <   string UIWidget="None"; string SasBindAddress = "Terrain.Map.CellSize";> = { 10, 10 };
 
@@ -219,6 +220,34 @@ extern bool DepthWriteEnable //写入深度buffer 但好像是用阴影图制作
 
 //上面的都并没有直接记录在W3X的SHADER段，但引擎会分配
 
+
+//TODO:  
+
+
+/*
+#if !defined(EA_PLATFORM_PS3) && !defined(_3DSMAX_)
+	#define USE_INDIRECT_CONSTANT
+#endif // !defined(_3DSMAX_)
+
+// aka:only windows use indirect constant, thats hard register, not sas
+
+#if !defined(USE_INDIRECT_CONSTANT)
+float OpacityOverride
+<
+	string UIWidget = "None";
+	string SasBindAddress = "WW3D.OpacityOverride";
+> = 1.0;
+
+float3 TintColor
+<
+	string UIWidget = "None";
+	string SasBindAddress = "WW3D.TintColor";
+> = float3(1, 1, 1);
+#endif // #if !defined(USE_INDIRECT_CONSTANT)
+*/
+
+//TODO: 四元数旋转 ，加上顶点的PNTB 做成 FLOAT3[4] 做一个统一的辅助函数
+
 //贴图与采样器========================================
 //除了很重要的，别的都放其它文件了
 
@@ -227,8 +256,7 @@ extern bool DepthWriteEnable //写入深度buffer 但好像是用阴影图制作
 
 
 /*
- FROM OFFICIAL  "REGISTERMAP.FXH"
-
+// FROM OFFICIAL  "REGISTERMAP.FXH"
 // Float constant registers
 
 // Why are these register numbers all over the place? Why not just declare them starting with 0 upwards?
