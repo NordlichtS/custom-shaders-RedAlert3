@@ -2,8 +2,18 @@
 //  IT HAS NO ADJUSTABLE CONSTANT, 
 //  AND OF COURSE NO TEXTURES
 
-#define IGNORE_FOG_CLOUD_SHADOW
+
+/*
+fxc.exe /O2 /T fx_2_0 /Fo   BasicW3dHolographic.fxo   BasicW3dHolographic.FX
+fxc.exe /O2 /T fx_2_0 /Fo   BasicW3dHolographic.fxo   BasicW3dHolographic.FX
+
+*/
+
+
+
 //#define _3DSMAX_
+
+//#define ONLY_USE_LEGACY_HOLOGRAPH
 
 
 #define SPECIAL_SAS_HEADER
@@ -19,6 +29,7 @@ int _SasGlobal : SasGlobal
 > = 0;
 
 
+#define IGNORE_FOG_CLOUD_SHADOW
 
 
 #include "head2-functions.FXH"  // hahahahahahahaha
@@ -29,8 +40,8 @@ int _SasGlobal : SasGlobal
 struct VStmp_out
 {
     float4 Position    : POSITION;
-    float4 ClipSpacePos  : TEXCOORD1 ;
-    float4 WorldP_fromEye_BoneAlpha : TEXCOORD2 ;
+    //float4 ClipSpacePos  : TEXCOORD1 ;
+    float4 WorldP_fromEye_BoneAlpha : TEXCOORD0 ;
 };
 
 struct VS_unified_onlypos_input
@@ -104,8 +115,8 @@ VStmp_out VS_L_Unified(VS_unified_onlypos_input i, uniform int BonePerVertex)
     // Shared calculations 
 
     worldPos4D.xyz = worldP;
-    o.ClipSpacePos = mul(worldPos4D, getVPmatrix());
-    o.Position = o.ClipSpacePos ;
+
+    o.Position = mul(worldPos4D, getVPmatrix()); ;
 
     o.WorldP_fromEye_BoneAlpha.xyz = worldP - getEYEpos() ;
     o.WorldP_fromEye_BoneAlpha.w = boneAlpha;
@@ -119,7 +130,7 @@ VStmp_out VS_L_Unified(VS_unified_onlypos_input i, uniform int BonePerVertex)
 struct PStmp_in
 {
     //float4 ClipSpacePos  : TEXCOORD1 ;
-    float4 WorldP_fromEye_BoneAlpha : TEXCOORD2 ;
+    float4 WorldP_fromEye_BoneAlpha : TEXCOORD0 ;
     float2 vpos : VPOS ;
 };
 
@@ -128,41 +139,35 @@ float4 PS_holographic (PStmp_in i) : COLOR
     // first do holo grid
     float3 WorldEyeDir = i.WorldP_fromEye_BoneAlpha.xyz ;
     float3 WorldP = WorldEyeDir + getEYEpos();
-    //float3 NDCpos = i.ClipSpacePos.xyz / i.ClipSpacePos.w ;
-
 
     //choice cube
     float3 gridcoord = WorldP;
-    gridcoord.z += Time ;
+    // gridcoord.z += Time ;
     // gridcoord.xy = mul(gridcoord.xy , float2x2(1,-1,1,1));  gridcoord.z *= 1.5 ;
     gridcoord = frac(gridcoord /4) *2 -1 ; //4 is grid separation
     gridcoord *= gridcoord ; 
     float dist2grid = max(gridcoord.z, max(gridcoord.x, gridcoord.y)); 
+    dist2grid = 1 - dist2grid ;
 
     //choice line
-    //float scanphase = frac((i.vpos.y - Time) / 8) ;
-    // choice world line
-    //float scanphase = frac((WorldEyeDir.z - Time) / 1) ;
+    float scanphase = frac(i.vpos.y / 4 - Time) ;
+
 
     float Fterm ;
-    Fterm = hp_getFacetFresnelCheapRewrite(WorldEyeDir);
+    Fterm = hp_getFacetFresnelCheapRewrite(WorldEyeDir)  + 0.125;
 
-    //optional, facet fresnel ?
-    /*
-    float3 N = cross(ddy(WorldEyeDir), ddx(WorldEyeDir)) ;
-    N = normalize(N); //backface correction not needed
-    float3 V = - normalize(WorldEyeDir);
-    Fterm = 1.25- abs( dot(N, V) );
-    */
+    float3 FinalColor = (HasRecolorColors)? RecolorColor : 1 ;
 
-    float4 FinalColor = 1;
-    FinalColor.rgb *= min((1 - dist2grid) , ( 0.125 + Fterm )) ;
-    FinalColor.rgb *= (HasRecolorColors)? RecolorColor : 1 ;
+    #ifdef ONLY_USE_LEGACY_HOLOGRAPH
+    FinalColor *= scanphase * Fterm;
+    #else
+    FinalColor *= min(dist2grid , Fterm) ;
+    #endif
 
     #ifdef _3DSMAX_
-    if(PV_SRGB) { FinalColor.xyz = sqrt(FinalColor.xyz) ; } //linear to srgb
+    if(PV_SRGB) { FinalColor = sqrt(FinalColor) ; } //linear to srgb
     #endif
-    return FinalColor;
+    return float4(FinalColor , 1 );
 }
 
 
