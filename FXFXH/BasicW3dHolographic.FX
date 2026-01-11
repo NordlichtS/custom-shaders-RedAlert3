@@ -13,7 +13,7 @@ fxc.exe /O2 /T fx_2_0 /Fo   BasicW3dHolographic.fxo   BasicW3dHolographic.FX
 
 //#define _3DSMAX_
 
-//#define ONLY_USE_LEGACY_HOLOGRAPH
+#define ONLY_USE_LEGACY_HOLOGRAPH
 
 
 #define SPECIAL_SAS_HEADER
