@@ -51,7 +51,7 @@ float3 hp_ps_getViewVector(float3 WorldPosition)
 {   
     float3 camera_in_world = EyePosition ;
     #ifdef _3DSMAX_  //MAX自己的视角位置覆盖
-    camera_in_world = ViewI[3].xyz ;
+    camera_in_world = MAXviewinv[3].xyz ;
     #endif
     float3 viewvector = normalize(camera_in_world - WorldPosition);  
     return viewvector ;
@@ -87,7 +87,7 @@ float3 getShadowMapUV(float4 WorldPosition)
 
 float primeRandom(float seed)
 {
-    float4 trim = frac(seed.xxxx / float4(3, 5, 7, 11)) ;
+    float4 trim = frac(seed.xxxx / float4(2, 3, 5, 7)) ;
     trim = abs(trim *2 -1 );
     return dot(trim, 0.25);
 }

@@ -25,7 +25,7 @@ int _SasGlobal : SasGlobal
     int MaxSupportedInstancingMode = 1;
     int MaxLocalLights = 0;
     
-	string RenderBin = "StaticSort4";
+	string RenderBin = "StaticSort1";
 > = 0;
 
 
@@ -84,7 +84,7 @@ VStmp_out VS_L_Unified(VS_unified_onlypos_input i, uniform int BonePerVertex)
     if (BonePerVertex == 0)
     {   
         worldP = mul(worldPos4D, World);
-        boneAlpha = 1; //!
+        //boneAlpha = 1; //!
     }
 
     // 1 bone : hard skin
@@ -154,7 +154,7 @@ float4 PS_holographic (PStmp_in i) : COLOR
 
 
     float Fterm ;
-    Fterm = hp_getFacetFresnelCheapRewrite(WorldEyeDir)  + 0.125;
+    Fterm = hp_getFacetFresnelCheapRewrite(WorldEyeDir) ;// + 0.125;
 
     float3 FinalColor = (HasRecolorColors)? RecolorColor : 1 ;
 
@@ -164,10 +164,12 @@ float4 PS_holographic (PStmp_in i) : COLOR
     FinalColor *= min(dist2grid , Fterm) ;
     #endif
 
+    FinalColor = max(FinalColor, 0.1);
+
     #ifdef _3DSMAX_
     if(PV_SRGB) { FinalColor = sqrt(FinalColor) ; } //linear to srgb
     #endif
-    return float4(FinalColor , 1 );
+    return float4(FinalColor.rgb , i.WorldP_fromEye_BoneAlpha.w );
 }
 
 
@@ -181,11 +183,11 @@ int VSchooserExpr()
 VertexShader VS_Array[3] = {
     compile vs_3_0 VS_L_Unified(0), 
     compile vs_3_0 VS_L_Unified(1), 
-    compile vs_3_0 VS_L_Unified(2), //disable nrm for soft skin
+    compile vs_3_0 VS_L_Unified(2), 
 };
 #endif
 
-static const int BlendMode <string UIName = "BlendMode(012:opaque/alpha/add)"; int UIMin = 0; int UIMax = 2;> = 2 ;
+//static const int BlendMode <string UIName = "BlendMode(012:opaque/alpha/add)"; int UIMin = 0; int UIMax = 2;> = 2 ;
 
 technique Default
 {
@@ -197,13 +199,15 @@ technique Default
         VertexShader = VS_Array[VSchooserExpr()]; 
         #endif
         PixelShader = compile ps_3_0 PS_holographic(); 
-        ZEnable = 1; //true
-        ZFunc = 4; //ZFUNC_INFRONT
+
 		AlphaTestEnable = 0;
 		AlphaBlendEnable = 1;
 		SrcBlend =  D3DBLEND_ONE ;
 		DestBlend = D3DBLEND_ONE ;
         CullMode = D3DCULL_CW ;
+
+        ZEnable = 1; 
+        ZFunc = 4; //ZFUNC_INFRONT
 
         #ifdef _3DSMAX_
 		ZWriteEnable = ( DepthWriteEnable ); 
