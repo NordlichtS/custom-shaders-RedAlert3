@@ -11,7 +11,7 @@ fxc.exe /O2 /T fx_2_0 /Fo   terrain.fxo   TERRAIN.FX
 #define IS_TERRAIN
 #undef TERRAIN_USE_MULTIPLE_STREAM
 
-
+// #define SHADOW_DITHER
 
 //#include "head0-COMMON.FXH"  //hope it works
 //no, too much differences
@@ -43,7 +43,7 @@ shared float OpacityOverride
 
 shared float3 TintColor 
 : register(vs, c2) : register(ps, c2)
-<   string SasBindAddress = "TintColor"; bool unmanaged = true;> = float3(1, 1, 1);
+<   bool unmanaged = true;> = float3(1, 1, 1);
 
 shared float3 NoCloudMultiplier  
 : register(vs, c3) : register(ps, c3)
@@ -679,7 +679,7 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
 	float4 baseTextureValue = tex2D(baseSampler, BaseTexCoord);
 
 	float2 macroUV = i.WorldP.xy ;
-    macroUV /= MapCellSize.xy * 66 ;
+    macroUV /= MapCellSize.xy * 64 ;
     float3 macroColor = tex2D(MacroSamplerSampler, macroUV).rgb ;
 
     // Doing first and second blend
@@ -788,8 +788,10 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
         smuvbias = (dither.y)? smuvbias    : - smuvbias  ; //y to flip direction     
 
         float3 ShadowMapUV = i.ShadowMapClipSpace.xyz / i.ShadowMapClipSpace.w;
+        #ifdef SHADOW_DITHER
         ShadowMapUV.xy += smuvbias * i.Color_Shroud_Suntilt.y ;
-        shadowterm *= trilinearShadow(ShadowMapUV, 2 , 0); //(2- i.Color_Shroud_Suntilt.y)
+        #endif
+        shadowterm *= trilinearShadow(ShadowMapUV, 2 , 2); //(2- i.Color_Shroud_Suntilt.y)
     }
 	sunColor *= shadowterm ;
 
@@ -1009,7 +1011,7 @@ float4 PS_DefaultLOW(   //LOW QUALITY PS .
         float3 ShadowMapUV = i.ShadowMapClipSpace.xyz / i.ShadowMapClipSpace.w ;
         ShadowMapUV.z -= Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.z ;
         shadowterm *= bilinearShadow(ShadowMapUV); 
-        shadowterm = saturate(shadowterm *2 - 0.5) ; // NO NEED IN SRGB?
+        //shadowterm = saturate(shadowterm *2 - 0.5) ; // NO NEED IN SRGB?
     }
 	sunColor *= shadowterm ;
 
