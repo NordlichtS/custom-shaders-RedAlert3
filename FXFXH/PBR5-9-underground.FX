@@ -86,7 +86,7 @@ VS_to_PS_H_UNDERGROUND  VS_H_UNDERGROUND (VS_tmp_input  i)  //no bone skin
     worldoffset = mul(float4(0,0,0,1) , MAXworld).xyz;
     worldrotation = (float3x3)MAXworld ;//float3x3(1,0,0, 0,1,0, 0,0,1) ; //
     Lsun = PV_SunlightDirection ;
-    camera_in_world = ViewI[3].xyz ;
+    camera_in_world = MAXviewinv[3].xyz ;
   #endif
 
     o.WorldP = mul(i.position.xyz, worldrotation) + worldoffset ; //世界坐标，用这个squeez

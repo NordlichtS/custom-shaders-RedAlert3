@@ -15,7 +15,7 @@
 // #define FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN //应该都关
 // #define KEEP_ALPHA_TEXTURE_SAMPLER_SAME  //仅建筑
 //  #define DAMAGE_BURNRED  //烧红效果看情况吧
- #define SHADOW_DITHER //just like terrain
+// #define SHADOW_DITHER //just like terrain
 
 
 //下面三个互相冲突的（顶点ALPHA功能）功能只能选一个

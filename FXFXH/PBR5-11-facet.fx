@@ -47,7 +47,7 @@ VS_facet_output VS_facet_MAX(VS_facet_input i)
     // 从object space 到 world space===========
 
     WorldPosition = mul(float4(i.position.xyz, 1), MAXworld);
-    o.WorldEyeDir = WorldPosition.xyz - ViewI[3].xyz ; //世界坐标
+    o.WorldEyeDir = WorldPosition.xyz - MAXviewinv[3].xyz ; //世界坐标
 
     o.Position = mul(i.position , MAXwvp); //给rasterizer的clip space坐标
 

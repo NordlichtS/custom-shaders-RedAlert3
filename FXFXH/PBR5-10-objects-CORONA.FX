@@ -75,9 +75,9 @@ struct PS_H_input
     float4 ShadowCS : TEXCOORD1; //XYZ阴影空间投影, W弃用
     float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
     float3 WorldP : TEXCOORD3;  //世界空间位置
-    float3 WorldN : TEXCOORD4_centroid; //世界法线Z
-    float3 WorldT : TEXCOORD5_centroid; //世界切线Y
-    float3 WorldB : TEXCOORD6_centroid; //世界切线X
+    float3 WorldN : TEXCOORD4;//_centroid; //世界法线Z
+    float3 WorldT : TEXCOORD5;//_centroid; //世界切线Y
+    float3 WorldB : TEXCOORD6;//_centroid; //世界切线X
 };
 
 float4 PS_H_ARPBR (PS_H_input i) : COLOR 
@@ -349,7 +349,7 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
       float3 PLpos = PointLight[itpl].Position - i.WorldP ;
       float3 PLcolor = PointLight[itpl].Color ;
       float PLrangeMAX = PointLight[itpl].Range_Inner_Outer.y  ;
-      float PLcore = clamp( PointLight[itpl].Range_Inner_Outer.x / PLrangeMAX, 0.125, 0.5);
+      float PLcore = clamp( PointLight[itpl].Range_Inner_Outer.x / PLrangeMAX, 0.125, 0.5); //still too sharp
 
     #ifdef _3DSMAX_ //读取预览点光源数据
       PLpos = PV_pointlightPOS - i.WorldP; // relative!
