@@ -115,7 +115,7 @@ sampler2D NormalMapSampler
 };
 
 float BumpScale //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。
-<   string UIName = "BumpScale(NRM strength)"; 
+<   string UIName = "BumpScale(NRMstrength)"; 
     string UIWidget = "Slider"; 
     float UIMin = -8; float UIMax = 8; 
     float UIStep = 0.05;
@@ -282,11 +282,41 @@ sampler2D ShroudTextureSampler
     MinFilter = 2;
     MagFilter = 2;
     MipFilter = 1;
-    AddressU = 3;
+    AddressU = 3; //clamp
     AddressV = 3;
 };
 
 #endif  //IGNORE_FOG_CLOUD_SHADOW
+
+// 后处理和延迟渲染的局域光
+#ifdef DEFERRED_RENDER
+
+texture DepthTexture 
+<   
+    string UIWidget = "None";
+    string SasBindAddress = "WW3D.DepthTexture";
+>; 
+sampler2D DepthTextureSampler //: register(ps_2_0, s1) 
+<
+    string Texture = "DepthTexture"; 
+    string SasBindAddress = "WW3D.DepthTexture";
+> = sampler_state {
+    Texture = <DepthTexture>; 
+    MinFilter = 1;  //nearest
+    MagFilter = 1;
+    MipFilter = 1;
+    AddressU = 3;  //clamp
+    AddressV = 3;
+};
+
+//  deferred shading use more matrix math
+float4x4 View           : View;
+float4x4 ViewI          : ViewInverse;
+float4x4 Projection     : Projection;
+float4x4 ProjectionI    : ProjectionInverse;
+
+
+#endif //  DEFERRED_RENDER
 
 
 #if defined(_3DSMAX_) 
@@ -295,7 +325,7 @@ sampler2D ShroudTextureSampler
 
 float4x4 MAXwvp : WorldViewProjection;
 float4x4 MAXworld : WORLD;
-float4x4 ViewI : VIEWINVERSE; 
+float4x4 MAXviewinv : VIEWINVERSE; 
 float4x4 MAXview : View;         
 float4x4 MAXprojection : Projection; 
 
@@ -397,7 +427,7 @@ float3 hp_getAccentLight (float3 nrm){
 
 float3 getEYEpos() {   
     #ifdef _3DSMAX_
-    return ViewI[3].xyz ;
+    return MAXviewinv[3].xyz ;
     #else
     return EyePosition ;
     #endif
