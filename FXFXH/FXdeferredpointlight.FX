@@ -41,12 +41,13 @@ float Range
 <
     string UIName = "Range"; 
     float UIMax = 1024; float UIMin = 32; float UIStep = 1; 
-> = 100 ;
+> = 64 ;
 
 
 
 // helper functions are still in head 2
-#include "head2-functions.FXH"
+#include "head1-maxui.fxh"
+//#include "head2-functions.FXH"
 
 
 
