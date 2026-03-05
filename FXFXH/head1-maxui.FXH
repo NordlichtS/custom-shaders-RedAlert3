@@ -304,7 +304,7 @@ sampler2D DepthTextureSampler //: register(ps_2_0, s1)
     Texture = <DepthTexture>; 
     MinFilter = 1;  //nearest
     MagFilter = 1;
-    MipFilter = 1;
+    MipFilter = 0;
     AddressU = 3;  //clamp
     AddressV = 3;
 };
@@ -329,6 +329,9 @@ float4x4 MAXviewinv : VIEWINVERSE;
 float4x4 MAXview : View;         
 float4x4 MAXprojection : Projection; 
 
+
+
+#ifndef IGNORE_FOG_CLOUD_SHADOW
 
 // sun light direction (world space)
 float3 PV_SunlightDirection : Direction 
@@ -378,6 +381,10 @@ float3 PV_accentlight
 	string UIWidget = "Color";
 	bool ExportValue = false;
 > = { 0.2, 0.3, 0.4 };
+
+
+#endif  // #ifndef IGNORE_FOG_CLOUD_SHADOW
+
 
 float PV_vertexALPHA
 <

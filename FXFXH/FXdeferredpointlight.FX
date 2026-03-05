@@ -10,6 +10,8 @@ fxc.exe /O2 /T fx_2_0 /Fo   FXdeferredpointlight.fxo   FXdeferredpointlight.FX
 
 #define DEFERRED_RENDER
 #define FORBID_CLIPPING_CONSTANT
+#define IGNORE_FOG_CLOUD_SHADOW
+
 
 #define SPECIAL_SAS_HEADER
 
@@ -29,7 +31,7 @@ float4 ColorEmissive
 <
 	string UIName = "ColorEmissive(rgb+a*hc)";
     string UIWidget = "Color";
-> = float4(0.6, 0.5, 0.4, 0.5);
+> = float4(0.5, 0.5, 0.5, 0.5);
 
 float HDRMultiplier
 <
@@ -41,14 +43,29 @@ float Range
 <
     string UIName = "Range"; 
     float UIMax = 1024; float UIMin = 32; float UIStep = 1; 
-> = 64 ;
+> = 100 ;
 
 
 
-// helper functions are still in head 2
+// helper functions no need
 #include "head1-maxui.fxh"
 //#include "head2-functions.FXH"
 
+//this might be abandoned in future
+//just to avoid ground hiding
+float MaxHeight  // Z offset at opacity 1
+<
+	string UIName = "MaxHeight(Op1)";
+    float UIMin = -32;
+    float UIMax = 32;
+> = 0;
+
+float MinHeight  // Z offset at opacity 0
+<
+	string UIName = "MinHeight";
+    float UIMin = -32;
+    float UIMax = 32;
+> = 8;
 
 
 
@@ -71,13 +88,18 @@ VSout_local2 VSpointlight2(float3 Position : POSITION )
     VSout_local2 o;
     
     float3 objPos = Position * Range ;  //scale up
-    float3 worldP = mul(float4(objPos, 1) , World);
-    float4 worldPos4D = float4(worldP, 1);
+    float3 center2world = World[3].xyz ;
+    center2world.z += lerp(MinHeight, MaxHeight, OpacityOverride);
+    // move up at low opacity in case ground hide
+    // float3 worldP = mul(float4(objPos, 1) , World); 
+    //point light only move, no rotation
+    float4 worldPos4D = float4( float3(objPos + center2world), 1);
 
     o.ViewSpacePos = mul(worldPos4D , View).xyz ;
     o.ClipSpacePos = mul(worldPos4D, ViewProjection); ;
     o.Position = o.ClipSpacePos ;
-    o.Center2Eye = World[3].xyz - ViewI[3].xyz ;
+    o.Center2Eye = center2world - EyePosition ;
+    // World[3].xyz - ViewI[3].xyz ;
 
     return o;
 }
@@ -89,6 +111,7 @@ float4 PSpointlight2(VSout_local2 i) : COLOR
     float2 screenUV = i.ClipSpacePos.xy / i.ClipSpacePos.w * float2(1, -1); 
     //ndc but flip, also add margin due to dx9
     screenUV = screenUV * 0.5 + 0.5 + (0.5 / 8192.0) ;
+
     float vpdepth = tex2D(DepthTextureSampler, screenUV).x;
     float3 vpPixel = i.ViewSpacePos.xyz / i.ViewSpacePos.z * vpdepth; 
 
@@ -104,26 +127,17 @@ float4 PSpointlight2(VSout_local2 i) : COLOR
 
     // get light color 
     float3 realHC = (HasRecolorColors)? RecolorColor : 1 ;
-    float3 lightColor = ColorEmissive.rgb + ColorEmissive.a * realHC ;  //mix hc
+    float3 lightColor = ColorEmissive.rgb + ColorEmissive.a * realHC ; //mix hc
     lightColor *= OpacityOverride ;
     
-    // CHOOSE ONE LIGHT DECAY ========
-    //decay factor type A: (1/r^2 - r^2)
-    float distDecayFactor = 1 / distSq - distSq  ; //cheapest 
-    float3 colorHereA = lightColor * distDecayFactor / 16 ; // CORE 0.25
-    colorHereA = clamp(colorHereA, 0, HDRMultiplier.xxx) ;
+    //decay factor type B: (1-r^2)/r and diffuse
+    float diffusedecay = dot( float3(lightVec / distSq) , normalize(worldN)) ;
+    diffusedecay *= (1- distSq) / 8 ;  //core 0.125, curve close to (x-1)^2
+    float3 colorHere = lightColor * diffusedecay ;
+    colorHere = clamp(colorHere, 0, HDRMultiplier.xxx); 
+    //backface dot <0, must clamp
 
-    //decay factor type B: inv sqare diffuse
-    float diffusedecay = dot( (lightVec / distSq) , normalize(worldN))  ;
-    float3 colorHereB = lightColor * diffusedecay * (1- distSq) / 16 ;
-    colorHereB = clamp(colorHereB, 0, HDRMultiplier.xxx);
-
-    //decay factor type C: (1- r^2)^n
-    float decaynew = saturate(1 - distSq) ;
-    decaynew = pow(decaynew, 3) ; // slow - fast - slow
-    float3 colorHereC = lightColor * decaynew ;
-
-    return float4(colorHereB , 1) ; 
+    return float4(colorHere , 1) ; 
 }
 
 // PREVIEW ======================
@@ -207,6 +221,22 @@ technique Default_M  //actually nothing
 
 
 //==============================
+
+
+// other decay function
+/*
+    //decay factor type A: (1/r^2 - r^2)
+    float distDecayFactor = 1 / distSq - distSq  ; //cheapest 
+    float3 colorHereA = lightColor * distDecayFactor / 16 ; // CORE 0.25
+    colorHereA = clamp(colorHereA, 0, HDRMultiplier.xxx) ;
+
+
+    //decay factor type C: (1- r^2)^n
+    float decaynew = saturate(1 - distSq) ;
+    decaynew = pow(decaynew, 3) ; // slow - fast - slow
+    float3 colorHereC = lightColor * decaynew ;
+
+*/
 
 // older version
 /*
