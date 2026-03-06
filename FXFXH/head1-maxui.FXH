@@ -448,37 +448,3 @@ float4x4 getVPmatrix(){
     #endif
 }
 
-/*
-
-*/
-
-/*
-
-float PulsePeriod //发光呼吸周期秒数，写0为恒定发光
-<   string UIName = "PulsePeriod"; 
-    float UIMax = 8; float UIMin = 0; float UIStep = 0.2; 
-> ={ 1 }; 
-
-//灯光闪烁
-float hp_timepulse()
-{   //写0为恒定发光
-    if(PulsePeriod <= 0){return 1;};
-
-    float phase = frac( Time / PulsePeriod ) ; 
-    phase = abs(phase *2 -1) ;//或者平方？
-    return phase ;
-};
-
-bool Use_CorMod_PBR //主贴图镂空
-<    string UIName = "Use_CorMod_PBR";> = 1;
-
-//为了弥补岚依提到的，部分玩家会在生成irradiance贴图时游戏崩溃，保留此选项
-bool use_irradiance_box //是否使用自动生成的环境光漫反射的辐照贴图。
-<    string UIName = "use_irradiance_box";> = 0; //关闭就读原版ambient色
-
-
-float MAXglossiness //最低粗糙度的倒数，即最大光滑度，已经弃用
-<   string UIName = "MAXglossiness"; 
-    float UIMax = 32; float UIMin = 2; float UIStep = 1; 
-> ={ 16 }; 
-*/

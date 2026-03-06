@@ -6,7 +6,7 @@ fxc.exe /O2 /T fx_2_0 /Fo   FXdeferredpointlight.fxo   FXdeferredpointlight.FX
 
 
 
-//this file is for local lights and post process
+//this file is for simple point local lights 
 
 #define DEFERRED_RENDER
 #define FORBID_CLIPPING_CONSTANT
@@ -21,11 +21,15 @@ int _SasGlobal : SasGlobal
     string UIWidget = "None";
     int MaxSupportedInstancingMode = 1;
     int MaxLocalLights = 0;
-    
 	string RenderBin = "StaticSort5"; //try if this can read post fx
 > = 0;
 
 //LIGHT PARAM  =======================
+float Range
+<
+    string UIName = "Range"; 
+    float UIMax = 1024; float UIMin = 32; float UIStep = 1; 
+> = 100 ;
 
 float4 ColorEmissive
 <
@@ -35,37 +39,30 @@ float4 ColorEmissive
 
 float HDRMultiplier
 <
-	string UIName = "HDRMultiplier";  //this is a limit, not really multiplier
+	string UIName = "HDRMultiplier";  //this is a limit, not real multiplier
     float UIMax = 16; float UIMin = 0; float UIStep = 0.1; 
-> = 3;  //default white light can peak to 3x core brightness in decay A
+> = 3;  //default white light can peak to 3x core brightness 
 
-float Range
+float ZBias
 <
-    string UIName = "Range"; 
-    float UIMax = 1024; float UIMin = 32; float UIStep = 1; 
-> = 100 ;
+    string UIName = "ZBias"; 
+    float UIMax = 30; float UIMin = -30; float UIStep = 1; 
+> = 6 ;
 
+float FilmGrain
+<
+    string UIName = "FilmGrain"; 
+    float UIMax = 2; float UIMin = -1; float UIStep = 0.1; 
+> = 1.2 ;
 
+bool HasDiffuse
+<   string UIName = "HasDiffuse"; > = 1 ;
 
 // helper functions no need
 #include "head1-maxui.fxh"
 //#include "head2-functions.FXH"
 
-//this might be abandoned in future
-//just to avoid ground hiding
-float MaxHeight  // Z offset at opacity 1
-<
-	string UIName = "MaxHeight(Op1)";
-    float UIMin = -32;
-    float UIMax = 32;
-> = 0;
 
-float MinHeight  // Z offset at opacity 0
-<
-	string UIName = "MinHeight";
-    float UIMin = -32;
-    float UIMax = 32;
-> = 8;
 
 
 
@@ -89,7 +86,7 @@ VSout_local2 VSpointlight2(float3 Position : POSITION )
     
     float3 objPos = Position * Range ;  //scale up
     float3 center2world = World[3].xyz ;
-    center2world.z += lerp(MinHeight, MaxHeight, OpacityOverride);
+    center2world.z += (1- OpacityOverride) * ZBias;
     // move up at low opacity in case ground hide
     // float3 worldP = mul(float4(objPos, 1) , World); 
     //point light only move, no rotation
@@ -106,7 +103,16 @@ VSout_local2 VSpointlight2(float3 Position : POSITION )
 
 // simplified to ps
 
-float4 PSpointlight2(VSout_local2 i) : COLOR 
+struct PSin_local2
+{
+    float2 Vpos         : VPOS ;        //for pixel film grain
+    float4 ClipSpacePos : TEXCOORD0 ;   // PERSPECTIVE DIVISION IN PS
+    float3 ViewSpacePos : TEXCOORD1 ;   // z division in ps
+    float3 Center2Eye   : TEXCOORD2 ;   //light center in world space minus eye
+	// uniform int levelofdetail ;  // >=1 has film grain, >=2 has diffuse dot
+};
+
+float4 PSpointlight2(PSin_local2 i) : COLOR 
 {   
     float2 screenUV = i.ClipSpacePos.xy / i.ClipSpacePos.w * float2(1, -1); 
     //ndc but flip, also add margin due to dx9
@@ -117,25 +123,41 @@ float4 PSpointlight2(VSout_local2 i) : COLOR
 
     //now all calculation are in eye centered world space
     float3 wp2eye = mul( float4(vpPixel, 0)  , ViewI).xyz;
-    
-    float3 worldN =  cross(ddy(wp2eye), ddx(wp2eye)) ;
     float3 lightVec = (i.Center2Eye - wp2eye) /Range  ; //not normalized
     float distSq = dot(lightVec, lightVec) ;
 
-    if ( distSq > 1 ) return 0 ; //out of range
-    if ( dot(lightVec , worldN ) < 0) return 0 ; //back facing light
+    float3 worldN =  cross(ddy(wp2eye), ddx(wp2eye)) ;
+    if(FilmGrain > 0) {
+    worldN /= dot( abs(worldN), 1 ); //octa
+    float2 nrmBias = frac(i.Vpos) -0.25 ; //0,1-> 0,0.5-> -0.25,+0.25
+    worldN.xy += nrmBias * FilmGrain;
+    };
+
+
+    if ( (distSq >1) || ( dot(lightVec, worldN ) <0) ) return 0 ; 
+    // out of range   or  backfacing light
 
     // get light color 
     float3 realHC = (HasRecolorColors)? RecolorColor : 1 ;
     float3 lightColor = ColorEmissive.rgb + ColorEmissive.a * realHC ; //mix hc
     lightColor *= OpacityOverride ;
+
+    float3 colorHere = 0 ;
     
-    //decay factor type B: (1-r^2)/r and diffuse
+    if(HasDiffuse) { 
+    //decay type : (1-r^2)/r and diffuse
     float diffusedecay = dot( float3(lightVec / distSq) , normalize(worldN)) ;
     diffusedecay *= (1- distSq) / 8 ;  //core 0.125, curve close to (x-1)^2
-    float3 colorHere = lightColor * diffusedecay ;
+    colorHere = lightColor * diffusedecay ;
+    } else {
+    //decay type : (1- r^2)^n 
+    float decayeasy = saturate(1 - distSq) ;
+    decayeasy = pow(decayeasy, 4) ; // slow - fast - slow
+    colorHere = lightColor * decayeasy ;
+    };
+
     colorHere = clamp(colorHere, 0, HDRMultiplier.xxx); 
-    //backface dot <0, must clamp
+    // actually lower limit is not needed, we cut it off earlier
 
     return float4(colorHere , 1) ; 
 }
