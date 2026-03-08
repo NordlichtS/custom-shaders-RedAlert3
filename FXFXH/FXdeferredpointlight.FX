@@ -53,10 +53,10 @@ float FilmGrain
 <
     string UIName = "FilmGrain"; 
     float UIMax = 2; float UIMin = -1; float UIStep = 0.1; 
-> = 1.2 ;
+> = 0.8 ;
 
-bool HasDiffuse
-<   string UIName = "HasDiffuse"; > = 1 ;
+bool ConsiderSurface
+<   string UIName = "ConsiderSurface"; > = 1 ;
 
 // helper functions no need
 #include "head1-maxui.fxh"
@@ -83,13 +83,12 @@ struct VSout_local2
 VSout_local2 VSpointlight2(float3 Position : POSITION )
 {
     VSout_local2 o;
-    
+
     float3 objPos = Position * Range ;  //scale up
     float3 center2world = World[3].xyz ;
     center2world.z += (1- OpacityOverride) * ZBias;
     // move up at low opacity in case ground hide
-    // float3 worldP = mul(float4(objPos, 1) , World); 
-    //point light only move, no rotation
+    // point light only move, no rotation
     float4 worldPos4D = float4( float3(objPos + center2world), 1);
 
     o.ViewSpacePos = mul(worldPos4D , View).xyz ;
@@ -100,8 +99,6 @@ VSout_local2 VSpointlight2(float3 Position : POSITION )
 
     return o;
 }
-
-// simplified to ps
 
 struct PSin_local2
 {
@@ -118,7 +115,7 @@ float4 PSpointlight2(PSin_local2 i) : COLOR
     //ndc but flip, also add margin due to dx9
     screenUV = screenUV * 0.5 + 0.5 + (0.5 / 8192.0) ;
 
-    float vpdepth = tex2D(DepthTextureSampler, screenUV).x;
+    float vpdepth = tex2D(DepthTextureSampler, screenUV).x; //DEPTH BUFFER?
     float3 vpPixel = i.ViewSpacePos.xyz / i.ViewSpacePos.z * vpdepth; 
 
     //now all calculation are in eye centered world space
@@ -128,13 +125,12 @@ float4 PSpointlight2(PSin_local2 i) : COLOR
 
     float3 worldN =  cross(ddy(wp2eye), ddx(wp2eye)) ;
     if(FilmGrain > 0) {
-    worldN /= dot( abs(worldN), 1 ); //octa
-    float2 nrmBias = frac(i.Vpos) -0.25 ; //0,1-> 0,0.5-> -0.25,+0.25
-    worldN.xy += nrmBias * FilmGrain;
+        worldN /= dot( abs(worldN), 1 ); //octa
+        float2 nrmBias = frac(i.Vpos / 2) -0.25 ; //0,1-> 0,0.5-> -0.25,+0.25
+        worldN.xy += nrmBias * FilmGrain;
     };
 
-
-    if ( (distSq >1) || ( dot(lightVec, worldN ) <0) ) return 0 ; 
+    if ( (distSq > 1) || ( dot(lightVec, worldN ) < 0) ) return 0 ; 
     // out of range   or  backfacing light
 
     // get light color 
@@ -144,16 +140,16 @@ float4 PSpointlight2(PSin_local2 i) : COLOR
 
     float3 colorHere = 0 ;
     
-    if(HasDiffuse) { 
-    //decay type : (1-r^2)/r and diffuse
-    float diffusedecay = dot( float3(lightVec / distSq) , normalize(worldN)) ;
-    diffusedecay *= (1- distSq) / 8 ;  //core 0.125, curve close to (x-1)^2
-    colorHere = lightColor * diffusedecay ;
+    if(ConsiderSurface) { 
+        //decay type : (1-r^2)/r and diffuse
+        float diffusedecay = dot( float3(lightVec / distSq) , normalize(worldN)) ;
+        diffusedecay *= (1- distSq) / 8 ;  //core 0.125, curve close to (x-1)^2
+        colorHere = lightColor * diffusedecay ;
     } else {
-    //decay type : (1- r^2)^n 
-    float decayeasy = saturate(1 - distSq) ;
-    decayeasy = pow(decayeasy, 4) ; // slow - fast - slow
-    colorHere = lightColor * decayeasy ;
+        //decay type : (1- r^2)^n 
+        float decayeasy = saturate(1 - distSq) ;
+        decayeasy = pow(decayeasy, 4) ; // slow - fast - slow
+        colorHere = lightColor * decayeasy ;
     };
 
     colorHere = clamp(colorHere, 0, HDRMultiplier.xxx); 
@@ -239,6 +235,56 @@ technique Default_M  //actually nothing
 }
 
 // also no shadow
+
+//================
+// prepare for better deferred vfx
+
+/*
+
+// Input: float4x3 World (Rows 0-2 are Rotation, Row 3 is Translation)
+
+// 1. Extract and invert the Rotation (Transpose)
+float3x3 R = float3x3(World[0], World[1], World[2]);
+float3x3 R_inv = transpose(R);
+
+// 2. Extract and invert the Translation
+float3 T = World[3];
+float3 T_inv = mul(-T, R_inv);
+
+// 3. Pack into 3 float4 interpolators (Building a 3x4 matrix by rows)
+// We pack the translation into the 'w' component of each row.
+// PRO-TIP: Use the 'nointerpolation' modifier if your engine supports it. 
+// Since all 3 vertices of a rigid skinned triangle share the exact same bone, 
+// this saves the rasterizer from doing useless interpolation math.
+nointerpolation float4 InvMatrixRow0 : TEXCOORD4;
+nointerpolation float4 InvMatrixRow1 : TEXCOORD5;
+nointerpolation float4 InvMatrixRow2 : TEXCOORD6;
+
+Out.InvMatrixRow0 = float4(R_inv[0], T_inv.x);
+Out.InvMatrixRow1 = float4(R_inv[1], T_inv.y);
+Out.InvMatrixRow2 = float4(R_inv[2], T_inv.z);
+
+//===============================
+
+
+// Inputs: 
+// float4 InvMatrixRow0, InvMatrixRow1, InvMatrixRow2
+// float3 pixelWorldPos
+
+// Because we structured our 3 float4s as the rows of an inverted transform matrix, 
+// we can execute the World-to-Bone space conversion using just 3 dot products.
+// This is the absolute fastest way a GPU can process this in the PS.
+
+float4 posW = float4(pixelWorldPos, 1.0);
+
+float3 boneSpacePos;
+boneSpacePos.x = dot(posW, In.InvMatrixRow0);
+boneSpacePos.y = dot(posW, In.InvMatrixRow1);
+boneSpacePos.z = dot(posW, In.InvMatrixRow2);
+
+
+
+*/
 
 
 

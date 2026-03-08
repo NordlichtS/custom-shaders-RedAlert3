@@ -117,7 +117,7 @@ PointLight[8]
 <    bool unmanaged = true;>;
 
 //世界空间到阴影空间的矩阵  C113-116
-shared column_major float4x4 ShadowMapWorldToShadow 
+shared float4x4 ShadowMapWorldToShadow 
 : register(c113)
 <    bool unmanaged = true;>;
 
@@ -127,7 +127,7 @@ shared struct {float4 WorldPositionMultiplier_XYZZ; float2 CurrentOffsetUV;} Clo
 <    bool unmanaged = true;>;
 
 //从world到view再到projection的矩阵，最后perspective division到clip space? C119-122
-shared column_major float4x4 ViewProjection : ViewProjection 
+shared float4x4 ViewProjection : ViewProjection 
 : register(c119)
 <    bool unmanaged = true;>;
 
@@ -137,7 +137,7 @@ shared float3 EyePosition
 <    bool unmanaged = true;>;
 
 //物体空间到世界空间矩阵，这个好像只能给没绑骨骼的mesh用, C124-C127
-shared column_major float4x3 World : World 
+shared float4x3 World : World 
 : register(c124);
 
 //骨骼在世界空间里的信息共64组，每两个float4记一个骨骼，按 4+3+1 记录旋转，位移，透明度

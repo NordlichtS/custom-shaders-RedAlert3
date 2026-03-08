@@ -81,7 +81,7 @@ PointLight[8]
 <    bool unmanaged = true;>;
 
 //  C113-116
-shared column_major float4x4 ShadowMapWorldToShadow 
+shared  float4x4 ShadowMapWorldToShadow 
 : register(c113)
 <    bool unmanaged = true;>;
 
@@ -91,7 +91,7 @@ shared struct CloudSetup {float4 WorldPositionMultiplier_XYZZ; float2 CurrentOff
 <    bool unmanaged = true;>;
 
 //C119-122
-shared column_major float4x4 ViewProjection : ViewProjection 
+shared  float4x4 ViewProjection : ViewProjection 
 : register(c119)
 <    bool unmanaged = true;>;
 
@@ -103,7 +103,7 @@ shared float3 EyePosition
 //TERRAIN DOESNT HAVE THIS ?
 
 //C124-C127  
-//shared column_major float4x3 World : World 
+//shared  float4x3 World : World 
 //: register(c124);
 
 //C128-C255
