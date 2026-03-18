@@ -1121,10 +1121,10 @@ struct VSOutput_CreateShadowMap
 	float4 Position : POSITION;
 	float4 ClipSpace : TEXCOORD0;
 };
-VSOutput_CreateShadowMap VS_CreateShadowMap(float4 Position : POSITION)
+VSOutput_CreateShadowMap VS_CreateShadowMap(float4 Position : POSITION, uniform float Assumedown)
 {
 	VSOutput_CreateShadowMap Out;
-    float4 assumedwordpos = float4(Position.x, Position.y, (Position.z -2) , 1);
+    float4 assumedwordpos = float4(Position.x, Position.y, (Position.z - Assumedown) , 1);
 	Out.Position = mul(assumedwordpos, ViewProjection);
     Out.ClipSpace = Out.Position ;
 	//Out.Depth = Out.Position.z / Out.Position.w;
@@ -1141,7 +1141,7 @@ float4 PS_CreateShadowMap(VSOutput_CreateShadowMap In) : COLOR
 technique _CreateShadowMap
 {    pass P0
     {
-        VertexShader = compile vs_2_0 VS_CreateShadowMap(); 
+        VertexShader = compile vs_2_0 VS_CreateShadowMap(5); 
         PixelShader  = compile ps_2_0 PS_CreateShadowMap(); 
         ZEnable = 1;
         ZWriteEnable = 1;
@@ -1149,13 +1149,14 @@ technique _CreateShadowMap
         CullMode = 2;
         AlphaTestEnable = 0;
         AlphaBlendEnable = 0;
+        //DepthBias = +pow(0.5 , 10); //-0.001
     }
 }
 
 technique _CreateDepthMap
 {    pass P0
     {
-        VertexShader = compile vs_2_0 VS_CreateShadowMap(); 
+        VertexShader = compile vs_2_0 VS_CreateShadowMap(0); 
         PixelShader  = compile ps_2_0 PS_CreateShadowMap(); 
         ZEnable = 1;
         ZWriteEnable = 1;

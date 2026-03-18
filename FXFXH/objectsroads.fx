@@ -47,3 +47,9 @@ int _SasGlobal : SasGlobal
 #include "PBR5-10-objects-ARPBR.FX"
 
 //this is : objects roads
+
+/*
+fxc.exe /O2 /T fx_2_0 /Fo   objectsroads.fxo   objectsroads.FX
+
+
+*/

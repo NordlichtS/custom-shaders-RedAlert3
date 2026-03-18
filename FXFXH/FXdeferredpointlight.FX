@@ -53,7 +53,7 @@ float FilmGrain
 <
     string UIName = "FilmGrain"; 
     float UIMax = 2; float UIMin = -1; float UIStep = 0.1; 
-> = 0.8 ;
+> = -1 ;
 
 bool ConsiderSurface
 <   string UIName = "ConsiderSurface"; > = 1 ;
