@@ -190,11 +190,12 @@ VStmp_out VS_L_Unified(VS_unified_notgt_input i, uniform int BonePerVertex)
     float2 baseuv = uvtypes[ clamp( BaseUV, 0,3) ] ;
     float2 maskuv = uvtypes[ clamp( MaskUV, 0,3) ] ;
 
-    const float margin = 2/256 ;
+    const float margin = 1/256 ;
     o.dotsun_fresnel_Valpha_Balpha.x = dotsun ;
     o.dotsun_fresnel_Valpha_Balpha.y = fresnel ;
     o.dotsun_fresnel_Valpha_Balpha.z = vertexAlpha ;
-    o.dotsun_fresnel_Valpha_Balpha.w = boneAlpha *(1 + 2* margin) -margin;
+    o.dotsun_fresnel_Valpha_Balpha.w = lerp(0 - margin , 1 + margin, boneAlpha); 
+    // boneAlpha *(1 + 2* margin) -margin;
     o.Position = ClipSpacePos ;
     o.MainTexUV = float4(baseuv, maskuv);
 
