@@ -402,7 +402,9 @@ bool PV_SRGB
 #endif  // _3DSMAX_  ?
 //预览用constant结束=============================
 
+// 自动获取预览参数切换
 
+#ifndef IGNORE_FOG_CLOUD_SHADOW //不要阳光就没有部分预览
 float3 getSUNdir(){
     #ifdef _3DSMAX_
     return PV_SunlightDirection ;
@@ -431,6 +433,10 @@ float3 hp_getAccentLight (float3 nrm){
     return (skybox1 + skybox2) /2 ; //already double bright
     #endif
 }
+
+#endif //  #ifndef IGNORE_FOG_CLOUD_SHADOW
+
+// 矩阵预览
 
 float3 getEYEpos() {   
     #ifdef _3DSMAX_

@@ -6,7 +6,7 @@ fxc.exe /O2 /T fx_2_0 /Fo   (FOR_3DSMAX_ONLY)basicw3dMASK.fxo   basicw3dMASK.FX
 
 */
 #define IGNORE_FOG_CLOUD_SHADOW
-//#define _3DSMAX_
+#define _3DSMAX_
 
 
 #define SPECIAL_SAS_HEADER
@@ -26,17 +26,17 @@ int _SasGlobal : SasGlobal
 
 int BlendMode <string UIName = "BlendMode(012:opaque/alpha/add)"; int UIMin = 0; int UIMax = 2;> = 2 ;
 
-int BaseUV <string UIName = "BaseUV(0123:uv0/uv1/world/screen)"; int UIMin = -1; int UIMax = 4;> = 0;
-int MaskUV <string UIName = "MaskUV(0123:uv0/uv1/world/scrern)"; int UIMin = -1; int UIMax = 4;> = -1;
+int BaseUV <string UIName = "BaseUV(0123:uv0/uv1/world/clip)"; int UIMin = -1; int UIMax = 3;> = 0;
+int MaskUV <string UIName = "MaskUV(-1=screen64,0123=same)"; int UIMin = -1; int UIMax = 3;> = -1;
 
 int MaskChannel <string UIName = "MaskChannel(1234RGBA,-1234invert)"; int UIMin = -4; int UIMax = 4;> = 2;
 bool UseRecolorColors <string UIName = "UseRecolorColors";> = 0;
-bool HouseColorPulse  <string UIName = "HouseColorPulse";> = 0;
+bool HouseColorPulse  <string UIName = "HouseColorPulse";> = 1; //scanline
 
 //bool UseSunlight <string UIName = "UseSunlight(USELESS)";> = 0;
 //float3 ColorDiffuse  <string UIName = "ColorDiffuse"; string UIWidget = "Color";> = 1;
 float3 ColorEmissive <string UIName = "ColorEmissive"; string UIWidget = "Color";> = 1;
-float EmissiveHDRMultipler <string UIName = "EmissiveHDRMultipler"; string UIWidget = "Slider";float UIMin = 0; float UIMax = 64;> =1.25;
+//float EmissiveHDRMultipler <string UIName = "EmissiveHDRMultipler"; string UIWidget = "Slider";float UIMin = 0; float UIMax = 64;> =1.25;
 
 // ACTUAL COLOR = TEXTURE * (EMMISIVE or HC) * HDR
 
@@ -118,7 +118,7 @@ VStmp_out VS_L_Unified(VS_unified_notgt_input i, uniform int BonePerVertex)
     {   
         worldP = mul(worldPos4D, MAXworld).xyz;
         worldN = mul(i.normal.xyz, (float3x3)MAXworld); 
-        boneAlpha = saturate(Time /8) ;
+        boneAlpha = saturate(OpacityOverride) ;
     }
     #endif
 
@@ -174,7 +174,7 @@ VStmp_out VS_L_Unified(VS_unified_notgt_input i, uniform int BonePerVertex)
     float3 worldpos2eye = worldP - getEYEpos() ;
     float3 viewvec = normalize(- worldpos2eye);
 
-    float dotsun = dot(getSUNdir() , worldN);
+    float dotsun = 1;// dot(getSUNdir() , worldN);
     float sharpness = abs(EdgeFadeOut);
     float fresnel = 1 ; 
     if(sharpness > 0.01 ) //
@@ -213,7 +213,7 @@ struct PSmask_in
 
 float4 PS_gradient_mask (PSmask_in i) : COLOR 
 {
-    float2 ssTexUV = (i.vpos + 0.5) /256 ;
+    float2 ssTexUV = (i.vpos + 0.5) /64 ;
     float3 colorMultiplier = 1 ;
     float  alphaMultiplier = 1 ;
     float2 baseuv = (BaseUV == -1) ? ssTexUV : i.MainTexUV.xy ;
@@ -242,7 +242,7 @@ float4 PS_gradient_mask (PSmask_in i) : COLOR
     if(HouseColorPulse) //ripple effect
     {  colorMultiplier += realHC * frac(maskvalue - Time) ; }
     colorMultiplier *= baseTEXcolor.rgb ;
-    colorMultiplier *= colorMultiplier * EmissiveHDRMultipler ; //SRGB to linear
+    colorMultiplier *= colorMultiplier ;//* EmissiveHDRMultipler ; //SRGB to linear
 
     //opacity handle
     alphaMultiplier *= i.dotsun_fresnel_Valpha_Balpha.z ;
