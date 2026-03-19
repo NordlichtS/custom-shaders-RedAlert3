@@ -174,7 +174,7 @@ VStmp_out VS_L_Unified(VS_unified_notgt_input i, uniform int BonePerVertex)
     float3 worldpos2eye = worldP - getEYEpos() ;
     float3 viewvec = normalize(- worldpos2eye);
 
-    float dotsun = 1;// dot(getSUNdir() , worldN);
+    float dotsun = worldN.z ;// dot(getSUNdir() , worldN);
     float sharpness = abs(EdgeFadeOut);
     float fresnel = 1 ; 
     if(sharpness > 0.01 ) //

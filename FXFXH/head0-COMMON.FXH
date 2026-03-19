@@ -150,12 +150,7 @@ float4 WorldBones[128] //shared  ? C128-C255
 
 
 /*
-// Integer constant registers
-#define IREGISTER_NUM_POINT_LIGHTS                  0
-#define IREGISTER_NUM_SHADOWS                       1
-// Boolean constant registers
-#define BREGISTER_HAS_RECOLOR_COLORS                0
-#define BREGISTER_HAS_SHADOW                        1
+
 */
 
 
@@ -167,13 +162,13 @@ float4 WorldBones[128] //shared  ? C128-C255
 //用于设置战争迷雾坐标
 struct {float4 ScaleUV_OffsetUV;} Shroud 
 //为什么它有struct而不是一整个float4？
-//: register(vs, c11)  //只能用于VS ?
+//: register(vs, c11)  //只能用于VS ? 并没有！
 <   string UIWidget="None"; string SasBindAddress = "Terrain.Shroud";> 
 = { 1, 1, 0, 0 };
 
 //阴影图一个像素在阴影采样坐标里的长度，可用于模糊阴影边缘
 float4 Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize 
-//: register(ps, c11) //只能用于PS ?
+//: register(ps, c11) //只能用于PS ?  并没有！
 <   string UIWidget ="None"; string SasBindAddress = "Sas.Shadow[0].Zero_Zero_OneOverMapSize_OneOverMapSize";>;
 // #define  SMtexel  Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize //名字太长了换个短的！
 
@@ -266,6 +261,7 @@ float3 TintColor
 // All registers that are not used there then can be put into the range above 32 without problems.
 // To leave the largest possible "unmapped" area in the middle, let's assign those registers backwards from 255.
 
+// editor note： 唉你们为了兼容只有shader model 2.0的老硬件真是煞费苦心
 
 // Skinning
 #define MaxSkinningBones 64 // Every bone uses 2 registers each, ie 128 registers total
@@ -372,5 +368,6 @@ typedef enum D3DTEXTUREADDRESS {
 #define D3DCOLORWRITEENABLE_GREEN   2 //(1L<<1)
 #define D3DCOLORWRITEENABLE_BLUE    4 //(1L<<2)
 #define D3DCOLORWRITEENABLE_ALPHA   8 //(1L<<3)
-#define D3DCOLORWRITEENABLE_ALL     0xf     // Xbox 360 extension [LLatta 2006-09-06: Copied to Windows version too]
+#define D3DCOLORWRITEENABLE_ALL     0xf     
+// Xbox 360 extension [LLatta 2006-09-06: Copied to Windows version too]
 
