@@ -158,6 +158,7 @@ float4 WorldBones[128] //shared  ? C128-C255
 //下面的constant没有写定的寄存器，不过也是引擎看SAS和semantic注入的
 
 //looks like these two dont really have specified registers?
+#ifndef IGNORE_FOG_CLOUD_SHADOW
 
 //用于设置战争迷雾坐标
 struct {float4 ScaleUV_OffsetUV;} Shroud 
@@ -172,6 +173,7 @@ float4 Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize
 <   string UIWidget ="None"; string SasBindAddress = "Sas.Shadow[0].Zero_Zero_OneOverMapSize_OneOverMapSize";>;
 // #define  SMtexel  Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize //名字太长了换个短的！
 
+#endif //  IGNORE_FOG_CLOUD_SHADOW
 
 
 
@@ -216,7 +218,7 @@ extern bool DepthWriteEnable //写入深度buffer 但好像是用阴影图制作
 //上面的都并没有直接记录在W3X的SHADER段，但引擎会分配
 
 
-//TODO:  
+// worth trying?  
 
 
 /*
@@ -261,7 +263,7 @@ float3 TintColor
 // All registers that are not used there then can be put into the range above 32 without problems.
 // To leave the largest possible "unmapped" area in the middle, let's assign those registers backwards from 255.
 
-// editor note： 唉你们为了兼容只有shader model 2.0的老硬件真是煞费苦心
+//  唉你们为了兼容只有shader model 2.0的老硬件真是煞费苦心
 
 // Skinning
 #define MaxSkinningBones 64 // Every bone uses 2 registers each, ie 128 registers total
@@ -327,6 +329,10 @@ typedef enum D3DTEXTUREADDRESS {
   D3DTADDRESS_FORCE_DWORD  = 0x7fffffff
 } D3D TEXTURE ADDRESS, *LP;
 
+
+#define RGB		7
+#define RGBA	15
+
 */
 
 // RENDERSTATE ENUMS
@@ -345,12 +351,13 @@ typedef enum D3DTEXTUREADDRESS {
 #define D3DBLEND_SRCALPHASAT        11
 #define D3DBLEND_BOTHSRCALPHA       12
 #define D3DBLEND_BOTHINVSRCALPHA    13
-#define D3DBLEND_BLENDFACTOR        14 /* Only supported if D3DPBLENDCAPS_BLENDFACTOR is on */
-#define D3DBLEND_INVBLENDFACTOR     15 /* Only supported if D3DPBLENDCAPS_BLENDFACTOR is on */
+// Only supported if D3DPBLENDCAPS_BLENDFACTOR is on 
+#define D3DBLEND_BLENDFACTOR        14 
+#define D3DBLEND_INVBLENDFACTOR     15 
 
 // Taken from d3d9types.h D3DCULL enum
 #define D3DCULL_NONE                1
-#define D3DCULL_CW                  2
+#define D3DCULL_CW                  2  //standard
 #define D3DCULL_CCW                 3
 
 // Taken from d3d9types.h D3DCMPFUNC enum

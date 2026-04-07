@@ -436,7 +436,7 @@ float3 hp_getAccentLight (float3 nrm){
 
 #endif //  #ifndef IGNORE_FOG_CLOUD_SHADOW
 
-// 矩阵预览
+// 矩阵 预览用 MAX必要
 
 float3 getEYEpos() {   
     #ifdef _3DSMAX_
