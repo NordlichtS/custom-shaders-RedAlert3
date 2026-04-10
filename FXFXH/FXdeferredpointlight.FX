@@ -47,16 +47,18 @@ float ZBias
 <
     string UIName = "ZBias"; 
     float UIMax = 30; float UIMin = -30; float UIStep = 1; 
-> = 6 ;
+> = 2 ;
 
+/*
 float FilmGrain
 <
     string UIName = "FilmGrain"; 
     float UIMax = 2; float UIMin = -1; float UIStep = 0.1; 
 > = -1 ;
+*/
 
-bool ConsiderSurface
-<   string UIName = "ConsiderSurface"; > = 1 ;
+bool FacetShade
+<   string UIName = "FacetShade"; > = 1 ;
 
 // helper functions no need
 #include "head1-maxui.fxh"
@@ -86,8 +88,8 @@ VSout_local2 VSpointlight2(float3 Position : POSITION )
 
     float3 objPos = Position * Range ;  //scale up
     float3 center2world = World[3].xyz ;
-    center2world.z += (1- OpacityOverride) * ZBias;
-    // move up at low opacity in case ground hide
+    center2world.z += ZBias * OpacityOverride ;
+    // move up in case ground hide
     // point light only move, no rotation
     float4 worldPos4D = float4( float3(objPos + center2world), 1);
 
@@ -106,10 +108,10 @@ struct PSin_local2
     float4 ClipSpacePos : TEXCOORD0 ;   // PERSPECTIVE DIVISION IN PS
     float3 ViewSpacePos : TEXCOORD1 ;   // z division in ps
     float3 Center2Eye   : TEXCOORD2 ;   //light center in world space minus eye
-	// uniform int levelofdetail ;  // >=1 has film grain, >=2 has diffuse dot
+	 
 };
-
-float4 PSpointlight2(PSin_local2 i) : COLOR 
+// 1 use facet shade, 0 distance only
+float4 PSpointlight2(PSin_local2 i, uniform bool LevelofDetail) : COLOR 
 {   
     float2 screenUV = i.ClipSpacePos.xy / i.ClipSpacePos.w * float2(1, -1); 
     //ndc but flip, also add margin due to dx9
@@ -124,23 +126,25 @@ float4 PSpointlight2(PSin_local2 i) : COLOR
     float distSq = dot(lightVec, lightVec) ;
 
     float3 worldN =  cross(ddy(wp2eye), ddx(wp2eye)) ;
+    /*
     if(FilmGrain > 0) {
         worldN /= dot( abs(worldN), 1 ); //octa
         float2 nrmBias = frac(i.Vpos / 2) -0.25 ; //0,1-> 0,0.5-> -0.25,+0.25
         worldN.xy += nrmBias * FilmGrain;
     };
+    */
 
     if ( (distSq > 1) || ( dot(lightVec, worldN ) < 0) ) return 0 ; 
     // out of range   or  backfacing light
 
     // get light color 
-    float3 realHC = (HasRecolorColors)? RecolorColor : 1 ;
+    float3 realHC = (HasRecolorColors)? RecolorColor : 0 ;
     float3 lightColor = ColorEmissive.rgb + ColorEmissive.a * realHC ; //mix hc
     lightColor *= OpacityOverride ;
 
     float3 colorHere = 0 ;
     
-    if(ConsiderSurface) { 
+    if(LevelofDetail) { 
         //decay type : (1-r^2)/r and diffuse
         float diffusedecay = dot( float3(lightVec / distSq) , normalize(worldN)) ;
         diffusedecay *= (1- distSq) / 8 ;  //core 0.125, curve close to (x-1)^2
@@ -197,14 +201,19 @@ technique MAXPREV
 
 //  techniques ===========================
 
+PixelShader PS_pointlight_Array[2] = {
+    compile ps_3_0 PSpointlight2(false), 
+    compile ps_3_0 PSpointlight2(true), 
+};
+
 
 technique Default
 {    pass p0 
     {
     VertexShader = compile vs_3_0 VSpointlight2(); 
-    PixelShader  = compile ps_3_0 PSpointlight2(); 
+    PixelShader  = PS_pointlight_Array[int(FacetShade)]; 
     ZEnable = 1;
-    ZFunc = D3DCMP_GREATEREQUAL ;  //hidden only
+    ZFunc = D3DCMP_GREATEREQUAL ;  //farface only
     ZWriteEnable = 0;
     CullMode = D3DCULL_CCW ; //backface only
 	AlphaTestEnable = 0;
