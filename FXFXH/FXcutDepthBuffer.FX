@@ -35,7 +35,7 @@ float4 VS_MAX(float4 Position : POSITION) :POSITION
 {   return mul(Position, MAXwvp);    }
 
 float4 PS_MAX_BACKFACE(float2 vpos:VPOS ) : COLOR0
-{   return float4(0.2 , 0.4 , 0.2, 1);    }
+{   return float4(0.3 , 0.4 , 0.2, 1);    }
 
 float4 PS_MAX_WIREFRAME(float vface:VFACE ) : COLOR0
 {   return (vface < 0)? float4(0.8 , 0.4 , 0.6, 1) : float4(0.4 , 0.2 , 0.8, 1);  }
@@ -66,7 +66,7 @@ technique MAXPREV
         AlphaBlendEnable = 0;
         AlphaTestEnable = 0;
         CullMode = 1;  //none
-        DepthBias = float(-2.0 / 65536.0);
+        //DepthBias = float(-2.0 / 65536.0);
     }
 
 }
@@ -121,13 +121,13 @@ technique Default
         ZFunc = LessEqual;
 
         StencilEnable = True;
-        StencilRef = 0x8;       // Use Bit 3 (Value 8)
-        StencilMask = 0x8;      // Only read Bit 3
-        StencilWriteMask = 0x8; // Only write to Bit 3
+        StencilRef = 0x8;       // Use 3rd Bit (Value 8)
+        StencilMask = 0x8;      // Only read 3rd Bit 
+        StencilWriteMask = 0x8; // Only write to 3rd Bit 
         StencilFunc = Always;
         StencilPass = Replace;   // Mark the footprint with 0x08
         StencilFail = Keep;
-        StencilZFail = Keep;
+        StencilZFail = Zero;    //keep?
     }
 
     // ==========================================
@@ -153,12 +153,12 @@ technique Default
         // Require the stencil footprint from Pass 1
         StencilEnable = True;
         StencilRef = 0x8;
-        StencilMask = 0x8;      // Look specifically for our Bit 3
+        StencilMask = 0x8;      // Look specifically for our 3rd Bit 
         StencilWriteMask = 0x8; // Allow clearing our bit
         StencilFunc = Equal;     // Only draw where P0 marked the stencil
-        StencilPass = Zero; // CLEANUP: Set bit back to 0 after success "drill" the pixel    
-        StencilFail = Keep;
-        StencilZFail = Keep;
+        StencilPass = Zero;     // CLEANUP: Set bit back to 0 after drill  
+        StencilFail = Keep;     //safety
+        StencilZFail = Zero;    //clear bit for the whole mesh
     }
 }
 
@@ -180,13 +180,13 @@ technique _CreateShadowMap
         ZFunc = LessEqual;
 
         StencilEnable = True;
-        StencilRef = 0x8;       // Use Bit 3 (Value 8)
-        StencilMask = 0x8;      // Only read Bit 3
-        StencilWriteMask = 0x8; // Only write to Bit 3
+        StencilRef = 0x8;       
+        StencilMask = 0x8;      
+        StencilWriteMask = 0x8; 
         StencilFunc = Always;
         StencilPass = Replace;   // Mark the footprint with 0x08
-        StencilFail = Keep;
-        StencilZFail = Keep;
+        StencilFail = Keep;     
+        StencilZFail = Zero;    //Keep?
     }
 
     // ==========================================
@@ -200,7 +200,7 @@ technique _CreateShadowMap
         AlphaBlendEnable = 0;
         AlphaTestEnable = 0;
 
-        CullMode = 3;  //RA3 INVERT CULL
+        CullMode = 3;   //RA3 INVERT CULL
         ColorWriteEnable = 7; // RGB= 7 , RGBA= 15
         ZEnable = True;
         ZWriteEnable = True;
@@ -211,9 +211,9 @@ technique _CreateShadowMap
         StencilMask = 0x8;      // Look specifically for our Bit 3
         StencilWriteMask = 0x8; // Allow clearing our bit
         StencilFunc = Equal;     // Only draw where P0 marked the stencil
-        StencilPass = Zero; // CLEANUP: Set bit back to 0 after success "drill" the pixel    
-        StencilFail = Keep;
-        StencilZFail = Keep;
+        StencilPass = Zero;     // CLEANUP: Set bit back to 0    
+        StencilFail = Keep;     //safety
+        StencilZFail = Zero;    //clear bit for the whole mesh
     }
 
 }
