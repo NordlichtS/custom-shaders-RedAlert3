@@ -115,7 +115,7 @@ shared float3 EyePosition
 
 //
 int NumPointLights //: register(vs, i0) : register(ps, i0)
-<   string UIWidget="None"; string SasBindAddress = "Sas.NumPointLights";> = 1 ; //预览一个
+< string SasBindAddress = "Sas.NumPointLights";> = 0 ; 
 
 //
 float Time : Time;
@@ -192,7 +192,8 @@ sampler2D ShadowMapSampler // : register(ps_3_0, s5)
     string SasBindAddress = "Sas.Shadow[0].ShadowMap";
 > = sampler_state
 {
-    Texture = <ShadowMap>;  //changed filter, 1 point  2 linear 3 aniso 6 PyramidQuad 7 GaussianQuad
+    Texture = <ShadowMap>;  
+    //changed filter, 1 point  2 linear 3 aniso 6 PyramidQuad 7 GaussianQuad
     MinFilter = 1; //1
     MagFilter = 1;
     MipFilter = 0;
