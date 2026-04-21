@@ -148,6 +148,21 @@ float4 WorldBones[128] //shared  ? C128-C255
 
 //===============================
 
+// 通过四元数来计算旋转的函数，来自 CNC3 的 Skinning.fxh
+float3 QuaternionRotate(float4 rotation, float3 position) 
+{
+	float4 a
+	= rotation.wwwx * position.xyzx 
+    + rotation.yzxy * position.zxyy;
+	a.w = -a.w;
+	a -= rotation.zxyz * position.yzxz;
+    float3 finalvector 
+    = rotation.www * a.xyz 
+    - rotation.xyz * a.www 
+    + rotation.yzx * a.zxy 
+    - rotation.zxy * a.yzx;
+	return finalvector;
+}; 
 
 /*
 
@@ -216,6 +231,42 @@ extern bool DepthWriteEnable //写入深度buffer 但好像是用阴影图制作
 
 
 //上面的都并没有直接记录在W3X的SHADER段，但引擎会分配
+
+
+
+
+
+//  预览和导出
+
+
+#ifdef _3DSMAX_
+
+float4x4 MAXwvp : WorldViewProjection;
+float4x4 MAXworld : WORLD;
+float4x4 MAXviewinv : VIEWINVERSE; 
+float4x4 MAXview : View;         
+float4x4 MAXprojection : Projection; 
+
+#endif  // _3DSMAX_
+
+
+float3 getEYEpos() {   
+    #ifdef _3DSMAX_
+    return MAXviewinv[3].xyz ;
+    #else
+    return EyePosition ;
+    #endif
+}
+
+float4x4 getVPmatrix(){  
+    #ifdef _3DSMAX_
+    return mul(MAXview, MAXprojection) ;
+    #else
+    return ViewProjection ;
+    #endif
+}
+
+
 
 
 // worth trying?  

@@ -1,823 +1,252 @@
-//下面是一堆全局MACRO控制。用于条件编译取舍功能
-
-// #define _3DSMAX_ 
-//编译给3DSMAX预览专用版时开启。
-//请注意 如果你直接把源码给MAX读 是不需要上面这个的。 MAX会自己加
-//你可以编译一个FXO然后后缀改成FX 给MAX读。
-//只有装了W3X插件才能读取
-//因为MAX 默认只能用FX源码。不能读编译后的
-//但如果给游戏用的 就不要启用。否则游戏直接崩
-
-#define IS_OBJECT_BUILDING_SHADER
-
-// #define FORBID_CLIPPING_CONSTANT //只有强制开 ALPHA TEST 的可以开
-//  #define USE_SPECIAL_PBR_W3X_CONSTANT
-// #define REPLACE_DEFAULT_TECHNIQUE //only for objects terrain
-// #define COMPILE_SOFTSKIN_VS //USUALLY OFF
-// 上面的最好别乱动 dont change any above 
-
-// #define DEDICATED_METAL_CHANNEL  //for compatibility 
-// #define FORBID_FACTION_COLOR //中立单位要禁止阵营色 generic on
-// #define DYNAMIC_CLOUD_REF //允许动态云背景反射。对金属和玻璃质感很重要 仅玩家
-// #define ALLOW_STEALTH //允许隐身时有特殊的全息投影特效, player object only ! 建筑和中立都关
-// #define RENDER_BACKFACE //only for tengu, objectsjapan
-// #define FORBID_SHADOW_ALPHATEST  //for terrain like stuff
-
-
-// #define OPACITY_OVERRIDE_CLIP  //仅玩家的OBJECT开
-// #define OPACITY_OVERRIDE_OUTPUT //玩家的OBJECT和BUILDING 开
-// #define ALLOW_CLIP_TEXTURE_ALPHA //允许贴图alpha镂空。on for all
-// #define FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN //应该都关
-// #define KEEP_ALPHA_TEXTURE_SAMPLER_SAME  //仅建筑
-//  #define DAMAGE_BURNRED  //烧红效果看情况吧
-// #define SHADOW_DITHER //just like terrain
-
-//下面三个互相冲突的（顶点ALPHA功能）功能只能选一个
-// #define ALLOW_CLIP_VERTEX_ALPHA //允许骨骼透明度隐藏零件。building不要。objects ? 
-// #define IS_BUILDNG //仅building要。这是损伤破洞功能。与上下两者冲突 不可同时用
-// #define IS_NANO_BUILDUP  //启用帝国建筑的建造动画。 与上两者冲突 不可同时用
-
-
+//pbr for corona mod
 /*
-
-fxc.exe /O2 /T fx_2_0 /Fo   objectsARPBR.fxo   PBR5-10-objects-ARPBR.FX
-
+CORONA MOD PBR
+rewrite this from clean start
+EXCEPT MAIN CONSTANTS
+THIS FILE will include:
+all textures and samplers
+max sunlight preview
+functions
+VS 
+PS
+max preview
+preview sunlight and point light
+create shadow
+alpha test always disable, no objection!
+clipping constant will be allowed
 
 */
-//#pragma warning(disable: 3206)
 
-
-
-#include "head3-vsps.FXH" //WILL INCLUDE EVERYTHING
-
-
-
-
-
-#ifndef USE_SPECIAL_PBR_W3X_CONSTANT
-
-static const float4 SPM_threshold = { 0.75, 0.125, 0.125, 0.5 }; //careful gen evo values
-static const float glow_mult = 4;
-static const float MinRoughness = 0.125 ;
-static const float SpecBaseMultiply = 0.125 ; 
-static const bool InfantrySkin = 0 ;
-
-#endif //USE_SPECIAL_PBR_W3X_CONSTANT ?
-
-
-struct PS_H_input
-{
-    float vface : VFACE ; // + facing camera, - backface ? NO, INVERTED
-    float2 vpos : VPOS ; //screen pixel 
-    float4 VertexColor : COLOR0;  //顶点颜色
-    float3 CoordOBJ  : COLOR1; 
-    float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
-    float4 ShadowCS : TEXCOORD1; //XYZ阴影空间投影, W弃用
-    float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
-    float3 WorldP : TEXCOORD3;  //世界空间位置
-    float3 WorldN : TEXCOORD4;//_centroid; //世界法线Z
-    float3 WorldT : TEXCOORD5;//_centroid; //世界切线Y
-    float3 WorldB : TEXCOORD6;//_centroid; //世界切线X
-};
-
-float4 PS_H_ARPBR (PS_H_input i) : COLOR 
-{
-  float4 OUTCOLOR = float4(0,0,0,1); //安全起见先initialize
-  
-
-  //风格常数，编译前确定
-
-
-  //拿出主贴图 (GEN 2 MOD )
-    float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
-    float4 spm = tex2D(SpecMapSampler,         i.MainTexUV.xy );
-    float4 nrm = tex2D(NormalMapSampler,       i.MainTexUV.xy );
-
-  #ifdef KEEP_ALPHA_TEXTURE_SAMPLER_SAME
-    if(AlphaTestEnable)
-    {dif.a = tex2D(DiffuseEasySampler,  i.MainTexUV.xy ).a;}
-  #endif
-
-
-
-  //有用的向量
-    float3 N = i.WorldN;
-  #ifdef RENDER_BACKFACE
-    N = (i.vface > 0)? -N : N ; //BACKFACE NRM CORRECTION
-  #endif
-    if(! InfantrySkin) { 
-      nrm.xy = nrm.xy * 2 - 1  ;
-      nrm.xy *= -BumpScale ;
-      N += nrm.x * i.WorldB + nrm.y * i.WorldT ;
-    };  //利用世界空间的切线去拉扯法线
-  #ifdef GEOFLATFACE //DIRIVATIVE REPLACE GEO SHADER
-    N = cross(ddy(i.WorldP), ddx(i.WorldP)) ;
-  #endif
-    N = normalize(N); 
-    //float3x3 TangentSpaceToWorldMatrix = float3x3(i.WorldB, i.WorldT, i.WorldN) ; //T B exchanged!
-    //N = mul( float3(nrm.xy, 1), TangentSpaceToWorldMatrix) ;
-    
-    float3 V = hp_ps_getViewVector(i.WorldP) ;
-    float3 R = reflect(-V , N) ; //input light vector is towards fragment!
-    float  EYEtilt = dot(V , N) ;
-    R = (EYEtilt <0) ? -V : R ;
-    EYEtilt = saturate(EYEtilt);
-    float fresnelbase = 1- EYEtilt;
-
-    float3 albedo = dif.xyz ;
-
-    float3 Lsun     = DirectionalLight[0].Direction.xyz ;
-    float3 SUNcolor = DirectionalLight[0].Color.xyz ;
-  #ifdef _3DSMAX_  //MAX预览阳光方向与颜色覆盖
-    Lsun     = PV_SunlightDirection ; 
-    SUNcolor = PV_SunlightColor ;
-  #endif
-
-    //float4 ditherline = frac(i.vpos.yyyy / float4(1,2,4,8));
-    bool2 dither2x2 = frac(i.vpos /2) < 0.375 ;
-    bool alreadystealth = (OpacityOverride < 0.985) ;
-    
-
-
-  //条件编译功能 =========================================================
-    float3 extra_glow = 0 ; //add
-    float3 extra_cavity = 1 ; //mult
-    float  AOchannel = 1 ; //mult
-
-    // hc mixer and gamma
-    float3 realHC = 1 ;
-    float3 hcmask = 1 ;
-    float whiteHCpart = max(max(albedo.r, albedo.g), albedo.b);
-  #ifndef FORBID_FACTION_COLOR
-    realHC = (HasRecolorColors)? RecolorColor : realHC ;
-    albedo *= albedo ;
-    bool isHC = spm.b > SPM_threshold.b ;
-    albedo = (isHC)? whiteHCpart.xxx : albedo; //gamma only for no hc part
-    spm.b = (isHC)? spm.b : 0 ;
-    hcmask = lerp(1,  realHC, spm.b);
-    albedo *= hcmask ;
-    #ifndef INCREASE_HC_SATURATION
-    albedo *= hcmask ;
-    #endif
-  #else
-    albedo *= albedo ;
-  #endif
-
-    //in case needed
-  #ifdef SPECIAL_FUNCTION_A
-    extra_glow += 0 ;
-    extra_cavity *= 1 ;
-  #endif
-
-
-    //这段是ALPHA相关！
-    //clipping affected ! ===========
-    float extra_alpha = 1 ;
-
-
-  #ifdef OPACITY_OVERRIDE_CLIP
-    extra_alpha *= OpacityOverride ;
-  #endif
-
-  #ifdef ALLOW_CLIP_TEXTURE_ALPHA
-    //dif.w = (dif.w < 0.5)? 0 : dif.w ;
-    extra_alpha *= dif.w ;
-  #endif
-
-  #ifdef ALLOW_CLIP_VERTEX_ALPHA
-    extra_alpha *= i.VertexColor.w ;
-  #endif
-
-  #ifdef IS_BUILDNG //建筑损伤
-    float4 dmgtex = tex2D(DamagedTextureSampler , i.MainTexUV.zw);
-    dmgtex = (i.VertexColor.w < 0.375)? dmgtex : 1 ;
-    extra_alpha *= dmgtex.w ;
-    #ifdef DAMAGE_BURNRED
-      float burnred = 1 - dmgtex.w  ; //max 0.625
-      extra_glow.r += pow(burnred, 2) ;
-      extra_glow.g += pow(burnred, 4) ;
-    #endif
-    albedo.rgb *= dmgtex.rgb * dmgtex.a ;
-    spm.r *= dmgtex.r * dmgtex.g * dmgtex.b ;
-  #endif
-
-  #ifdef IS_NANO_BUILDUP
-    float2 nanobuildupMASK_alpha_glow = hp_nano_build(i.VertexColor.w, i.MainTexUV.xy);
-    extra_alpha *= nanobuildupMASK_alpha_glow.x ;
-    extra_glow += realHC * nanobuildupMASK_alpha_glow.y ;
-    extra_cavity *= 1- nanobuildupMASK_alpha_glow.y;
-  #endif
-
-
-      
-  //lets ignore the damn pass alpha test and do it here
-
-  #ifdef FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN
-    clip(extra_alpha - 0.375) ;
-  #else
-    if(AlphaTestEnable) {clip(extra_alpha - 0.375) ; };
-  #endif
-  // EXTRA_ALPHA WILL NOT EXPORT TO OUTCOLOR
-
-  //finish clipping calc =======================================================
-
-    //glow will x4 at the end
-  #ifdef SUPPORT_LIGHTMAP
-    extra_glow += albedo * getLightMap(i.MainTexUV.zw, Time * 0.25); 
-  #endif
-  #ifdef SUPPORT_TESLA
-    extra_glow += getTeslaMap( i.vpos, Time, EYEtilt) ;
-  #endif
-  #ifdef NRM_BLUE_CAVITY
-    extra_cavity *= nrm.b ;
-  #endif
-  #ifdef NRM_BLUE_AO
-    AOchannel *= nrm.b ;
-  #endif
-  #ifdef NRM_ALPHA_AO
-    AOchannel *= nrm.a ;
-  #endif
-
-
-    float4 stealthcolor = 1 ;
-  #ifdef ALLOW_STEALTH
-    stealthcolor.rgb = realHC ;
-    stealthcolor.rgb *= fresnelbase * fresnelbase * (2 - OpacityOverride) ;
-    stealthcolor.rgb += albedo ;
-    stealthcolor.a = (dither2x2.y)? 1 : fresnelbase - 0.0625;
-  #endif  
-  //opacity is multiplied before, in both extra_alpha and OUTCOLOR
-  //stealth alpha will be applied at shader end, not here
-
-
-
-
-  //还原通道信息 ========================
-    
-    float roughness = lerp(1, MinRoughness, spm.r) ;
-    float glossiness = 1 / roughness ; //
-
-    bool ismetal = (spm.r > SPM_threshold.r) || (spm.g > SPM_threshold.g)  ;
-  #ifdef DEDICATED_METAL_CHANNEL
-    ismetal = (spm.g > SPM_threshold.g) ;
-  #endif
-
-    float4 colortone = hp_saturation_luminance(albedo, 0.0625 );
-    float3 diffcolor = (ismetal)? 0 : albedo ;
-    float3 speccolor = (ismetal)? colortone.rgb : 1 ;  //same beightness
-
-    //float blacklineavoid = saturate(dot(dif.xyz, 1) + dot(spm.rg, 2));
-    //speccolor *= blacklineavoid ;
-
-    float f0_env = (ismetal)? colortone.w : 0 ;
-    float f0_dir = (1 - whiteHCpart) * spm.r ;
-    f0_dir = (ismetal)? 1 : f0_dir ;
-
-    extra_cavity *= spm.w ; //NO AFFECT WITH GLOW BRIGHTNESS
-    float glowchannel = saturate( SPM_threshold.w - spm.w);
-    extra_glow += albedo * glowchannel ;
-
-
-
-  //BRDF=========================================
-
-  //环境光相关 
-    float3 upper_color = i.VertexColor.rgb + AmbientLightColor;  //already /2 in vs
-    float3 lower_color = (ismetal)? (AmbientLightColor) : 0 ; //  0.5 ?
-    float3 irradi_color = hp_fake_irradiance(0 , upper_color , N.z) ;
-    float3 skybox_color = hp_fake_skybox(lower_color , upper_color , R.z , (glossiness * 0.5)) ; 
-    skybox_color *= (ismetal)? 1 :  spm.r ;
-
-  #ifdef DYNAMIC_CLOUD_REF
-    float3 cloudReflectionMultipler = hp_dynamic_cloud_reflection(i.FogCloudUV.zw, R, Lsun, (roughness *4))  ; 
-    skybox_color *= cloudReflectionMultipler ;
-  #else
-    //float3 noCloudSkyMultipler =
-    skybox_color *= lerp(1, NoCloudMultiplier , saturate(R.z)); 
-  #endif
- 
-    float3 ambientALL = float3(0,0,0) ; //环境光BRDF
-    ambientALL += irradi_color * diffcolor  ; 
-    ambientALL += skybox_color * speccolor * hp_fresnel(R, V, f0_env, 8); 
-    ambientALL *= AOchannel ;
-
-  //阳光相关  
-    float vertex_suntilt = dot(i.WorldN, Lsun);
-  #ifdef GEOFLATFACE //DIRIVATIVE REPLACE GEO SHADER
-    vertex_suntilt = dot(N, Lsun);
-  #endif
-
-    float  sun_tilt  = dot(N,Lsun) ;
-    SUNcolor *= (sun_tilt > 0 )? 1 : 0 ; 
-    SUNcolor *= (vertex_suntilt > 0 )? 1 : 0 ; 
-
-    //if(HasShadow){
-    float3 ShadowMapUV = i.ShadowCS.xyz / i.ShadowCS.w ;
-    float transition_range_mult = 2 - vertex_suntilt ;
-    float transition_start_bias_mult = 1 ;
-    #ifdef SHADOW_DITHER
-      float2 smbias = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
-      smbias = (dither2x2.x)? smbias.xy : smbias.yx ; //x to flip axis
-      smbias = (dither2x2.y)? smbias    : - smbias  ; //y to flip direction     
-      ShadowMapUV.xy += smbias * vertex_suntilt ;
-      transition_range_mult = 1 ;
-      transition_start_bias_mult = 1 ;
-    #endif
-    SUNcolor *= hp_invshadow_trilinear(ShadowMapUV, transition_range_mult, transition_start_bias_mult) ;
-    //cubic hermit is in helper function, open when no dither
-    //};
-
-
-  #ifndef _3DSMAX_ //高画质都有云，但预览没有
-    float3 cloudcolor = tex2D(CloudTextureSampler, i.FogCloudUV.zw).rgb;
-    SUNcolor *= cloudcolor * cloudcolor ;
-  #endif
-
-
-    float3 sunALL = float3(0,0,0) ;  //阳光BRDF
-    sunALL += diffcolor * sun_tilt ; //* diffuse_mult ;
-    sunALL += speccolor * hp_specdist(glossiness, R, Lsun) * SpecBaseMultiply * hp_fresnel(Lsun, V, f0_dir, 4);
-    sunALL *= SUNcolor ; //*= sunlight_mult ;
-
-
-  //点光源BRDF
-    float3 PLtotal = float3(0,0,0) ;
-    for (int itpl = 0; itpl < min(8, NumPointLights); itpl++ ) //itpl < min(8, NumPointLights)
-    {
-      //if(itpl >= NumPointLights ){break;};
-
-      float3 PLpos = PointLight[itpl].Position - i.WorldP ;
-      float3 PLcolor = PointLight[itpl].Color ;
-      float PLrangeMAX = PointLight[itpl].Range_Inner_Outer.y  ;
-      float PLcore = clamp( PointLight[itpl].Range_Inner_Outer.x / PLrangeMAX, 0.125, 0.5); //still too sharp
-
-    #ifdef _3DSMAX_ //读取预览点光源数据
-      PLpos = PV_pointlightPOS - i.WorldP; // relative!
-      PLcolor = PV_pointlightCOLOR ; 
-      PLrangeMAX = PV_pointlightRANGE ;
-      PLrangeMIN = 0 ;
-    #endif
-
-
-      if(PLrangeMAX < 1) {continue;}; //排除无用的点光源
-      float3 PLrelative = PLpos / PLrangeMAX ;
-      float  PLdist = length(PLrelative) ;
-      if(PLdist > 1) {continue;};
-      float3 PLL = PLpos / PLdist ; //normalized light vector
-      float  PLtilt = dot(PLL, N) ;
-      if(PLtilt < 0) {PLcolor = 0 ;}; //排除背光面
-
-
-      float3 thisBRDF = float3(0,0,0) ;
-      thisBRDF += diffcolor * PLtilt  ; 
-      thisBRDF += speccolor * hp_specdist(glossiness, R, PLL) * SpecBaseMultiply  ;
-      thisBRDF *= PLcolor * saturate(PLcore / PLdist - PLcore * PLdist);
-
-      PLtotal += thisBRDF ; //叠加所有点光源
-
-    #ifdef _3DSMAX_
-      break ;
-    #endif
-    };
-    PLtotal *= 1 ;
-
-
-
-  //最终混色
-    OUTCOLOR.w = 1 ; //just in case
-    OUTCOLOR.xyz += ambientALL + sunALL + PLtotal; //BRDF
-    OUTCOLOR.xyz *= extra_cavity ; //
-    OUTCOLOR.xyz += extra_glow * glow_mult; //all glow
-
-  #ifndef _3DSMAX_ //预览没有迷雾
-    OUTCOLOR.xyz *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy).rgb ;
-  #endif
-
-  #ifdef ALLOW_STEALTH
-    OUTCOLOR = (alreadystealth)? stealthcolor : OUTCOLOR ;
-    OUTCOLOR.rgb += PLtotal ;
-  #endif
-
-  #ifdef OPACITY_OVERRIDE_OUTPUT //no conflict with stealth
-    OUTCOLOR.w *= OpacityOverride ;
-  #else
-    OUTCOLOR.w = 1 ;
-  #endif
-
-    OUTCOLOR.a = saturate(OUTCOLOR.a); //for safety
-    OUTCOLOR.rgb *= TintColor ;
-  #ifdef INCREASE_HC_SATURATION
-    OUTCOLOR.rgb *= hcmask ;
-  #endif
-
-    //alpha clipping is in macro function stage
-    //ONLY STEALTH AND OPACITY OVERRIDE AFFECT OUTCOLOR ALPHA
-
-  #ifdef _3DSMAX_
-    if(PV_SRGB) { OUTCOLOR.xyz = sqrt(OUTCOLOR.xyz) ; } //linear to srgb
-  #endif
-
-    return OUTCOLOR;
-};
-
-//高画质PBR pixel shader结束====================
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//中低画质的PS ====================
-
-
-float4 PS_LOW_ARPBR (PS_H_input i) : COLOR 
-{
-    float3 N = i.WorldN;
-    float3 Lsun     = DirectionalLight[0].Direction.xyz ;
-    float3 SUNcolor = DirectionalLight[0].Color.xyz * NoCloudMultiplier;
-    float sun_tilt = dot(N, Lsun);
-    float3 sundiffuselight = (sun_tilt > 0)? SUNcolor : 0 ;
-
-    float3 ShadowMapUV = i.ShadowCS.xyz / i.ShadowCS.w ;
-    ShadowMapUV.z -= (2 - sun_tilt) * Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w ;
-    float shadowterm = hp_invshadow_trilinear(ShadowMapUV, 4, 1); //no shadow alt is inside
-    shadowterm = saturate(shadowterm *2 -0.5);// hp_cubic_hermit(bUD) ; //* bUD;
-    sundiffuselight *= shadowterm ;
-
-    float3 albedocolor = 1 ;
-    float  texalpha = 1 ;
-    float  HCchannel = 0 ;
-    float3 realHC = 1 ;
-
-  #ifndef FORBID_FACTION_COLOR
-    realHC = (HasRecolorColors)? RecolorColor : 1 ; 
-  #endif
-
-    float3  extra_glow = 0 ; //add
-    float3 extra_cavity = 1 ; //mult
-    float  extra_alpha = 1 ; //
-
-    //conditioanl functions, affect clipping
-
-    #ifdef OPACITY_OVERRIDE_CLIP
-    extra_alpha *= OpacityOverride ;
-    #endif
-
-    #ifdef ALLOW_CLIP_VERTEX_ALPHA
-    extra_alpha *= i.VertexColor.w ; //ALLOW_CLIP_VERTEX_ALPHA
-    #endif
-
-    #ifdef ALLOW_CLIP_TEXTURE_ALPHA
-    extra_alpha *= texalpha ;
-    #endif
-
-    #ifdef IS_BUILDNG
-    float4 dmgtex = tex2D(DamagedTextureSampler , i.MainTexUV.zw) ;
-    dmgtex = (i.VertexColor.w < 0.375)? dmgtex : 1;
-    extra_cavity *= dmgtex.rgb ;
-    extra_alpha *= dmgtex.w ;
-    //clip(dmgtex.w - 0.375) ;
-    #endif 
-
-    #ifdef IS_NANO_BUILDUP
-    float2 nanobuildupMASK_alpha_glow = hp_nano_build(i.VertexColor.w, i.MainTexUV.xy);
-    extra_alpha *= nanobuildupMASK_alpha_glow.x ;
-    extra_glow +=  nanobuildupMASK_alpha_glow.y * realHC *2;
-    extra_cavity *= 1 - nanobuildupMASK_alpha_glow.y ;
-    //clip(nanobuildupMASK_alpha_glow.x - 0.375) ; 
-    #endif
-
-
-
-
-  #ifdef SUPPORT_LIGHTMAP
-    extra_glow += getLightMap(i.MainTexUV.zw, 0) ; 
-  #endif
-  #ifdef SUPPORT_TESLA
-    extra_glow += abs( frac(Time + N.z) *2 -1 ) * float3(0.25, 0.5, 1);
-  #endif
-
-    //now for albedo colors
-    
-  #ifdef IS_BASIC_W3D_SHADER 
-    float4 tmp0 = tex2D(Texture_0Sampler,  i.MainTexUV.xy );
-    albedocolor = tmp0.xyz ;
-    HCchannel += tmp0.w ;
-  #endif
-
-  #ifdef IS_OBJECT_BUILDING_SHADER
-    float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
-    albedocolor = dif.xyz ;
-    texalpha = dif.w ;
-    float4 spm = tex2D(SpecMapSampler, i.MainTexUV.xy) ;
-    HCchannel += spm.b ;
-    extra_glow += (1 - spm.a) * albedocolor * realHC ;
-    extra_cavity *= spm.a ;
-  #endif
-
-
-    albedocolor *= lerp(1, realHC, saturate(HCchannel)) ;
-
-
-    float4 OUTCOLOR = 0;
-    OUTCOLOR.rgb += sundiffuselight + AmbientLightColor ;
-    OUTCOLOR.rgb *= albedocolor ;
-    OUTCOLOR.rgb *= extra_cavity ;
-    OUTCOLOR.rgb += extra_glow ;
-    OUTCOLOR.rgb *= tex2D(ShroudTextureSampler, i.FogCloudUV.xy).xyz ;
-    OUTCOLOR.rgb *= TintColor ;
-
-    //
-    #ifdef FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN
-    clip(extra_alpha - 0.375) ;
-    #else
-    if(AlphaTestEnable) {clip(extra_alpha - 0.375) ; };
-    #endif
-
-
-    OUTCOLOR.w = 1;// extra_alpha ;
-    #ifdef OPACITY_OVERRIDE_OUTPUT
-    OUTCOLOR.w *= OpacityOverride ;
-    #endif
-
-    return OUTCOLOR ;
-};
-
-// low ps end
-
-// shadow ps with alpha test 
-
-
-float4 PS_ShadowMaker_ARPBR(VS_ShadowMaker_output i) : COLOR 
-{  
-    float extra_alpha = 1 ;
-
-    //#ifdef OPACITY_OVERRIDE_CLIP
-    //extra_alpha *= OpacityOverride ;
-    //#endif
-
-    #ifdef ALLOW_CLIP_VERTEX_ALPHA
-    extra_alpha *= i.Valpha;
-    #endif
-
-    #ifdef ALLOW_CLIP_TEXTURE_ALPHA
-    extra_alpha *= tex2D(DiffuseEasySampler , i.MainTexUV.xy).w ;
-    #endif
-
-    #ifdef IS_BUILDNG
-    float dmgalpha = tex2D(DamagedTextureSampler , i.MainTexUV.zw).w ;
-    dmgalpha = (i.Valpha < 0.375)? dmgalpha : 1;
-    extra_alpha *= dmgalpha ;
-    #endif 
-
-    #ifdef IS_NANO_BUILDUP
-    extra_alpha *= hp_nano_build(i.Valpha, i.MainTexUV.xy).x;
-    #endif
-
-    clip(extra_alpha - 0.375);
-    return (i.ClipSpace.z / i.ClipSpace.w) ; 
-}
-
-
-//end shadow 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// EXPRESSIONS AND TECHNIQUE
-
-#ifdef COMPILE_SOFTSKIN_VS
-
-int VSchooserExpr() 
-{ 
-  int max_allowed_bone = (InfantrySkin)? 2 : 1 ;
-  return clamp(NumJointsPerVertex, 0, max_allowed_bone) ; 
-}
-
-VertexShader VS_H_Array[3] = {
-    compile vs_3_0 VS_H_00skin(), 
-    compile vs_3_0 VS_H_11skin(), 
-    compile vs_3_0 VS_L_22skin(), //disable nrm for soft skin
-};
-
-VertexShader VS_L_Array[3] = {
-    compile vs_3_0 VS_L_00skin(), 
-    compile vs_3_0 VS_L_11skin(), 
-    compile vs_3_0 VS_L_22skin(), 
-};
-
-VertexShader VS_Shadow_Array[3] = {
-    compile vs_2_0 VS_ShadowMaker_00skin(), 
-    compile vs_2_0 VS_ShadowMaker_11skin(), 
-    compile vs_2_0 VS_ShadowMaker_22skin(), 
-    //compile vs_2_0 VS_ShadowMaker_CLIPALL(), 
-};
-
-#else
-
-int VSchooserExpr() 
-{   return clamp(NumJointsPerVertex, 0, 1) ; }
-
-VertexShader VS_H_Array[2] = {
-    compile vs_3_0 VS_H_00skin(), 
-    compile vs_3_0 VS_H_11skin(), 
-};
-
-VertexShader VS_L_Array[2] = {
-    compile vs_3_0 VS_L_00skin(), 
-    compile vs_3_0 VS_L_11skin(), 
-};
-
-VertexShader VS_Shadow_Array[2] = {
-    compile vs_2_0 VS_ShadowMaker_00skin(), 
-    compile vs_2_0 VS_ShadowMaker_11skin(), 
-};
-
+#include "head0-common.fxh"
+
+
+//first we need the SKYBOX textures
+
+#ifdef _3DSMAX_ //预览天空盒
+textureCUBE EnvironmentTexture SEMANTIC_3DSMAX(ReflectionMap)
+<
+    string UIName = "PV_SKYBOX"; 
+    string ResourceType = "Cube";
+	  bool ExportValue = false;
+>; 
+#else  //游戏内天空盒
+texture EnvironmentTexture  
+<
+    string SasBindAddress = "Lanyi.EnvironmentTexture";
+    string ResourceType = "Cube";
+>; 
 #endif
-
-int SMPSchooserExpr() 
-{ 
-  int index = (AlphaTestEnable)? 1 : 0 ;
-  #ifdef FORCE_ENABLE_ALPHA_CLIP_BEFORE_RETURN
-  index = 1 ;
-  #endif
-  #ifdef FORBID_SHADOW_ALPHATEST
-  index = 0 ;
-  #endif
-  return index ; 
-}
-
-PixelShader PS_Shadow_Array[2] = {
-  compile ps_2_0 PS_ShadowMaker_NoAlphaTest(),
-  compile ps_2_0 PS_ShadowMaker_ARPBR(),
+samplerCUBE EnvironmentTextureSampler
+<   string Texture = "EnvironmentTexture";
+    string SasBindAddress = "Lanyi.EnvironmentTexture";
+    string ResourceType = "Cube";
+> = sampler_state {
+    Texture = < EnvironmentTexture >;
+    MinFilter = Linear;
+    MagFilter = Linear;
+    MipFilter = Linear;
+    AddressU = Clamp;
+    AddressV = Clamp;
+    AddressW = Clamp;
 };
 
-#ifdef _3DSMAX_ //预览
 
-  #define REPLACE_DEFAULT_TECHNIQUE // forbid ingame technique
-
-technique MAXPREV
-{    pass p0 
-    {
-        VertexShader = compile vs_3_0 VSforMAX(); 
-        PixelShader = compile ps_3_0 PS_H_ARPBR();
-        ZEnable = 1;
-        ZFunc = 4;
-        ZWriteEnable = 1;
-        CullMode = 2;
-        AlphaBlendEnable = (OpacityOverride < 0.985); ;
-        AlphaTestEnable = 0 ;
-    }
-}
-
-#endif  //  _3DSMAX_ ?
-
-//================= ingame
-
-#ifndef REPLACE_DEFAULT_TECHNIQUE
+int MipLevels
+< string UIName = "MipLevels(of skybox)"; int UIMin = 1; > = 8;
 
 
-technique Default
-{    pass p0 
-  #ifndef IS_BUILDNG
-  <string ExpressionEvaluator = "Objects";>
-  #endif
-  {
-    VertexShader = VS_H_Array[ VSchooserExpr() ]; 
-    PixelShader  = compile ps_3_0 PS_H_ARPBR(); 
-    ZEnable = 1;
-    ZFunc = 4;
-    ZWriteEnable = 1;
-  #ifdef RENDER_BACKFACE
-    CullMode = 1;
-  #else
-    CullMode = 2;
-  #endif
-    AlphaFunc = 7;
-    AlphaRef = 95; //95<0.375<96
-    AlphaBlendEnable = (OpacityOverride < 0.985);
-    AlphaTestEnable = 0;//default to 0 ?
-  } 
-}
+//  FOG CLOUD SHADOW ========================================
 
 
-technique Default_M 
-{    pass p0
-  #ifndef IS_BUILDNG
-  <string ExpressionEvaluator = "Objects";>
-  #endif
-  {
-    VertexShader = VS_L_Array[ VSchooserExpr() ]; 
-    PixelShader  = compile ps_3_0 PS_LOW_ARPBR(); 
-    ZEnable = 1;
-    ZFunc = 4;
-    ZWriteEnable = 1;
-    CullMode = 2;
-    AlphaFunc = 7;
-    AlphaRef = 96;
-    AlphaBlendEnable =  (OpacityOverride < 0.985);
-    AlphaTestEnable = 0;
-  } 
-}
+  // 阴影贴图，记录阳光投影空间的深度，或者说到天空的距离
+  texture ShadowMap
+  <
+      string UIWidget = "None";
+      string SasBindAddress = "Sas.Shadow[0].ShadowMap";
+  >;
+  sampler2D ShadowMapSampler
+  <
+      string Texture = "ShadowMap";
+      string SasBindAddress = "Sas.Shadow[0].ShadowMap";
+  > = sampler_state {
+      Texture = < ShadowMap > ;
+      #ifdef SHADOW_LINEAR_FILTER
+      MinFilter = 2 ; 
+      MagFilter = 2 ; 
+      #else
+      MinFilter = 1 ; 
+      MagFilter = 1 ; 
+      #endif
+      MipFilter = 0;
+      AddressU = 4; //3=clamp, 4=bordercolor
+      AddressV = 4;
+      //AddressW = 3;
+  };
+
+  // 云的贴图
+  texture CloudTexture
+  <
+      string UIWidget = "None";
+      string SasBindAddress = "Terrain.Cloud.Texture";
+      string ResourceName = "ShaderPreviewCloud.dds";
+  >;
+  sampler2D CloudTextureSampler
+  <
+      string Texture = "CloudTexture";
+      string SasBindAddress = "Terrain.Cloud.Texture";
+      string ResourceName = "ShaderPreviewCloud.dds";
+  > = sampler_state {
+      Texture = < CloudTexture >;
+      MinFilter = 2;
+      MagFilter = 2;
+      MipFilter = 1;
+      AddressU = 1;
+      AddressV = 1;
+      //AddressW = 3;
+  };
 
 
-technique _CreateShadowMap
-{    pass p0    
-  {
-    VertexShader = VS_Shadow_Array[ VSchooserExpr()  ]; 
-    PixelShader  = PS_Shadow_Array[ SMPSchooserExpr()  ];
-    ZEnable = 1;
-    ZFunc = 4;
-    ZWriteEnable = 1;
-    CullMode = 2; //3
-    AlphaBlendEnable = 0;
-    AlphaTestEnable = 0;
-  } 
-}
+  // 战争迷雾贴图
+  texture ShroudTexture
+  <
+      string UIWidget = "None";
+      string SasBindAddress = "Terrain.Shroud.Texture";
+  >;
+  sampler2D ShroudTextureSampler
+  <
+      string Texture = "ShroudTexture";
+      string SasBindAddress = "Terrain.Shroud.Texture";
+  > = sampler_state {
+      Texture = < ShroudTexture >;
+      MinFilter = 2;
+      MagFilter = 2;
+      MipFilter = 1;
+      AddressU = 3; //clamp
+      AddressV = 3;
+  };
 
-#endif  // REPLACE_DEFAULT_TECHNIQUE ?
+// END : FOG CLOUD SHADOW =========================================
 
+//style constant
 
-
-//
 /*
 
-typedef enum D3DBLEND 
-  D3DBLEND_ZERO             = 1,
-  D3DBLEND_ONE              = 2,
-  D3DBLEND_SRCCOLOR         = 3,
-  D3DBLEND_INVSRCCOLOR      = 4,
-  D3DBLEND_SRCALPHA         = 5,
-  D3DBLEND_INVSRCALPHA      = 6,
-  D3DBLEND_DESTALPHA        = 7,
-  D3DBLEND_INVDESTALPHA     = 8,
-  D3DBLEND_DESTCOLOR        = 9,
-  D3DBLEND_INVDESTCOLOR     = 10,
-  D3DBLEND_SRCALPHASAT      = 11,
-  D3DBLEND_BOTHSRCALPHA     = 12,
-  D3DBLEND_BOTHINVSRCALPHA  = 13,
-  D3DBLEND_BLENDFACTOR      = 14,
-  D3DBLEND_INVBLENDFACTOR   = 15,
-  D3DBLEND_SRCCOLOR2        = 16,
-  D3DBLEND_INVSRCCOLOR2     = 17,
-  D3DBLEND_FORCE_DWORD      = 0x7fffffff
-source color is the color of the pixel that is being drawn,
-destination color is the color of the pixel that was behind the one drawn.
-
-typedef enum D3DCULL 
-  D3DCULL_NONE         = 1, Do not cull back faces.
-  D3DCULL_CW           = 2, Cull back faces with clockwise vertices.
-  D3DCULL_CCW          = 3, Cull back faces with counterclockwise vertices.
-default cullmode = 2
-
-    pass p1 //outline
-    {
-        VertexShader = compile vs_3_0 VS_outline_3dsmax(); 
-        PixelShader  = compile ps_3_0 PS_outline();    
-        ZEnable = 1;
-        ZFunc = 4;
-        ZWriteEnable = 0;
-        CullMode = 3; // reverse
-        AlphaBlendEnable = 1 ;
-        AlphaTestEnable = 1 ;
-    }
-
+for non-metal, reflectivity is zero at max roughness. but metal still has it.
+thus we use glossiness = 1 / roughness
+and give a new multiplier called reflectivity
 
 */
+
+float K_diffuse 
+<   string UIName = "K_diffuse"; float UIMin = 0; float UIMax = 1; float UIStep = 0.01;
+> = 0.8 ; 
+// will multiply after dotNL. in real pbr this should be 1/pie
+
+float K_specular
+<   string UIName = "K_specular"; float UIMin = 0; float UIMax = 1; float UIStep = 0.01;
+> = 0.2 ; 
+// specular peak multiplier on lowest glossiness = 1
+
+float K_ambient
+<   string UIName = "K_ambient"; float UIMin = 0; float UIMax = 1; float UIStep = 0.01;
+> = 0.5 ;
+// only affect ambient diffuse for dielectrics
+
+float K_skybox
+<   string UIName = "K_skybox"; float UIMin = 0; float UIMax = 1; float UIStep = 0.01;
+> = 0.6 ;
+// actually rim light brightness at spm.r=1 . metal or not, f90 is the same.
+
+float K_reflectivity
+<   string UIName = "K_reflectivity"; float UIMin = 0; float UIMax = 1; float UIStep = 0.01;
+> = 0.5 ;
+// at spm.r=0 , this is used to darken metal rim (dielectric always 0 skybox at spm.r=0)
+
+float K_fresnel
+<   string UIName = "K_fresnel"; float UIMin = 0; float UIMax = 0.5; float UIStep = 0.01;
+> = 0.1 ; 
+// dielectric f0 . metal will simply use albedo. will multiply with k_skybox and k_ref
+
+float K_housecolor
+<   string UIName = "K_housecolor"; float UIMin = 0; float UIMax = 2; float UIStep = 0.1;
+> = 1 ;
+// house color extra brightness, 
+
+//albedo brightness is max among rgb
+
+/*
+array meaning: diffuse sun, diffuse ambient, spec sun, spec ambient, f0, f90
+mat type:                    metal                 dielec
+min rough               [0,0,1,1,rgb,1 ]          [rgb, rgb, ]
+max rough               [0,0,]
+
+*/
+
+
+
+
+
+texture DiffuseTexture 
+<string UIName = "(BASE)DiffuseTexture";>; 
+//RGB为基础色，而不是漫反射。 alpha弃用
+sampler2D DiffuseTextureSampler
+<string Texture = "DiffuseTexture";> = sampler_state {
+    Texture = < DiffuseTexture >;
+    MinFilter = 3; //Anisotropic
+    MagFilter = 2;
+    MipFilter = 2;
+    MaxAnisotropy = 4;
+    AddressU = Wrap;
+    AddressV = Wrap;
+    //AddressW = Clamp;
+};
+
+bool SRGB // 主帖图是不是用SRGB空间存的
+< string UIName = "SRGB"; > =  1 ;
+
+texture SpecMap 
+<string UIName = "(SPM)SpecMap";>; 
+//R:光滑度（粗糙反转）G:金属度 B:阵营色浓度 A:发光（可反转）
+sampler2D SpecMapSampler
+<string Texture = "SpecMap";> = sampler_state {
+    Texture = < SpecMap >;
+    MinFilter = 3; //Anisotropic
+    MagFilter = 2;
+    MipFilter = 2;
+    MaxAnisotropy = 4;
+    AddressU = Wrap;
+    AddressV = Wrap;
+    //MIPMAPLODBIAS = -1 ;
+    //AddressW = Wrap;
+};
+
+float MinRoughness 
+<   string UIName = "MinRoughness"; float UIMin = 0.01; float UIMax = 0.5; float UIStep = 0.01;
+> = 0.25 ;
+
+float EmissiveMultiplier 
+<   string UIName = "EmissiveMultiplier"; float UIMin = -9; float UIMax = 9; float UIStep = 0.1;
+> = 0 ;
+//  自发光， 写负数反转通道
+
+texture NormalMap SEMANTIC_3DSMAX(NormalMap)
+<string UIName = "(NRM)NormalMap";>; 
+//RG 法线, B 没用, A 环境AO
+sampler2D NormalMapSampler
+<string Texture = "NormalMap";> = sampler_state {
+    Texture = < NormalMap >;
+    MinFilter = 2; //3 
+    MagFilter = 2;
+    MipFilter = 2;
+    //MaxAnisotropy = 4;
+    AddressU = Wrap;
+    AddressV = Wrap;
+};
+
+float BumpScale //如果法线图凹凸反了，写-1修正。完全无效化法线图，写0。
+<   string UIName = "BumpScale"; 
+    string UIWidget = "Slider"; 
+    float UIMin = -8; float UIMax = 8; float UIStep = 0.1;
+> =  2 ;
+
 

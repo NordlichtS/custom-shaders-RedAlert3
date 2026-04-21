@@ -7,7 +7,7 @@
 // 上面的最好别乱动 dont change any above 
 
  #define FORBID_FACTION_COLOR //中立单位要禁止阵营色 generic on
- #define DYNAMIC_CLOUD_REF //允许动态云背景反射。对金属和玻璃质感很重要 仅玩家
+// #define DYNAMIC_CLOUD_REF //允许动态云背景反射。对金属和玻璃质感很重要 仅玩家
 // #define ALLOW_STEALTH //允许隐身时有特殊的全息投影特效, player object only ! 建筑和中立都关
 // #define RENDER_BACKFACE //only for tengu, objectsjapan
 #define FORBID_SHADOW_ALPHATEST  //for terrain like stuff
@@ -27,8 +27,28 @@
 // #define IS_BUILDNG //仅building要。这是损伤破洞功能。与上下两者冲突 不可同时用
 // #define IS_NANO_BUILDUP  //启用帝国建筑的建造动画。 与上两者冲突 不可同时用
 
+#define SPECIAL_SAS_HEADER
+
+int _SasGlobal : SasGlobal  
+<
+    int3 SasVersion = int3(1, 0, 0);
+    string UIWidget = "None";
+    int MaxSupportedInstancingMode = 1;
+    int MaxLocalLights = 8;
+    
+	string RenderBin = "TerrainLikeGroundObject";
+
+> = 0;
+
 
 
 #include "PBR5-10-objects-ARPBR.FX"
 
 //this is : objectsgeneric.fxo
+
+
+/*
+fxc.exe /O2 /T fx_2_0 /Fo   objectsgeneric.fxo   objectsgeneric.FX
+
+
+*/

@@ -21,21 +21,7 @@
 
 //VS==================================
 
-// 通过四元数来计算旋转的函数，来自 CNC3 的 Skinning.fxh
-float3 QuaternionRotate(float4 rotation, float3 position) 
-{
-	float4 a
-	= rotation.wwwx * position.xyzx 
-    + rotation.yzxy * position.zxyy;
-	a.w = -a.w;
-	a -= rotation.zxyz * position.yzxz;
-    float3 finalvector 
-    = rotation.www * a.xyz 
-    - rotation.xyz * a.www 
-    + rotation.yzx * a.zxy 
-    - rotation.zxy * a.yzx;
-	return finalvector;
-}; 
+
 
 float3x3 Quaternion2Matrix(float4 Quaternion)
 {
@@ -276,12 +262,12 @@ float hp_invshadow_trilinear(float3 SMUV, float transition_range_mult, float tra
     // shadowmapdepth + : more likely to have sunlight
     fourSamples -= objdepth ;
     //shadowmapdepth - objdepth = sunlight likelyness
-    fourSamples /= SM01T.y * transition_range_mult ; 
+        //fourSamples /= SM01T.y * transition_range_mult ; 
     //default transition range: 1/1024 (ooms)
     //divider smaller = sharper, larger = smoother
-    fourSamples += transition_start_bias_mult ;
+        //fourSamples += transition_start_bias_mult ;
     //increase sunlight likelyness, avoid self shadow
-    fourSamples = saturate(fourSamples); //???
+    fourSamples = saturate(fourSamples * 1024 + 1); //???
     //bilinear 2x2 interpolate
     float2 bLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
     float  bUD = lerp(bLR.x   , bLR.y   , UVlerpw.y);

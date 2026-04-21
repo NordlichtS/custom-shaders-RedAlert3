@@ -72,7 +72,7 @@ struct ShroudSetup {float4 ScaleUV_OffsetUV;} Shroud //
 float4 Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize 
 //: register(ps, c11)  //only PS ?
 < string SasBindAddress = "Sas.Shadow[0].Zero_Zero_OneOverMapSize_OneOverMapSize";>
-= float4(0,0,1,1) /1024   ;
+= float4(0,0, 1/1024 , 1/1024)    ;
 
 // 2X8 FLOAT4 , C89-C112
 shared struct PointLightSetup {float3 Color; float3 Position; float2 Range_Inner_Outer;} 
@@ -451,7 +451,7 @@ float bilinearShadow(float3 ShadowMapUV)
         return bUD ;
 }
 
-float trilinearShadow(float3 SMUV, float transition_range_mult, float transition_start_bias_mult)
+float trilinearShadow(float3 SMUV)
 {
 
     float2 SM01T = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
@@ -469,12 +469,9 @@ float trilinearShadow(float3 SMUV, float transition_range_mult, float transition
     // shadowmapdepth + : more likely to have sunlight
     fourSamples -= objdepth ;
     //shadowmapdepth - objdepth = sunlight likelyness
-    fourSamples /= SM01T.y * transition_range_mult ; 
-    //default transition range: 1/1024 (ooms)
-    //divider smaller = sharper, larger = smoother
-    fourSamples += transition_start_bias_mult ;
+
     //increase sunlight likelyness, avoid self shadow
-    fourSamples = saturate(fourSamples); //???
+    fourSamples = saturate(fourSamples * 1024 + 1); //???
     //bilinear 2x2 interpolate
     float2 bLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
     float  bUD = lerp(bLR.x   , bLR.y   , UVlerpw.y);
@@ -783,16 +780,18 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
     //shadowterm *= (i.Color_Shroud_Suntilt.y > 0)? 1 : 0 ;
 	if (HasShadow) // not the uniform bool hasShadow
     {   
+
+        float3 ShadowMapUV = i.ShadowMapClipSpace.xyz / i.ShadowMapClipSpace.w;
+
+        #ifdef SHADOW_DITHER
         bool2 dither = frac(vpos /2) < 0.3 ;
         float2 smuvbias = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
         smuvbias = (dither.x)? smuvbias.xy : smuvbias.yx ; //x to flip axis
         smuvbias = (dither.y)? smuvbias    : - smuvbias  ; //y to flip direction     
-
-        float3 ShadowMapUV = i.ShadowMapClipSpace.xyz / i.ShadowMapClipSpace.w;
-        #ifdef SHADOW_DITHER
         ShadowMapUV.xy += smuvbias * i.Color_Shroud_Suntilt.y ;
         #endif
-        shadowterm *= trilinearShadow(ShadowMapUV, 2 , 2); //(2- i.Color_Shroud_Suntilt.y)
+
+        shadowterm *= trilinearShadow(ShadowMapUV); //
     }
 	sunColor *= shadowterm ;
 
@@ -1142,7 +1141,7 @@ float4 PS_CreateShadowMap(VSOutput_CreateShadowMap In) : COLOR
 technique _CreateShadowMap
 {    pass P0
     {
-        VertexShader = compile vs_2_0 VS_CreateShadowMap(5); 
+        VertexShader = compile vs_2_0 VS_CreateShadowMap(4.0); 
         PixelShader  = compile ps_2_0 PS_CreateShadowMap(); 
         ZEnable = 1;
         ZWriteEnable = 1;

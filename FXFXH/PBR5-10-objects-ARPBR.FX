@@ -56,7 +56,7 @@ fxc.exe /O2 /T fx_2_0 /Fo   objectsARPBR.fxo   PBR5-10-objects-ARPBR.FX
 
 #ifndef USE_SPECIAL_PBR_W3X_CONSTANT
 
-static const float4 SPM_threshold = { 0.75, 0.125, 0.125, 0.5 }; //careful gen evo values
+static const float4 SPM_threshold = { 0.75, 0.25, 0.125, 0.5 }; //careful gen evo values
 static const float glow_mult = 4;
 static const float MinRoughness = 0.125 ;
 static const float SpecBaseMultiply = 0.125 ; 

@@ -109,3 +109,9 @@ technique _CreateShadowMap
 
 
 //this is : objects terrain
+
+/*
+fxc.exe /O2 /T fx_2_0 /Fo   objectsterrain.fxo   objectsterrain.FX
+
+
+*/

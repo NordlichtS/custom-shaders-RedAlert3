@@ -1,10 +1,13 @@
 /*
 fxc.exe /O2 /T fx_2_0 /Fo   FXdeferredpointlight.fxo   FXdeferredpointlight.FX
 
+fxc.exe /O2 /T fx_2_0 /Fo   FXdeferredpointlight(max).fxo   FXdeferredpointlight.FX
+
 
 */
 
 
+// #define _3DSMAX_
 
 //this file is for simple point local lights 
 
@@ -31,18 +34,22 @@ float Range
     float UIMax = 1024; float UIMin = 32; float UIStep = 1; 
 > = 100 ;
 
-float4 ColorEmissive
+float3 ColorEmissive
 <
-	string UIName = "ColorEmissive(rgb+a*hc)";
+	string UIName = "ColorEmissive";
     string UIWidget = "Color";
-> = float4(0.5, 0.5, 0.5, 0.5);
+> = float3(0.5, 0.5, 0.5);
 
-float HDRMultiplier
+float HDRMultiplier    //EmissiveHDRMultipler  ?
 <
 	string UIName = "HDRMultiplier";  //this is a limit, not real multiplier
     float UIMax = 16; float UIMin = 0; float UIStep = 0.1; 
 > = 3;  //default white light can peak to 3x core brightness 
 
+bool UseRecolorColors <string UIName = "UseRecolorColors";> = 0;
+bool HouseColorPulse  <string UIName = "HouseColorPulse";> = 0; 
+
+/*
 float ZBias
 <
     string UIName = "ZBias"; 
@@ -79,6 +86,7 @@ struct VSout_local2
     float4 ClipSpacePos : TEXCOORD0;  // PERSPECTIVE DIVISION IN PS
     float3 ViewSpacePos : TEXCOORD1 ; 
     float3 Center2Eye   : TEXCOORD2 ; //light center in world space minus eye
+    float3 LightSourceColor : TEXCOORD3 ;  // we do this in vs
 };
 
 // point light with sphere volume
@@ -88,7 +96,8 @@ VSout_local2 VSpointlight2(float3 Position : POSITION )
 
     float3 objPos = Position * Range ;  //scale up
     float3 center2world = World[3].xyz ;
-    center2world.z += ZBias * OpacityOverride ;
+    //float realZbiasMult = (ZBias <0 ) ? (1 - OpacityOverride) : OpacityOverride  ;
+    //center2world.z += ZBias * OpacityOverride ;
     // move up in case ground hide
     // point light only move, no rotation
     float4 worldPos4D = float4( float3(objPos + center2world), 1);
@@ -99,19 +108,33 @@ VSout_local2 VSpointlight2(float3 Position : POSITION )
     o.Center2Eye = center2world - EyePosition ;
     // World[3].xyz - ViewI[3].xyz ;
 
+
+    // get light color 
+    float3 realHC = (HasRecolorColors)? RecolorColor : 0 ;
+    realHC *= dot(ColorEmissive , 0.5) ;
+    float pulse = 0 ; 
+    if(HouseColorPulse){ pulse = abs(frac(Time /1) *2 -1) ;}
+    float3 lightColor = 1 ;
+    lightColor = (UseRecolorColors)? realHC : ColorEmissive ;
+    lightColor +=  realHC * pulse ;
+    lightColor *= OpacityOverride ;
+    o.LightSourceColor = lightColor ;
+
     return o;
 }
 
+/*
 struct PSin_local2
 {
-    float2 Vpos         : VPOS ;        //for pixel film grain
+    //float2 Vpos         : VPOS ;        //for pixel film grain
     float4 ClipSpacePos : TEXCOORD0 ;   // PERSPECTIVE DIVISION IN PS
     float3 ViewSpacePos : TEXCOORD1 ;   // z division in ps
     float3 Center2Eye   : TEXCOORD2 ;   //light center in world space minus eye
 	 
 };
+*/
 // 1 use facet shade, 0 distance only
-float4 PSpointlight2(PSin_local2 i, uniform bool LevelofDetail) : COLOR 
+float4 PSpointlight2(VSout_local2 i, uniform bool LevelofDetail) : COLOR 
 {   
     float2 screenUV = i.ClipSpacePos.xy / i.ClipSpacePos.w * float2(1, -1); 
     //ndc but flip, also add margin due to dx9
@@ -137,23 +160,20 @@ float4 PSpointlight2(PSin_local2 i, uniform bool LevelofDetail) : COLOR
     if ( (distSq > 1) || ( dot(lightVec, worldN ) < 0) ) return 0 ; 
     // out of range   or  backfacing light
 
-    // get light color 
-    float3 realHC = (HasRecolorColors)? RecolorColor : 0 ;
-    float3 lightColor = ColorEmissive.rgb + ColorEmissive.a * realHC ; //mix hc
-    lightColor *= OpacityOverride ;
 
-    float3 colorHere = 0 ;
+
+    float3 colorHere = i.LightSourceColor ;
     
     if(LevelofDetail) { 
         //decay type : (1-r^2)/r and diffuse
         float diffusedecay = dot( float3(lightVec / distSq) , normalize(worldN)) ;
         diffusedecay *= (1- distSq) / 8 ;  //core 0.125, curve close to (x-1)^2
-        colorHere = lightColor * diffusedecay ;
+        colorHere *= diffusedecay ;
     } else {
         //decay type : (1- r^2)^n 
         float decayeasy = saturate(1 - distSq) ;
         decayeasy = pow(decayeasy, 4) ; // slow - fast - slow
-        colorHere = lightColor * decayeasy ;
+        colorHere *= decayeasy ;
     };
 
     colorHere = clamp(colorHere, 0, HDRMultiplier.xxx); 
@@ -174,21 +194,29 @@ float4 VSmax(float3 Position : POSITION ) : POSITION
 
 float4 PSmax() : COLOR
 {   
-    float3 lightColor = ColorEmissive.rgb + ColorEmissive.a * RecolorColor ;
-    return float4(lightColor * 0.5 , 1) ;
+    float3 realHC = (HasRecolorColors)? RecolorColor : 0 ;
+    realHC *= dot(ColorEmissive , 0.5) ;
+    float pulse = 1 ; 
+    if(HouseColorPulse){ pulse = abs(frac(Time /1) *2 -1) ;}
+    float3 lightColor = 1 ;
+    lightColor = (UseRecolorColors)? realHC : ColorEmissive ;
+    lightColor +=  realHC * pulse ;
+    lightColor *= OpacityOverride ;
+    return float4(lightColor , 1) ;
 }
 
 technique MAXPREV
 {    pass p0 
     {
+    FillMode = WIREFRAME;
     VertexShader = compile vs_3_0 VSmax(); 
     PixelShader  = compile ps_3_0 PSmax(); 
     ZEnable = 1;
     ZFunc = 4;
-    ZWriteEnable = 0;
-    CullMode = 1;
+    ZWriteEnable = 1;
+    CullMode = 1; //BOTH
 	AlphaTestEnable = 0;
-	AlphaBlendEnable = 1; //additive
+	AlphaBlendEnable = 0; //
 	SrcBlend =  D3DBLEND_ONE ;
 	DestBlend = D3DBLEND_ONE ;
     } 

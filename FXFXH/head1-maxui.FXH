@@ -323,11 +323,6 @@ float4x4 ProjectionI    : ProjectionInverse;
 //预览用 constant ===============================
 
 
-float4x4 MAXwvp : WorldViewProjection;
-float4x4 MAXworld : WORLD;
-float4x4 MAXviewinv : VIEWINVERSE; 
-float4x4 MAXview : View;         
-float4x4 MAXprojection : Projection; 
 
 
 
@@ -427,30 +422,13 @@ float3 hp_getAccentLight (float3 nrm){
     #else
 
     float3 skybox1 = DirectionalLight[1].Color ;
-    skybox1 *= dot(DirectionalLight[1].Direction, nrm) +1 ;
+    skybox1 *= dot(DirectionalLight[1].Direction, nrm) * 0.5 + 0.5 ;
     float3 skybox2 = DirectionalLight[2].Color ;
-    skybox2 *= dot(DirectionalLight[2].Direction, nrm) +1;
-    return (skybox1 + skybox2) /2 ; //already double bright
+    skybox2 *= dot(DirectionalLight[2].Direction, nrm) * 0.5 + 0.5 ;
+    return (skybox1 + skybox2) ; //already double bright
     #endif
 }
 
 #endif //  #ifndef IGNORE_FOG_CLOUD_SHADOW
 
 // 矩阵 预览用 MAX必要
-
-float3 getEYEpos() {   
-    #ifdef _3DSMAX_
-    return MAXviewinv[3].xyz ;
-    #else
-    return EyePosition ;
-    #endif
-}
-
-float4x4 getVPmatrix(){  
-    #ifdef _3DSMAX_
-    return mul(MAXview, MAXprojection) ;
-    #else
-    return ViewProjection ;
-    #endif
-}
-
