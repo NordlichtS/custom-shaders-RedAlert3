@@ -5,7 +5,7 @@ fxc.exe /O2 /T fx_2_0 /Fo   (FOR_3DSMAX_ONLY)basicw3dMASK.fxo   basicw3dMASK.FX
 
 
 */
-#define IGNORE_FOG_CLOUD_SHADOW
+#define IGNORE_SHROUD_CLOUD_SHADOW
 #define _3DSMAX_
 
 

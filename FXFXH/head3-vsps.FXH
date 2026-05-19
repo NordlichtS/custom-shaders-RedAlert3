@@ -115,7 +115,7 @@ VS_H_output  VS_H_00skin (VS_H_00skin_input  i)  //no bone skin
 
     WorldPosition.xyz = o.WorldP ; //世界坐标
     o.WorldN = normalize(o.WorldN);
-    o.VertexColor.rgb = hp_getAccentLight(o.WorldN)/2;
+    o.VertexColor.rgb = getAccentLight(o.WorldN)/2;
     //if(HasShadow) 
     o.ShadowCS = mul(WorldPosition, ShadowMapWorldToShadow); ;
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
@@ -164,7 +164,7 @@ VS_H_output  VS_H_11skin (VS_H_11skin_input  i)  //1 bone skin
 
     WorldPosition.xyz = o.WorldP  ; //四维世界坐标
     o.WorldN = normalize(o.WorldN);
-    o.VertexColor.rgb = hp_getAccentLight(o.WorldN)/2;
+    o.VertexColor.rgb = getAccentLight(o.WorldN)/2;
     //if(HasShadow) 
     o.ShadowCS = mul(WorldPosition, ShadowMapWorldToShadow); ;
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
@@ -233,7 +233,7 @@ VS_H_output  VS_H_22skin (VS_H_22skin_input  i)  //2 bone skin, with tangentfram
 
     WorldPosition.xyz = o.WorldP  ; //四维世界坐标
     o.WorldN = normalize(o.WorldN);
-    o.VertexColor.rgb = hp_getAccentLight(o.WorldN)/2;
+    o.VertexColor.rgb = getAccentLight(o.WorldN)/2;
     o.ShadowCS = mul(WorldPosition, ShadowMapWorldToShadow); ;
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
     o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;
@@ -330,7 +330,7 @@ VS_notgt_output  VS_L_00skin (VS_00skin_notgt_input  i)//, uniform bool UseShado
 
     WorldPosition.xyz = o.WorldP ; //世界坐标
     o.WorldN = normalize(o.WorldN);
-    o.VertexColor.rgb = hp_getAccentLight(o.WorldN)/2;
+    o.VertexColor.rgb = getAccentLight(o.WorldN)/2;
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
     o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;
     o.ShadowCS = mul(WorldPosition, ShadowMapWorldToShadow); ;
@@ -372,7 +372,7 @@ VS_notgt_output  VS_L_11skin (VS_11skin_notgt_input  i)//, uniform bool UseShado
 
     WorldPosition.xyz = o.WorldP  ; //四维世界坐标
     o.WorldN = normalize(o.WorldN);
-    o.VertexColor.rgb = hp_getAccentLight(o.WorldN)/2;
+    o.VertexColor.rgb = getAccentLight(o.WorldN)/2;
     o.VertexColor.w = bone_offset_alpha.w ;
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
     o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;
@@ -424,7 +424,7 @@ VS_notgt_output  VS_L_22skin (VS_22skin_notgt_input  i)//, uniform bool UseShado
 
     WorldPosition.xyz = o.WorldP  ; //四维世界坐标
     o.WorldN = normalize(o.WorldN);
-    o.VertexColor.rgb = hp_getAccentLight(o.WorldN)/2;
+    o.VertexColor.rgb = getAccentLight(o.WorldN)/2;
     o.FogCloudUV.xy = getWarfogUV( WorldPosition) ;
     o.FogCloudUV.zw = getCloudUV ( WorldPosition) ;
     o.ShadowCS = mul(WorldPosition, ShadowMapWorldToShadow); ;

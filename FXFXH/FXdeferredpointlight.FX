@@ -13,7 +13,7 @@ fxc.exe /O2 /T fx_2_0 /Fo   FXdeferredpointlight(max).fxo   FXdeferredpointlight
 
 #define DEFERRED_RENDER
 #define FORBID_CLIPPING_CONSTANT
-#define IGNORE_FOG_CLOUD_SHADOW
+#define IGNORE_SHROUD_CLOUD_SHADOW
 
 
 #define SPECIAL_SAS_HEADER

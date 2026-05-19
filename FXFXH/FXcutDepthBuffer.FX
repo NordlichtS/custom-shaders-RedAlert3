@@ -7,7 +7,7 @@ fxc.exe /O2 /T fx_2_0 /Fo   FXcutDepthBuffer.FXO   FXcutDepthBuffer.FX
 
 // #define _3DSMAX_
 // #define FORBID_CLIPPING_CONSTANT
-#define IGNORE_FOG_CLOUD_SHADOW
+#define IGNORE_SHROUD_CLOUD_SHADOW
 #define FORBID_FACTION_COLOR
 #define SPECIAL_SAS_HEADER
 

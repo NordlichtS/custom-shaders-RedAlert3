@@ -29,7 +29,7 @@ int _SasGlobal : SasGlobal
 > = 0;
 
 
-#define IGNORE_FOG_CLOUD_SHADOW
+#define IGNORE_SHROUD_CLOUD_SHADOW
 
 
 #include "head2-functions.FXH"  // hahahahahahahaha
