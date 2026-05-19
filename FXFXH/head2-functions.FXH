@@ -41,21 +41,8 @@ float3 hp_ps_getViewVector(float3 WorldPosition)
     #endif
     float3 viewvector = normalize(camera_in_world - WorldPosition);  
     return viewvector ;
-};
+}
 
-
-// 计算战争迷雾贴图的 UV 坐标
-float2 getWarfogUV(float4 WorldPosition) 
-{
-    return (WorldPosition.xy + Shroud.ScaleUV_OffsetUV.zw) * Shroud.ScaleUV_OffsetUV.xy;
-};
-// 计算云的贴图的 UV 坐标
-float2 getCloudUV(float4 WorldPosition) 
-{
-    float4 multipliedCloudUV = WorldPosition.xyzz * Cloud.WorldPositionMultiplier_XYZZ;
-    return multipliedCloudUV.xy - multipliedCloudUV.zw + Cloud.CurrentOffsetUV;
-};
-//xy warfog , zw cloud 
 
 
 // 计算阴影贴图的 UV 坐标和深度
@@ -214,7 +201,7 @@ float4 dx9vpos_2NDCXY_2ScreenTexUV(float2 vpos, float2 screenRes)
 }
 
 //柔和阴影
-#ifndef IGNORE_FOG_CLOUD_SHADOW
+#ifndef IGNORE_SHROUD_CLOUD_SHADOW
 
 float hp_invshadow_bilinear ( float3 SMUV ) 
 { 
@@ -279,32 +266,6 @@ float hp_invshadow_trilinear(float3 SMUV, float transition_range_mult, float tra
     return lightmid ;
 }
 
-float hp_invshadow_underground ( float3 SMUV, float sun_tilt, float MicroShadowBias , bool welledgeNoSunlight ) 
-{ 
-    if(welledgeNoSunlight) {return 0;};
-    if(sun_tilt <= 0) {return 0;};
-    if(! HasShadow)   {return 1;}; 
-
-    float2 SM01T = float2(0, Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize.w);
-    float2 UVlerpw = frac(SMUV.xy / SM01T.y);
-    float object_depth = SMUV.z + MicroShadowBias ;
-    //tbd : use suntilt to fix side offset
-
-    float4 fourSamples = float4(   //四个角的阴影图深度
-        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.xx)).x ,
-        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.xy)).x ,
-        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.yx)).x ,
-        tex2D(ShadowMapSampler, (SMUV.xy + SM01T.yy)).x 
-    );  // LU,LD,RU,RD (00,01,10,11) 
-    bool4 fourTests = (fourSamples > object_depth) ; //阴影比物体离阳光更远，则有阳光
-    fourSamples = (float4)fourTests ;
-    //双线性插值
-    float2 bLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
-    float  bUD = lerp(bLR.x   , bLR.y   , UVlerpw.y);
-    float lightmid = saturate(bUD *3 -1); // hp_cubic_hermit(bUD) ; //* bUD;
-
-    return lightmid ;
-}
 
 /*
 
@@ -365,7 +326,7 @@ float3 getSKYBOXcolor (float3 reflectedView, float roughness, float AOchannel)
 #endif
 
 
-#endif //IGNORE_FOG_CLOUD_SHADOW
+#endif //IGNORE_SHROUD_CLOUD_SHADOW
 
 //高光分布
 float hp_specdist(float glossiness, float3 R, float3 L)

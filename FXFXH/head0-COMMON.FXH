@@ -57,9 +57,9 @@ shared float3 RecolorColor
 	bool ExportValue = false;
 > = { 
     #ifdef _3DSMAX_
-        0 , 0.5 , 1 
+    0 , 0.5 , 1 
     #else //MAX预览默认蓝色，游戏里默认白色
-        1 , 1 , 1 
+    1 , 1 , 1 
     #endif
     };
 #else //如果专门禁用的话，还需要挤掉寄存器
@@ -75,7 +75,7 @@ shared float OpacityOverride
     float UIMax = 1; float UIMin = 0; float UIStep = 0.1; 
     bool ExportValue = false;
 > = 1;
-// TODO : use SAS indirect constant to let expression read it
+// TODO : use SAS  constant to let expression read it
 
 //谭雅炸弹的染色，还有鼠标点击变亮
 shared float3 TintColor 
@@ -139,56 +139,25 @@ shared float3 EyePosition
 //物体空间到世界空间矩阵，这个好像只能给没绑骨骼的mesh用, C124-C127
 shared float4x3 World : World 
 : register(c124);
+// chatgpt said the function use it as row major standard,
+// but decompiler say its column major?
 
 //骨骼在世界空间里的信息共64组，每两个float4记一个骨骼，按 4+3+1 记录旋转，位移，透明度
 float4 WorldBones[128] //shared  ? C128-C255
-: register(vs, c128)
-<    bool unmanaged = true;>; //调用骨骼时记得index x2
+: register(vs, c128); //调用骨骼时记得index x2
 
 
 //===============================
 
-// 通过四元数来计算旋转的函数，来自 CNC3 的 Skinning.fxh
-float3 QuaternionRotate(float4 rotation, float3 position) 
-{
-	float4 a
-	= rotation.wwwx * position.xyzx 
-    + rotation.yzxy * position.zxyy;
-	a.w = -a.w;
-	a -= rotation.zxyz * position.yzxz;
-    float3 finalvector 
-    = rotation.www * a.xyz 
-    - rotation.xyz * a.www 
-    + rotation.yzx * a.zxy 
-    - rotation.zxy * a.yzx;
-	return finalvector;
-}; 
 
-/*
-
-*/
 
 
 
 //下面的constant没有写定的寄存器，不过也是引擎看SAS和semantic注入的
 
-//looks like these two dont really have specified registers?
-#ifndef IGNORE_FOG_CLOUD_SHADOW
 
-//用于设置战争迷雾坐标
-struct {float4 ScaleUV_OffsetUV;} Shroud 
-//为什么它有struct而不是一整个float4？
-//: register(vs, c11)  //只能用于VS ? 并没有！
-<   string UIWidget="None"; string SasBindAddress = "Terrain.Shroud";> 
-= { 1, 1, 0, 0 };
 
-//阴影图一个像素在阴影采样坐标里的长度，可用于模糊阴影边缘
-float4 Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize 
-//: register(ps, c11) //只能用于PS ?  并没有！
-<   string UIWidget ="None"; string SasBindAddress = "Sas.Shadow[0].Zero_Zero_OneOverMapSize_OneOverMapSize";>;
-// #define  SMtexel  Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize //名字太长了换个短的！
 
-#endif //  IGNORE_FOG_CLOUD_SHADOW
 
 
 
@@ -208,35 +177,150 @@ bool HasRecolorColors
 bool HasShadow 
 <   string UIWidget="None"; string SasBindAddress = "Sas.HasShadow";> = 0 ;
 
-//世界坐标10单位长度为一个地编格，但似乎建造格其实是 20x根号2 大约28.3 ？ 也可能就是30
-// float2 MapCellSize 
-// <   string UIWidget="None"; string SasBindAddress = "Terrain.Map.CellSize";> = { 10, 10 };
+#ifndef FORBID_CLIPPING_CONSTANT
+    //bool AlphaBlendEnable < string UIName = "Alpha Blend Enable";> ;//= 0;
+
+    extern bool AlphaTestEnable //主贴图镂空
+    <    string UIName = "Alpha Test Enable";> = 0;
+
+    extern bool CullingEnable //好像是允许背面不渲染来优化？
+    <    string UIName = "Culling Enable";> = 1;
+
+    extern bool DepthWriteEnable //写入深度buffer 但好像是用阴影图制作器单独生成的屏幕空间深度？
+    <    string UIName = "Depth Write Enable";> = 1;
+
+#endif // FORBID_CLIPPING_CONSTANT ?
 
 //当前帧距离游戏开局的秒数，可以用来做呼吸灯和履带滚动
 float Time : Time;
 
-#ifndef FORBID_CLIPPING_CONSTANT
-//bool AlphaBlendEnable < string UIName = "Alpha Blend Enable";> ;//= 0;
+// 我们依然不知道下面这两个到底要放什么寄存器里。
+// 很奇怪，为什么云就有写定的寄存器？
 
-extern bool AlphaTestEnable //主贴图镂空
-<    string UIName = "Alpha Test Enable";> = 0;
+//用于设置战争迷雾坐标
+shared struct {float4 ScaleUV_OffsetUV;} Shroud 
+//为什么它有struct而不是一整个float4？
+//: register(vs, c11)  //只能用于VS ? 并没有！
+<   string UIWidget="None"; string SasBindAddress = "Terrain.Shroud";> 
+= { 1, 1, 0, 0 };
 
-extern bool CullingEnable //好像是允许背面不渲染来优化？
-<    string UIName = "Culling Enable";> = 1;
-
-extern bool DepthWriteEnable //写入深度buffer 但好像是用阴影图制作器单独生成的屏幕空间深度？
-<    string UIName = "Depth Write Enable";> = 1;
-
-#endif // FORBID_CLIPPING_CONSTANT ?
+//阴影图一个像素在阴影采样坐标里的长度，可用于模糊阴影边缘
+shared float4 Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize 
+//: register(ps, c11) //只能用于PS ?  并没有！
+<   string UIWidget ="None"; string SasBindAddress = "Sas.Shadow[0].Zero_Zero_OneOverMapSize_OneOverMapSize";>;
+// #define  SMtexel  Shadowmap_Zero_Zero_OneOverMapSize_OneOverMapSize //名字太长了换个短的！
 
 
 //上面的都并没有直接记录在W3X的SHADER段，但引擎会分配
 
 
+// ============ texture and sampler: fog cloud shadow
+
+#ifndef IGNORE_FOG_CLOUD_SHADOW
+
+// 战争迷雾贴图
+texture ShroudTexture
+    <
+    string UIWidget = "None";
+    string SasBindAddress = "Terrain.Shroud.Texture";
+    >;
+    sampler2D ShroudTextureSampler
+    <
+    string Texture = "ShroudTexture";
+    string SasBindAddress = "Terrain.Shroud.Texture";
+    > = sampler_state {
+    Texture = < ShroudTexture >;
+    MinFilter = 2;
+    MagFilter = 2;
+    MipFilter = 1;
+    AddressU = 3; //clamp
+    AddressV = 3;
+};
+
+// 云贴图
+texture CloudTexture
+    <
+    string UIWidget = "None";
+    string SasBindAddress = "Terrain.Cloud.Texture";
+    string ResourceName = "ShaderPreviewCloud.dds";
+    >;
+    sampler2D CloudTextureSampler
+    <
+    string Texture = "CloudTexture";
+    string SasBindAddress = "Terrain.Cloud.Texture";
+    string ResourceName = "ShaderPreviewCloud.dds";
+    > = sampler_state {
+    Texture = < CloudTexture >;
+    MinFilter = 2;
+    MagFilter = 2;
+    MipFilter = 1;
+    AddressU = 1;
+    AddressV = 1;
+    //AddressW = 3;
+}; 
+
+// 阴影贴图，记录阳光投影空间的深度，或者说到天空的距离
+texture ShadowMap
+    <
+    string UIWidget = "None";
+    string SasBindAddress = "Sas.Shadow[0].ShadowMap";
+    >;
+    sampler2D ShadowMapSampler
+    <
+    string Texture = "ShadowMap";
+    string SasBindAddress = "Sas.Shadow[0].ShadowMap";
+    > = sampler_state {
+    Texture = < ShadowMap > ;
+    MinFilter = 1 ; 
+    MagFilter = 1 ; 
+    MipFilter = 0;
+    AddressU = 4; //3=clamp, 4=bordercolor
+    AddressV = 4;
+    //AddressW = 3;
+};
+
+#endif //  IGNORE_FOG_CLOUD_SHADOW
+
+// ============ 后处理和延迟渲染的局域光所需的信息（高画质才有）
+#ifdef DEFERRED_RENDER
+
+    texture DepthTexture 
+        <   
+        string UIWidget = "None";
+        string SasBindAddress = "WW3D.DepthTexture";
+        >; 
+        sampler2D DepthTextureSampler //: register(ps_2_0, s1) 
+        <
+        string Texture = "DepthTexture"; 
+        string SasBindAddress = "WW3D.DepthTexture";
+        > = sampler_state {
+        Texture = <DepthTexture>; 
+        MinFilter = 1;  //nearest
+        MagFilter = 1;
+        MipFilter = 0;
+        AddressU = 3;  //clamp
+        AddressV = 3;
+    };
+
+    // 疑似屏幕大小
+    float2 FrameBufferSize  
+    <
+        string UIWidget = "None";
+        string SasBindAddress = "WW3D.FrameBufferSize";
+    > = float2(1920, 1080);  //1.0f
 
 
+    //  deferred shading use more matrix math
+    float4x4 View           : View;
+    float4x4 ViewI          : ViewInverse;
+    float4x4 Projection     : Projection;
+    float4x4 ProjectionI    : ProjectionInverse;
 
-//  预览和导出
+
+#endif //  DEFERRED_RENDER
+
+
+//  ================ 预览和导出 ============
 
 
 #ifdef _3DSMAX_
@@ -247,8 +331,96 @@ float4x4 MAXviewinv : VIEWINVERSE;
 float4x4 MAXview : View;         
 float4x4 MAXprojection : Projection; 
 
-#endif  // _3DSMAX_
 
+
+// preview variables ==================
+
+    // sun light direction (world space)
+    float3 PV_SunlightDirection : Direction 
+    <  
+        #ifndef IGNORE_FOG_CLOUD_SHADOW
+        string UIName = "PV_SunlightDirection"; 
+        #else 
+        string UIWidget = "None";
+        #endif 
+        string Object = "TargetLight";
+        string Space  = "World";   
+        int refID = 0; //这是用来联系光颜色的？
+        bool ExportValue = false;
+    > = {0, 0, 1};
+
+    float3 PV_SunlightColor : LIGHTCOLOR 
+    <
+        int LightRef = 0; //这是用来联系光颜色的？
+        string UIWidget = "None";
+        bool ExportValue = false;
+    > = {1, 1, 1};
+
+    /// Point Light vfx
+    float3 PV_pointlightPOS : POSITION 
+    <
+        #ifndef IGNORE_FOG_CLOUD_SHADOW
+        string UIName = "PV_pointlightPOS";
+        #else 
+        string UIWidget = "None";
+        #endif 
+        string Object = "PointLight0";
+        string Space  = "World";
+        int refID = 1;
+        bool ExportValue = false;
+    > = {0,0,40};
+
+    float3 PV_pointlightCOLOR : LIGHTCOLOR 
+    <
+        int LightRef = 1;
+        string UIWidget = "None";
+        bool ExportValue = false;
+    > = {0, 0, 0};
+
+    float PV_pointlightRANGE
+    <
+        #ifndef IGNORE_FOG_CLOUD_SHADOW
+        string UIName = "PV_pointlightRANGE"; 
+        #else 
+        string UIWidget = "None";
+        #endif 
+        float UIMax = 800; float UIMin = 0; float UIStep = 10; 
+        bool ExportValue = false;
+    > = 100 ;
+
+    // two secondary light
+    float3 PV_accentlight 
+    < 
+        #ifndef IGNORE_FOG_CLOUD_SHADOW
+        string UIName = "PV_accentlight";
+        #else 
+        string UIWidget = "None";
+        #endif 
+        string UIWidget = "Color";
+        bool ExportValue = false;
+    > = { 0.2, 0.3, 0.4 };
+
+    float PV_vertexALPHA
+    <
+        string UIName = "PV_vertexALPHA"; 
+        float UIMax = 1; float UIMin = 0; float UIStep = 0.1; 
+        bool ExportValue = false;
+    > = 1 ;
+
+    bool PV_SRGB
+    <
+        string UIName = "PV_SRGB"; 
+        bool ExportValue = false;
+    > = 0 ;
+
+// end preview variables  =============
+
+#endif  // ==============  _3DSMAX_  =============
+
+
+
+
+// ============= 自动获取预览参数切换
 
 float3 getEYEpos() {   
     #ifdef _3DSMAX_
@@ -265,6 +437,103 @@ float4x4 getVPmatrix(){
     return ViewProjection ;
     #endif
 }
+
+// 阳光方向 指向太阳且单位化
+float3 getSUNdir(){
+    #ifdef _3DSMAX_
+    return PV_SunlightDirection ;
+    #else
+    return DirectionalLight[0].Direction ;
+    #endif
+}
+
+// 阳光颜色
+float3 getSUNcolor(){
+    #ifdef _3DSMAX_
+    return PV_SunlightColor ;
+    #else
+    return DirectionalLight[0].Color ;
+    #endif
+}
+
+// 两个氛围光以及融合方式
+float3 getAccentLight (float3 nrm){
+    #ifdef _3DSMAX_
+    return PV_accentlight ;
+    #else
+
+    float3 skybox1 = DirectionalLight[1].Color ;
+    skybox1 *= dot(DirectionalLight[1].Direction, nrm) * 0.5 + 0.5 ;
+    float3 skybox2 = DirectionalLight[2].Color ;
+    skybox2 *= dot(DirectionalLight[2].Direction, nrm) * 0.5 + 0.5 ;
+    return (skybox1 + skybox2) ; //already double bright
+    #endif
+}
+
+
+// 计算战争迷雾贴图的 UV 坐标
+float2 getWarfogUV(float4 WorldPosition) 
+{
+    return (WorldPosition.xy + Shroud.ScaleUV_OffsetUV.zw) * Shroud.ScaleUV_OffsetUV.xy;
+};
+// 计算云的贴图的 UV 坐标
+float2 getCloudUV(float4 WorldPosition) 
+{
+    float4 multipliedCloudUV = WorldPosition.xyzz * Cloud.WorldPositionMultiplier_XYZZ;
+    return multipliedCloudUV.xy - multipliedCloudUV.zw + Cloud.CurrentOffsetUV;
+};
+
+// 一些通用函数 =========================
+
+// 通过四元数来计算旋转的函数，来自 CNC3 的 Skinning.fxh
+float3 QuaternionRotate(float4 rotation, float3 position) 
+{
+	float4 a
+	= rotation.wwwx * position.xyzx 
+    + rotation.yzxy * position.zxyy;
+	a.w = -a.w;
+	a -= rotation.zxyz * position.yzxz;
+    float3 finalvector 
+    = rotation.www * a.xyz 
+    - rotation.xyz * a.www 
+    + rotation.yzx * a.zxy 
+    - rotation.zxy * a.yzx;
+	return finalvector;
+}; 
+
+
+//  2x2x2 Percentage-Closer Filtering on a shadow map
+float TrilinearShadowPCF(sampler2D shadowSampler, float3 SMUV, float oneOverMapSize)
+{
+    //  Calculate bilinear interpolation weights based on fractional texel coordinates
+    float2 fractionalUV = frac(SMUV.xy / oneOverMapSize);
+    float2 offset = float2(0, oneOverMapSize);
+    
+    // Sample the 4 nearest texels. In DX9 tex2Dlod requires float4 : (u, v, 0, miplevel).
+    float4 samples;
+    samples.x = tex2Dlod(shadowSampler, float4(SMUV.xy + offset.xx, 0, 0)).x; // LU (0,0)
+    samples.y = tex2Dlod(shadowSampler, float4(SMUV.xy + offset.xy, 0, 0)).x; // LD (0,1)
+    samples.z = tex2Dlod(shadowSampler, float4(SMUV.xy + offset.yx, 0, 0)).x; // RU (1,0)
+    samples.w = tex2Dlod(shadowSampler, float4(SMUV.xy + offset.yy, 0, 0)).x; // RD (1,1)
+
+    // Perform depth comparison and apply bias mathematically across all 4 samples at once
+    float4 sunlightquad = saturate((samples - SMUV.z) * 255.0 + 0.25);
+    // transition range : 1/255 , begin offset 0.25/255
+    // 1/255 = 0.04 , 1/1024= 0.001  . original: 0.0015
+
+    // Bilinear interpolation
+    float2 bLR = lerp(sunlightquad.xy, sunlightquad.zw, fractionalUV.x);
+    float  bUD = lerp(bLR.x, bLR.y, fractionalUV.y);
+    return bUD ;  //  1 for full sun, 0 for full dark shadow
+}
+
+
+
+
+
+
+
+
 
 
 
