@@ -1,222 +1,297 @@
-//#include "PBR1-constants.FXH"
-#include "head2-functions.FXH"
 
 
-//===============================================================
-// Unified vertex shader for 0 / 1 / 2 bone cases
-// BonePerVertex is a compile-time uniform (shader array style)
-//===============================================================
+#include "head0-common.fxh"
 
-struct VS_basicw3d_optimized_output
+
+
+
+
+
+
+
+
+
+
+
+
+// ==============================
+
+float3x3 Quaternion2Matrix(float4 q)
 {
-    float4 Position    : POSITION;
-    float4 MainTexUV   : TEXCOORD0;
-    float4 dotsun_fresnel_Valpha_Balpha : TEXCOORD1 ;
-    float4 VC_ambientRGB_warfog : TEXCOORD2 ;
-    float4 VC_cloudRGB_shadow : TEXCOORD3 ;
-    float4 ClipSpacePos : TEXCOORD4 ;
-    float4 DOT_pl0123 : TEXCOORD5 ; //1 to -1
-    float4 DECAYSQ_pl0123 : TEXCOORD6 ; 
-    // close 1 edge 0, veryfar -x , need saturate square in ps. actually 1- distsquare
-};
+    float xx = q.x * q.x,  yy = q.y * q.y,  zz = q.z * q.z;
+    float xy = q.x * q.y,  xz = q.x * q.z,  yz = q.y * q.z;
+    float wx = q.w * q.x,  wy = q.w * q.y,  wz = q.w * q.z;
+    // Transposed layout to match row-vector convention, 
+    return float3x3(
+        1 - 2*(yy + zz),   2*(xy + wz),      2*(xz - wy),
+            2*(xy - wz),   1 - 2*(xx + zz),  2*(yz + wx),
+            2*(xz + wy),   2*(yz - wx),      1 - 2*(xx + yy)
+    );
+}
 
-struct VS_unified_notgt_input
+// High Quality Input (P, N, T, B)
+struct VS_H_unified_input
 {
-    float4 position     : POSITION;
-    float4 normal       : NORMAL;
-
+    float4 position0    : POSITION0;
     float4 position1    : POSITION1;
+    float4 normal0      : NORMAL0;
     float4 normal1      : NORMAL1;
-
-    float4 texcoord     : TEXCOORD;
-    float4 texcoord1    : TEXCOORD1;
-    float4 color        : COLOR;
-
+    float4 tangent0     : TANGENT0;
+    float4 tangent1     : TANGENT1;
+    float4 binormal0    : BINORMAL0;
+    float4 binormal1    : BINORMAL1;
     float4 blendindices : BLENDINDICES;
     float4 blendweight  : BLENDWEIGHT;
+    float4 texcoord     : TEXCOORD0;
+    float4 texcoordNEW  : TEXCOORD1;
+    float4 color        : COLOR;
 };
 
-//===============================================================
-// Main Vertex Shader with most light calc in VS
-//===============================================================
-VS_basicw3d_optimized_output VS_L_Unified(VS_unified_notgt_input i, uniform int BonePerVertex)
+struct VS_H_output
 {
-    VS_basicw3d_optimized_output o;
+    float4 Position : POSITION;   //VS一定要输出的clip space渲染坐标
+    float4 VertexColor : COLOR0;  //顶点颜色
+    float3 CoordOBJ  : TEXCOORD7;   //物体或骨骼空间坐标， w= index
+    //float4 CoordCLIP : TEXCOORD8;
+    float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV, ZW是建筑损伤图 (并没有反)
+    float4 ShadowCS : TEXCOORD1; // 阴影的 CLIP SPACE坐标，像素里还得除
+    float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
+    float3 WorldP : TEXCOORD3;  //世界空间位置
+    float3 WorldN : TEXCOORD4; //世界法线Z
+    float3 WorldT : TEXCOORD5; //世界切线Y
+    float3 WorldB : TEXCOORD6; //世界切线X
+};
 
-    float4 worldPos4D = float4(i.position.xyz, 1);
-    o.MainTexUV   = float4(i.texcoord.xy, i.texcoord1.xy);
+VS_H_output VS_H_Unified(VS_H_unified_input i, uniform int BonePerVertex)
+{
+    VS_H_output o;
+    float4 WorldPosition = float4(0, 0, 0, 1);
+    
+    o.VertexColor = i.color;
+    o.MainTexUV = float4(i.texcoord.xy, i.texcoordNEW.xy);
+    o.CoordOBJ.xyz = i.position0.xyz; // Default for 0 and 1 bone [cite: 14, 24]
 
-    float3 worldP = i.position.xyz ; 
-    float3 worldN = i.normal.xyz ;
-    float  boneAlpha = 1;
-
-    //=============================
-    // -1 bones: 3dsmax special
-    #ifdef _3DSMAX_ 
-    if (BonePerVertex == -1)    
-    {   
-        worldP = mul(worldPos4D, MAXworld).xyz;
-        worldN = mul(i.normal.xyz, (float3x3)MAXworld); 
-    }
-    #endif
-
-    //=============================
-    // 0 bones: rigid mesh
+    // ==========================================
+    // 0 Bones (Rigid Mesh)
     if (BonePerVertex == 0)
-    {   
-        worldP = mul(worldPos4D, World);
-        worldN = mul(i.normal.xyz, (float3x3)World); 
-
-        #ifdef OPACITY_AS_NO_BONE_ALPHA
-        boneAlpha = OpacityOverride;
-        #endif
-    }
-
-    //=============================
-    // 1 bone : hard skin
-    if (BonePerVertex == 1)
     {
-        int boneIndex = floor(i.blendindices.x * 2);
-        float4 q0   = WorldBones[boneIndex];
-        float4 off0 = WorldBones[boneIndex + 1];
-        boneAlpha = off0.w;
-
-        #ifdef BONE_ALPHA_SHRINK
-        worldPos4D.xyz *= off0.w;
-        #endif
-        #ifdef SUPPORT_TREAD_SCROLLING
-        o.MainTexUV.x += off0.w ;
-        boneAlpha = 1 ;
-        #endif
-
-        worldP = QuaternionRotate(q0, worldPos4D.xyz) + off0.xyz;
-        worldN = QuaternionRotate(q0, i.normal.xyz);
+        o.WorldP = mul(float4(i.position0.xyz, 1), World);
+        o.WorldN = mul(i.normal0.xyz, (float3x3)World);
+        o.WorldT = mul(i.tangent0.xyz, (float3x3)World);
+        o.WorldB = mul(i.binormal0.xyz, (float3x3)World);
     }
-
-    //=============================
-    // 2 bones : soft skin
-    if (BonePerVertex == 2)
+    // ==========================================
+    // 1 Bone (Hard Skin)
+    else if (BonePerVertex == 1)
     {
-        int2 boneIndex = floor(i.blendindices.xy * 2);
-        float4 q0   = WorldBones[boneIndex.x];
-        float4 q1   = WorldBones[boneIndex.y];
-        float4 off0 = WorldBones[boneIndex.x + 1];
-        float4 off1 = WorldBones[boneIndex.y + 1];
+        int BoneIndex = floor(i.blendindices.x * 2);
+        float3x3 boneMatrix = Quaternion2Matrix(WorldBones[BoneIndex]); // Matrix Optimization [cite: 88, 89]
+        float4 bone_offset_alpha = WorldBones[BoneIndex + 1];
 
-        float3 wp0 = QuaternionRotate(q0, i.position.xyz ) + off0.xyz;
-        float3 wp1 = QuaternionRotate(q1, i.position1.xyz ) + off1.xyz;
-        float3 wn0 = QuaternionRotate(q0, i.normal.xyz);
-        float3 wn1 = QuaternionRotate(q1, i.normal1.xyz);
+        o.WorldP = mul(i.position0.xyz, boneMatrix) + bone_offset_alpha.xyz;
+        o.WorldN = mul(i.normal0.xyz, boneMatrix);
+        o.WorldT = mul(i.tangent0.xyz, boneMatrix);
+        o.WorldB = mul(i.binormal0.xyz, boneMatrix);
+        o.VertexColor.w *= bone_offset_alpha.w;
+    }
+    // ==========================================
+    // 2 Bones (Soft Skin)
+    else if (BonePerVertex == 2)
+    {
+        int2 BoneIndex = floor(i.blendindices.xy * 2);
+        
+        float3x3 m0 = Quaternion2Matrix(WorldBones[BoneIndex.x]); // Matrix Optimization [cite: 89]
+        float3x3 m1 = Quaternion2Matrix(WorldBones[BoneIndex.y]);
+        float4 off0 = WorldBones[BoneIndex.x + 1];
+        float4 off1 = WorldBones[BoneIndex.y + 1];
 
-        worldP = lerp(wp1, wp0, i.blendweight.x);
-        worldN = lerp(wn1, wn0, i.blendweight.x);
-        boneAlpha = lerp(off1.w, off0.w, i.blendweight.x);
+        float3 wp0 = mul(i.position0.xyz, m0) + off0.xyz;
+        float3 wp1 = mul(i.position1.xyz, m1) + off1.xyz;
+        
+        o.WorldP = lerp(wp1, wp0, i.blendweight.x);
+        o.WorldN = lerp(mul(i.normal1.xyz, m1), mul(i.normal0.xyz, m0), i.blendweight.x);
+        o.WorldT = lerp(mul(i.tangent1.xyz, m1), mul(i.tangent0.xyz, m0), i.blendweight.x);
+        o.WorldB = lerp(mul(i.binormal1.xyz, m1), mul(i.binormal0.xyz, m0), i.blendweight.x);
+        o.VertexColor.w *= lerp(off1.w, off0.w, i.blendweight.x);
+        
+        o.CoordOBJ.xyz = o.WorldP - WorldBones[1].xyz; // Specific to 22skin [cite: 47]
     }
 
-    //==================================================
-    // Shared calculations (common to all bone cases)
-    //==================================================
-    worldPos4D.xyz = worldP;
-    o.ClipSpacePos = mul(worldPos4D, ViewProjection);
-    #ifdef _3DSMAX_
-    o.ClipSpacePos = mul(worldPos4D, mul(MAXview, MAXprojection));
+    // ==========================================
+    // Shared Calculations
+    WorldPosition.xyz = o.WorldP;
+    o.WorldN = normalize(o.WorldN);
+    o.VertexColor.rgb = getAccentLight(o.WorldN) ; 
+    
+    o.ShadowCS = mul(WorldPosition, ShadowMapWorldToShadow);
+    o.FogCloudUV.xy = getWarfogUV(WorldPosition);
+    o.FogCloudUV.zw = getCloudUV(WorldPosition);
+
+    #ifdef SUPPORT_TREAD_SCROLLING
+    o.MainTexUV.x += o.VertexColor.a;
+    o.VertexColor.a = 1;
     #endif
-    o.Position = o.ClipSpacePos ;
 
-    worldN = normalize(worldN);
-    o.VC_ambientRGB_warfog.rgb  = hp_getAccentLight(worldN) /2 + AmbientLightColor;
-
-    float  dotsun = dot(getSUNdir() , worldN);
-
-    float2 fogUV =      getWarfogUV(worldPos4D);
-    float2 cloudUV =    getCloudUV(worldPos4D);
-    float4 shadowCS =   mul(worldPos4D, ShadowMapWorldToShadow);
-
-    float  fogColor =  tex2Dlod(ShroudTextureSampler, float4(fogUV , 0, 0));
-    float3 cloudColor = tex2Dlod(CloudTextureSampler, float4(cloudUV , 0, 1));
-    float  shadowColor = hp_vertex_shadow(shadowCS.xyz / shadowCS.w);
-
-    for(int pl = 0; pl < min(4, NumPointLights); pl ++){
-        //float3 plrelative = 
-    }
-
+    o.Position = mul(WorldPosition, ViewProjection);
     return o;
 }
 
-//shadow=======================
 
-struct VS_ShadowMaker_output  //
+//===========================
+
+// Low Quality Input (P, N)
+struct VS_L_unified_input
+{
+    float4 position0    : POSITION0;
+    float4 position1    : POSITION1;
+    float4 normal0      : NORMAL0;
+    float4 normal1      : NORMAL1;
+    float4 blendindices : BLENDINDICES;
+    float4 blendweight  : BLENDWEIGHT;
+    float4 texcoord     : TEXCOORD0;
+    float4 texcoordNEW  : TEXCOORD1;
+    float4 color        : COLOR;
+};
+
+struct VS_notgt_output  //
+{
+    float4 Position : POSITION;   //VS一定要输出的clip space渲染坐标
+    float4 VertexColor : COLOR0;  //顶点颜色 
+    float3 CoordOBJ  : COLOR1;
+    //float4 CoordCLIP : COLOR2;
+    float4 MainTexUV  : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
+    float4 ShadowCS : TEXCOORD1; //CLIP SPACE 影子，需要在PS里除
+    float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
+    float3 WorldP : TEXCOORD3;  //世界空间位置    
+    float3 WorldN : TEXCOORD4;//_centroid; //世界法线
+
+};
+
+VS_notgt_output VS_L_Unified(VS_L_unified_input i, uniform int BonePerVertex)
+{
+    VS_notgt_output o;
+    float4 WorldPosition = float4(0, 0, 0, 1);
+    
+    o.VertexColor = i.color;
+    o.MainTexUV = float4(i.texcoord.xy, i.texcoordNEW.xy);
+    o.CoordOBJ.xyz = i.position0.xyz;
+
+    if (BonePerVertex == 0)
+    {
+        o.WorldP = mul(float4(i.position0.xyz, 1), World);
+        o.WorldN = mul(i.normal0.xyz, (float3x3)World);
+    }
+    else if (BonePerVertex == 1)
+    {
+        int BoneIndex = floor(i.blendindices.x * 2);
+        float4 bone_Quat = WorldBones[BoneIndex];
+        float4 bone_off  = WorldBones[BoneIndex + 1];
+        
+        float bonescale = 1;
+        #ifdef BONE_ALPHA_SHRINK
+        bonescale = bone_off.w; 
+        #endif
+
+        o.WorldP = QuaternionRotate(bone_Quat, i.position0.xyz * bonescale) + bone_off.xyz;
+        o.WorldN = QuaternionRotate(bone_Quat, i.normal0.xyz);
+        o.VertexColor.w = bone_off.w;
+    }
+    else if (BonePerVertex == 2)
+    {
+        int2 BoneIndex = floor(i.blendindices.xy * 2);
+        float4 q0 = WorldBones[BoneIndex.x];
+        float4 q1 = WorldBones[BoneIndex.y];
+        float4 off0 = WorldBones[BoneIndex.x + 1];
+        float4 off1 = WorldBones[BoneIndex.y + 1];
+
+        float2 bonescale = 1;
+        #ifdef BONE_ALPHA_SHRINK
+        bonescale = float2(off0.w, off1.w); 
+        #endif
+
+        float3 wp0 = QuaternionRotate(q0, i.position0.xyz * bonescale.x) + off0.xyz;
+        float3 wp1 = QuaternionRotate(q1, i.position1.xyz * bonescale.y) + off1.xyz;
+        
+        o.WorldP = lerp(wp1, wp0, i.blendweight.x);
+        o.WorldN = lerp(QuaternionRotate(q1, i.normal1.xyz), QuaternionRotate(q0, i.normal0.xyz), i.blendweight.x);
+        o.VertexColor.w = lerp(off1.w, off0.w, i.blendweight.x);
+        o.CoordOBJ.xyz = o.WorldP - WorldBones[1].xyz;
+    }
+
+    WorldPosition.xyz = o.WorldP;
+    o.WorldN = normalize(o.WorldN);
+    o.VertexColor.rgb = getAccentLight(o.WorldN) ;
+    o.FogCloudUV.xy = getWarfogUV(WorldPosition);
+    o.FogCloudUV.zw = getCloudUV(WorldPosition);
+    o.ShadowCS = mul(WorldPosition, ShadowMapWorldToShadow);
+
+    o.Position = mul(WorldPosition, ViewProjection);
+    return o;
+}
+
+//========================================
+
+// Shadow Maker Input (P only)
+struct VS_Shadow_unified_input
+{
+    float4 position0    : POSITION0;
+    float4 position1    : POSITION1;
+    float4 blendindices : BLENDINDICES;
+    float4 blendweight  : BLENDWEIGHT;
+    float4 texcoord     : TEXCOORD0;
+    float4 texcoordNEW  : TEXCOORD1;
+};
+
+struct VS_ShadowMaker_output  
 {
     float4 Position : POSITION;   //VS一定要输出的clip space渲染坐标
     float  Valpha : COLOR1;  //顶点alpha
     float4 MainTexUV : TEXCOORD0; //XY是主帖图UV,ZW是建筑损伤图UV
-    float4 ClipSpacePos : TEXCOORD1;  // PERSPECTIVE DIVISION IN PS
+    float4 ClipSpace : TEXCOORD1;  // PERSPECTIVE DIVISION IN PS
 };
 
-VS_ShadowMaker_output VS_SHADOW_Unified(VS_unified_notgt_input i, uniform int BonePerVertex)
+VS_ShadowMaker_output VS_ShadowMaker_Unified(VS_Shadow_unified_input i, uniform int BonePerVertex)
 {
     VS_ShadowMaker_output o;
+    float4 WorldPosition = float4(0, 0, 0, 1);
+    
+    o.MainTexUV = float4(i.texcoord.xy, i.texcoordNEW.xy);
 
-    float4 worldPos4D = float4(i.position.xyz, 1);
-    float3 worldP = i.position.xyz ;
-    float  boneAlpha = 1;
-
-    //=============================
-    // 0 bones: rigid mesh
     if (BonePerVertex == 0)
-    {   
-        worldP = mul(worldPos4D, World);
-
-        #ifdef OPACITY_AS_NO_BONE_ALPHA
-        boneAlpha = OpacityOverride;
-        #endif
-    }
-
-    //=============================
-    // 1 bone : hard skin
-    if (BonePerVertex == 1)
     {
-        int boneIndex = floor(i.blendindices.x * 2);
-        float4 q0   = WorldBones[boneIndex];
-        float4 off0 = WorldBones[boneIndex + 1];
-        boneAlpha = off0.w;
+        WorldPosition.xyz = mul(float4(i.position0.xyz, 1), World);
+        o.Valpha = 1; 
+    }
+    else if (BonePerVertex == 1)
+    {
+        int BoneIndex = floor(i.blendindices.x * 2);
+        float4 bone_Quat = WorldBones[BoneIndex];
+        float4 bone_off  = WorldBones[BoneIndex + 1];
 
+        float bonescale = 1;
         #ifdef BONE_ALPHA_SHRINK
-        worldPos4D.xyz *= off0.w;
-        #endif
-        #ifdef SUPPORT_TREAD_SCROLLING
-        o.MainTexUV.x += off0.w ;
-        boneAlpha = 1 ;
+        bonescale = bone_off.w; 
         #endif
 
-        worldP = QuaternionRotate(q0, worldPos4D.xyz) + off0.xyz;
+        WorldPosition.xyz = QuaternionRotate(bone_Quat, i.position0.xyz * bonescale) + bone_off.xyz;
+        o.Valpha = bone_off.w;
     }
-
-    //=============================
-    // 2 bones : soft skin
-    if (BonePerVertex == 2)
+    else if (BonePerVertex == 2)
     {
-        int2 boneIndex = floor(i.blendindices.xy * 2);
-        float4 q0   = WorldBones[boneIndex.x];
-        float4 q1   = WorldBones[boneIndex.y];
-        float4 off0 = WorldBones[boneIndex.x + 1];
-        float4 off1 = WorldBones[boneIndex.y + 1];
+        int2 BoneIndex = floor(i.blendindices.xy * 2);
+        float4 q0 = WorldBones[BoneIndex.x];
+        float4 q1 = WorldBones[BoneIndex.y];
+        float4 off0 = WorldBones[BoneIndex.x + 1];
+        float4 off1 = WorldBones[BoneIndex.y + 1];
 
-        float3 wp0 = QuaternionRotate(q0, i.position.xyz ) + off0.xyz;
-        float3 wp1 = QuaternionRotate(q1, i.position1.xyz ) + off1.xyz;
-
-        worldP = lerp(wp1, wp0, i.blendweight.x);
-        boneAlpha = lerp(off1.w, off0.w, i.blendweight.x);
+        float3 wp0 = QuaternionRotate(q0, i.position0.xyz) + off0.xyz;
+        float3 wp1 = QuaternionRotate(q1, i.position1.xyz) + off1.xyz;
+        
+        WorldPosition.xyz = lerp(wp1, wp0, i.blendweight.x);
+        o.Valpha = lerp(off1.w, off0.w, i.blendweight.x); 
     }
 
-    //==================================================
-    // Shared calculations (common to all bone cases)
-    //==================================================
-    worldPos4D.xyz = worldP;
-    o.ClipSpacePos = mul(worldPos4D, ViewProjection);
-    o.Position = o.ClipSpacePos ;
-    o.MainTexUV = float4(i.texcoord.xy, i.texcoord1.xy);
-    o.Valpha = boneAlpha ;
-
+    o.Position = mul(WorldPosition, ViewProjection);
+    o.ClipSpace = o.Position;
     return o;
 }
