@@ -132,12 +132,63 @@ VS_H_output VS_H_Unified(VS_H_unified_input i, uniform int BonePerVertex)
     o.VertexColor.a = 1;
     #endif
 
-    o.Position = mul(WorldPosition, ViewProjection);
+    o.Position = mul(WorldPosition, getVPmatrix());
     return o;
 }
 
 
-//===========================
+//  3DSMAX SPECIAL VS
+
+
+struct VS_3dsmax_input
+{
+    float4 position : POSITION;
+    float4 normal : NORMAL;
+    float4 tangent : TANGENT;
+    float4 binormal : BINORMAL;
+    float4 texcoord : TEXCOORD; 
+    float4 texcoordNEW : TEXCOORD1 ;
+    float4 color : COLOR;
+};
+#ifdef _3DSMAX_ 
+VS_H_output VSforMAX(VS_3dsmax_input i)  
+{ 
+    VS_H_output  o;
+
+    float4 WorldPosition = float4(0,0,0,1);
+    o.ShadowCS = o.FogCloudUV = 0 ;
+    o.VertexColor.rgb = PV_accentlight ;  //
+    o.VertexColor.w = PV_vertexALPHA ; //!!!
+    o.CoordOBJ.xyz = i.position.xyz; //o.CoordOBJ.w = -1;
+
+    float3 MAXtangent = i.tangent.xyz ;
+    float3 MAXbinormal = i.binormal.xyz ;
+
+    if(1){  //exchange max tangent and binormal
+    MAXtangent = i.binormal.xyz ;
+    MAXbinormal = i.tangent.xyz ;  
+    };
+
+    // 从object space 到 world space===========
+
+    WorldPosition = mul(i.position, MAXworld);
+    o.WorldN = mul(i.normal.xyz, (float3x3)MAXworld);
+    o.WorldT = mul(MAXtangent, (float3x3)MAXworld);
+    o.WorldB = mul(MAXbinormal, (float3x3)MAXworld);
+    
+    o.WorldP = WorldPosition.xyz ; //世界坐标
+    o.MainTexUV = float4(i.texcoord.xy , i.texcoordNEW.xy) ; //直接转存贴图UV
+    o.Position = mul(i.position , MAXwvp); //给rasterizer的clip space坐标
+
+    return o; 
+};
+
+#endif // 3dsmax end
+
+
+// ===========================
+// end high 
+// =======================
 
 // Low Quality Input (P, N)
 struct VS_L_unified_input
@@ -225,11 +276,13 @@ VS_notgt_output VS_L_Unified(VS_L_unified_input i, uniform int BonePerVertex)
     o.FogCloudUV.zw = getCloudUV(WorldPosition);
     o.ShadowCS = mul(WorldPosition, ShadowMapWorldToShadow);
 
-    o.Position = mul(WorldPosition, ViewProjection);
+    o.Position = mul(WorldPosition, getVPmatrix());
     return o;
 }
 
 //========================================
+// end low color vs 
+// ================================
 
 // Shadow Maker Input (P only)
 struct VS_Shadow_unified_input
@@ -291,7 +344,7 @@ VS_ShadowMaker_output VS_ShadowMaker_Unified(VS_Shadow_unified_input i, uniform 
         o.Valpha = lerp(off1.w, off0.w, i.blendweight.x); 
     }
 
-    o.Position = mul(WorldPosition, ViewProjection);
+    o.Position = mul(WorldPosition, getVPmatrix());
     o.ClipSpace = o.Position;
     return o;
 }

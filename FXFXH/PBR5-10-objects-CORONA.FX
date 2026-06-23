@@ -19,7 +19,7 @@ clipping constant bools will be allowed
 
 //  ========================
 
-#include "head0-common.fxh"
+#include "head1-newvs.FXH"
 
 //  ========================
 
@@ -127,7 +127,7 @@ texture DiffuseTexture
 sampler2D DiffuseTextureSampler
 <string Texture = "DiffuseTexture";> = sampler_state {
     Texture = < DiffuseTexture >;
-    MinFilter = 3; //Anisotropic
+    MinFilter = 2; //3
     MagFilter = 2;
     MipFilter = 2;
     MaxAnisotropy = 4;
@@ -149,7 +149,7 @@ texture SpecMap
 sampler2D SpecMapSampler
 <string Texture = "SpecMap";> = sampler_state {
     Texture = < SpecMap >;
-    MinFilter = 3; //Anisotropic
+    MinFilter = 2; //3
     MagFilter = 2;
     MipFilter = 2;
     MaxAnisotropy = 4;
@@ -227,6 +227,8 @@ float K_extraHC
 > = 0 ;
 // house color extra brightness, is actually self glow (not extra bright on albedo !)
 
+
+// F0 is no longer a constant. completely controlled by metalness
 /*
 float K_fresnel
 <   string UIName = "K_fresnel"; float UIMin = 0; float UIMax = 1; float UIStep = 0.01;
@@ -241,7 +243,9 @@ float K_fresnel
 
 
 // ==================
-// vertex shader part
+// vertex shader already referenced 
 // ==================
 
-
+// ==================
+// pixel shader : main, low, shadow
+// ==================
