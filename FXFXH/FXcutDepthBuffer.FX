@@ -22,7 +22,7 @@ int _SasGlobal : SasGlobal
 
 //RENDER SORT: renderTerrain, TerrainLikeGroundObject, Bridge, renderProps, RenderCasters_Units
 
-//todo: find render bin
+
 
 #include "head0-common.FXH"
 
