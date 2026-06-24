@@ -249,3 +249,30 @@ float K_fresnel
 // ==================
 // pixel shader : main, low, shadow
 // ==================
+
+struct PS_H_input
+{
+    //float vface : VFACE ; // -  camera, + backface ? 
+    //float2 vpos : VPOS ; 
+    float4 VertexColor : COLOR0;  //顶点颜色(IRRAD,ALPHA)
+    //float3 CoordOBJ  : COLOR1; 
+    float4 MainTexUV  : TEXCOORD0; //XY主帖图UV,ZW建筑损伤图
+    float4 ShadowCS : TEXCOORD1; // XYZ/W
+    float4 FogCloudUV : TEXCOORD2; //迷雾和云的UV
+    float3 WorldPE : TEXCOORD3;  //世界空间相对于相机位置
+    float3 WorldN : TEXCOORD4; //世界法线Z
+    float3 WorldT : TEXCOORD5; //世界切线Y
+    float3 WorldB : TEXCOORD6; //世界切线X
+};
+
+float4 PS_H_CORONAPBR (PS_H_input i) : COLOR 
+{
+  float4 OUTCOLOR = float4(0,0,0,1); //安全起见先initialize
+  
+  // 主贴图 (corona mod)
+    float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
+    float4 spm = tex2D(SpecMapSampler,         i.MainTexUV.xy );
+    float4 nrm = tex2D(NormalMapSampler,       i.MainTexUV.xy );
+
+return OUTCOLOR ;
+}
