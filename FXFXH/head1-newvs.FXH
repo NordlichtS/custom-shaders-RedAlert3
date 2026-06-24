@@ -364,6 +364,9 @@ VS_ShadowMaker_output VS_ShadowMaker_Unified(VS_Shadow_unified_input i, uniform 
     return o;
 }
 
+float4 PS_ShadowMaker_NoAlphaTest(VS_ShadowMaker_output i) : COLOR 
+{    return (i.ClipSpace.z / i.ClipSpace.w) ; }
+
 
 
 // Shader arrays (compile-time blobs) for selection by index
