@@ -13,7 +13,7 @@ fxc.exe /O2 /T fx_2_0 /Fo   BasicW3dHolographic.fxo   BasicW3dHolographic.FX
 
 //#define _3DSMAX_
 
-#define ONLY_USE_LEGACY_HOLOGRAPH
+// #define ONLY_USE_LEGACY_HOLOGRAPH
 
 
 #define SPECIAL_SAS_HEADER
@@ -25,7 +25,7 @@ int _SasGlobal : SasGlobal
     int MaxSupportedInstancingMode = 1;
     int MaxLocalLights = 0;
     
-	string RenderBin = "StaticSort1";
+	string RenderBin = "StaticSort3";
 > = 0;
 
 
@@ -119,7 +119,9 @@ VStmp_out VS_L_Unified(VS_unified_onlypos_input i, uniform int BonePerVertex)
     o.Position = mul(worldPos4D, getVPmatrix()); ;
 
     o.WorldP_fromEye_BoneAlpha.xyz = worldP - getEYEpos() ;
-    o.WorldP_fromEye_BoneAlpha.w = boneAlpha;
+    o.WorldP_fromEye_BoneAlpha.w = boneAlpha ;
+    // INVERT OPACITY FIX !!!!!!!!!!!!!!!!!!!!
+    o.WorldP_fromEye_BoneAlpha.w *= saturate(1- abs(0.44 - OpacityOverride) *2) ;
 
     return o;
 }
@@ -164,12 +166,16 @@ float4 PS_holographic (PStmp_in i) : COLOR
     FinalColor *= min(dist2grid , Fterm) ;
     #endif
 
-    FinalColor = max(FinalColor, 0.1);
+    FinalColor *= i.WorldP_fromEye_BoneAlpha.w;
+
+    FinalColor = max(FinalColor, 0.04);
 
     #ifdef _3DSMAX_
     if(PV_SRGB) { FinalColor = sqrt(FinalColor) ; } //linear to srgb
     #endif
-    return float4(FinalColor.rgb , i.WorldP_fromEye_BoneAlpha.w );
+
+
+    return float4(FinalColor.rgb , 1 );
 }
 
 
@@ -208,11 +214,8 @@ technique Default
 
         ZEnable = 1; 
         ZFunc = 4; //ZFUNC_INFRONT
-
-        #ifdef _3DSMAX_
-		ZWriteEnable = ( DepthWriteEnable ); 
-        #else
 		ZWriteEnable = 0 ; 
-        #endif
+        ColorWriteEnable = 7;
+        
     }
 }

@@ -112,22 +112,24 @@ technique Default
         AlphaBlendEnable = 0;
         AlphaTestEnable = 0;
 
-        CullMode = 2;  //STANDARD
-        ColorWriteEnable = 0; //
+        CullMode = 2;          // CCW (Counter-Clockwise). Process the front-facing walls of the volume.
+        ZEnable = 1;           // True. Enable the depth test to check if anything is blocking the hole.
+        ZWriteEnable = 0;      // False. Do not modify the existing depth buffer yet.
+        ZFunc = 4;             // LessEqual. Only pass if the cylinder front is in front of the ground.
+        
+        ColorWriteEnable = 0;  // Disable writing to the screen. We only want to generate a mask.
 
-        // Standard Z-test, but DO NOT write to Z-buffer
-        ZEnable = True;
-        ZWriteEnable = False;
-        ZFunc = LessEqual;
+        StencilEnable = 1;     // True. Turn on the stencil pipeline.
+        StencilRef = 128;      // Ref value: (Binary: 10000000). We are using the 8th bit.
+        StencilMask = 128;     // Read mask: (Binary: 10000000). Isolate the 8th bit when comparing.
+        StencilWriteMask = 128;// Write mask (Binary: 10000000). Protect bits 1-7; only write to the 8th bit.
+        
+        StencilFunc = 8;       // Always. The stencil test always passes; we rely on the Z-test (ZFunc) instead.
+        StencilPass = 3;       // Replace. If both Stencil and Z-test pass, overwrite the 8th bit with 128.
+        StencilFail = 1;       // Keep. Do not change the stencil buffer if the stencil test fails.
+        StencilZFail = 1;      // Keep. Do not change the stencil buffer if an object (like a tree) blocks the hole.
 
-        StencilEnable = True;
-        StencilRef = 0x8;       // Use 3rd Bit (Value 8)
-        StencilMask = 0x8;      // Only read 3rd Bit 
-        StencilWriteMask = 0x8; // Only write to 3rd Bit 
-        StencilFunc = Always;
-        StencilPass = Replace;   // Mark the footprint with 0x08
-        StencilFail = Keep;
-        StencilZFail = Zero;    //keep?
+
     }
 
     // ==========================================
@@ -141,29 +143,30 @@ technique Default
         AlphaBlendEnable = 0;
         AlphaTestEnable = 0;
 
-        CullMode = 3;  //RA3 INVERT CULL
-        ColorWriteEnable = 15; // RGB= 7 , RGBA= 15
+        CullMode = 3;          // CW (RA3 INVERT CULL). Process the back-facing walls of the volume.
+        ZEnable = 1;           // True. Enable depth testing.
+        ZWriteEnable = 1;      // True. Crucial: We are actively overwriting ("drilling") the depth buffer here.
+        ZFunc = 7;             // GreaterEqual. Only pass if the cylinder's back wall is deeper than the current ground.
+        
+        ColorWriteEnable = 15; // Write RGBA (Binary: 00001111). paint black the visual interior textures of the hole.
 
-        // Enable Z-write to "push" the depth buffer.
-        // GreaterEqual : only write if the backface is deeper than ground.
-        ZEnable = True;
-        ZWriteEnable = True;
-        ZFunc = GreaterEqual; 
+        StencilEnable = 1;     // True. Turn on the stencil pipeline.
+        StencilRef = 128;      // Ref value:  (Binary: 10000000). Match against the footprint from Pass 0.
+        StencilMask = 128;     // Read mask:  (Binary: 10000000). Isolate the 8th bit for evaluation.
+        StencilWriteMask = 0;  // Write mask  (Binary: 00000000). Lock the stencil buffer; this pass cannot change it.
+        
+        StencilFunc = 3;       // Equal. Only execute this pixel if the 8th bit was marked as 128 in Pass 0.
+        StencilPass = 1;       // Keep. Leave the stencil value alone when rendering.
+        StencilFail = 1;       // Keep. Leave the stencil value alone if it wasn't part of the footprint.
+        StencilZFail = 1;      // Keep. Leave the stencil value alone if the depth test fails.
 
-        // Require the stencil footprint from Pass 1
-        StencilEnable = True;
-        StencilRef = 0x8;
-        StencilMask = 0x8;      // Look specifically for our 3rd Bit 
-        StencilWriteMask = 0x8; // Allow clearing our bit
-        StencilFunc = Equal;     // Only draw where P0 marked the stencil
-        StencilPass = Zero;     // CLEANUP: Set bit back to 0 after drill  
-        StencilFail = Keep;     //safety
-        StencilZFail = Zero;    //clear bit for the whole mesh
     }
 }
 
 //  EXACTLY THE SAME FOR SHADOW
 //  SHADOW ALSO USE D24S8 BUFFER
+// i tried with bit 0x8
+// but now we all use 128
 technique _CreateShadowMap
 {    
     pass P0
@@ -172,17 +175,17 @@ technique _CreateShadowMap
         PixelShader  = compile ps_2_0 PS_WHITE();
         AlphaBlendEnable = 0;
         AlphaTestEnable = 0;
+        ColorWriteEnable = 0; //
 
         CullMode = 2;  //STANDARD
-        ColorWriteEnable = 0; //
         ZEnable = True;
         ZWriteEnable = False;
         ZFunc = LessEqual;
 
         StencilEnable = True;
-        StencilRef = 0x8;       
-        StencilMask = 0x8;      
-        StencilWriteMask = 0x8; 
+        StencilRef = 128;       
+        StencilMask = 128;      
+        StencilWriteMask = 128; 
         StencilFunc = Always;
         StencilPass = Replace;   // Mark the footprint with 0x08
         StencilFail = Keep;     
@@ -207,9 +210,9 @@ technique _CreateShadowMap
         ZFunc = GreaterEqual; //INV
 
         StencilEnable = True;
-        StencilRef = 0x8;
-        StencilMask = 0x8;      // Look specifically for our Bit 3
-        StencilWriteMask = 0x8; // Allow clearing our bit
+        StencilRef = 128;
+        StencilMask = 128;      // Look specifically for our Bit 3
+        StencilWriteMask = 128; // Allow clearing our bit
         StencilFunc = Equal;     // Only draw where P0 marked the stencil
         StencilPass = Zero;     // CLEANUP: Set bit back to 0    
         StencilFail = Keep;     //safety
@@ -217,3 +220,30 @@ technique _CreateShadowMap
     }
 
 }
+
+/*
+
+water avoid 
+
+pass P2
+    {
+        // --- Geometry and Depth (WATER ALREADY HAS THAT) ---
+        CullMode = 2;          // CCW . Standard front-face culling for regular meshes.
+        ZEnable = 1;           // True. Standard depth testing so water respects the surrounding terrain.
+        ZWriteEnable = 1;      // True. Standard behavior allowing water to write its own depth data.
+        ZFunc = 4;             // LessEqual. Standard rendering depth test comparison behavior.
+        ColorWriteEnable = 15; // Write RGBA (Binary: 00001111). Render the water color to the screen.
+
+        // --- Stencil Configuration ---
+        StencilEnable = 1;     // True. Turn on the stencil pipeline.
+        StencilRef = 0;        // Ref value  (Binary: 00000000). We want to match pixels where the bit is NOT set.
+        StencilMask = 128;     // Read mask  (Binary: 10000000). Check only the 8th bit, completely ignoring other game UI bits.
+        StencilWriteMask = 0;  // Write mask (Binary: 00000000). Lock the stencil buffer; water shouldn't modify it.
+        
+        StencilFunc = 3;       // Equal. Passes only if (Buffer & 128) == 0. This discards water inside the hole footprint.
+        StencilPass = 1;       // Keep. Do not alter stencil values when rendering the water.
+        StencilFail = 1;       // Keep. Do not alter stencil values when water is skipped/discarded.
+        StencilZFail = 1;      // Keep. Do not alter stencil values if water fails the depth check.
+    }
+
+*/
