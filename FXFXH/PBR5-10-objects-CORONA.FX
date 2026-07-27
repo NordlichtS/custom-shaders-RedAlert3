@@ -204,7 +204,7 @@ float K_diffuse
 float K_specular
 <   string UIName = "K_specular";  float UIMin = 0; float UIMax = 1; float UIStep = 0.01;
 > = 0.2 ; 
-// specular peak multiplier on max roughness
+// specular peak multiplier on  roughness =1
 // greater spm value will have brighter multiplier
 // this is before fresnel term clamping
 
@@ -273,6 +273,9 @@ float4 PS_H_CORONAPBR (PS_H_input i) : COLOR
     float4 dif = tex2D(DiffuseTextureSampler,  i.MainTexUV.xy );
     float4 spm = tex2D(SpecMapSampler,         i.MainTexUV.xy );
     float4 nrm = tex2D(NormalMapSampler,       i.MainTexUV.xy );
+
+
+
 
 return OUTCOLOR ;
 }

@@ -1,100 +1,198 @@
 # custom-shaders-RedAlert3
-Graphic improvements for this old dx9 game "Command Conquer Red Alert 3 " (2008) , based on hlsl code published in CnC3 Tiberium Wars MODSDK by Electronic Arts.
 
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/SCANMASKDEMO1.gif)
+Custom shader source for Command & Conquer: Red Alert 3. This repository focuses on graphic improvements for the game’s DX9 renderer, using HLSL-based shaders and a cleaner source structure that is easier to read and edit than the decompiled prototypes this project originally started from.
 
-well looks like EA finally decided to be nice once and open-sourced all shader sourcecode from SAGE engine games, no more need to decompile and reverse engineer! I'll update some better examples soon. Check official source code here:  https://github.com/electronicarts/CnC_Modding_Support/tree/main/Red%20Alert%203/Shaders
+> Note: this is not a fork of the official EA source drop. The project began before the Red Alert 3 shader source code was published, so the layout and implementation style are intentionally different.
 
-old decompiler used to make our first prototype before EA open-sourced all shaders: https://github.com/lanyizi/DXDecompiler (experimental)
+## Highlights
 
-the main project here is PBR (physical based render) shader. It should be used to replace Objects and Buildings shaders in the game 
-(after compile! Don't try to let the game itself compile it, its compiler is too outdated. Use FXC.EXE from legacy microsoft direct x sdk. BUT 3dsmax requires uncompiled version. I recommand 3dsmax2023 with the exporter plugin in TOOLS folder)
+- PBR-focused object and building shaders for Red Alert 3.
+- Terrain shading improvements, including smoother shadow edges and more realistic point-light reflection.
+- A 3ds Max preview workflow for checking results close to in-game output.
+- Optional compatibility-oriented variants for original game textures and art style.
+- Experimental effects such as stealth holographic rendering, underground structure visualization, and starry portal-style VFX.
 
-Compiled+packed game-ready patch, download it here: (updated on 2025 April, version 3.1) https://www.moddb.com/mods/psysonic-omega/addons
+![Preview](preview_images/SCANMASKDEMO1.gif)
 
-To compile your own shader: find "fxc.exe" in TOOLS folder (or from microsoft's official website), place it in the same folder with your FX and FXH files, open a command prompt here by type CMD on the path bar and use following command: ` fxc.exe /O2 /T fx_2_0 /Fo  OutputFileName.fxo   SourceFileName.fx  `
+## Project Status
 
-YOU CAN ALSO USE MY "COMPILEALL.BAT" FILE TO BATCH COMPILE ALL SHADERS AT ONE CLICK
+EA has now open-sourced the Red Alert 3 shader sources as part of the SAGE engine releases, so there is no longer a need to reverse engineer the original shaders for reference. The official source drop is here:
 
-=== 2025.march  Terrain Update =============
+https://github.com/electronicarts/CnC_Modding_Support/tree/main/Red%20Alert%203/Shaders
 
-Finally the blocky shadow and wierd displace on the ground is fixed ! Now the shadow has 2x2 pcf, plus dither to smooth out the edge.
+The early prototype for this project used DXDecompiler as a reference before that source drop was available:
 
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/terraindemo.webp)
+https://github.com/lanyizi/DXDecompiler
 
-it also support more realistic point light reflection
+If you compare this repo to the official shader drop, the layout is intentionally different. It was written earlier and kept in a form that is easier for modders to edit directly.
 
-=== 2025.feb. ==================
+## Download
 
-A more complete implementation, with the ability of previewing near in-game result in 3dsmax. It was originally made for our brilliant 日冕 dev team
+A compiled and packed game-ready patch is available here:
 
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/pointlightpreview.gif)
+https://www.moddb.com/mods/psysonic-omega/addons
 
-there are these adjustable parameters: (either get them from texture, or just a constant variable, or hardcoded)：
-diffuse color, ambient occlusion, insulent's reflectivity, fresnel effect f0, roughness, metalness, metal's reflection spectrum color, team color, emmissive color, emmissive blink frequncy, shadow map smoothing + anti aliasing radius (is currently hardcoded for optimization), and more flexible transparency controls.
+Updated: April 2025, version 3.1.
 
-=== 2025.Jan. grand update ==================
+## Build
 
-The complete framework has been rewritten with more efficient functions and more perceise constant register assignment, see "FXFXH" folder. No more decompiled snippet will be used.
+Use `fxc.exe` to compile the shaders. The Red Alert 3 in-game compiler is too old for this workflow, so compile with the legacy Microsoft DirectX SDK version of `fxc.exe` instead.
 
-the "allow stealth" ability means to switch the render into a semi-transparent holographic feeling with edge color enchance, once it detects the opacity override is less than 100% . This is fully automatic, no need to code it into your mod.
-(here should be a preview screenshot but i forgot to upload)
+Recommended workflow:
 
-Here's also a magical shader i made that can show underground structures without breaking the ground. Because the game engine limits the ability to edit terrain while the game is running, it was impossible to make models like missile silo or mine pit before. Not any more !
+1. Place `fxc.exe` in the same folder as the `.fx` and `.fxh` files, or add it to your PATH.
+2. Open a command prompt in the shader folder.
+3. Run a compile command like:
 
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/underground1.gif)
+```bat
+fxc.exe /O2 /T fx_2_0 /Fo OutputFileName.fxo SourceFileName.fx
+```
 
-It uses optical illusion without actually mess up the screen depth buffer, but the light/shadow/reflection calculations are all made as if they really locates underground.
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/undergroundlight.gif)
+You can also use `FXFXH/compileALL.bat` to batch-compile the shaders in one click.
 
-You can compile the same source file (example here is PBR5-6-objects-PATCH.FX) into multiple variants of shaders, by commenting out some of these MACRO for conditional compiling, just like in C++ :
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/macro.png)
+If you prefer the classic Windows workflow, opening CMD from the folder path bar is still the fastest way to get a shell here.
 
+For 3ds Max workflow, the uncompiled source is required. I recommend 3ds Max 2023 with the exporter plugin in the `TOOLS` folder.
 
-=== 2024 older content, kept for archival purpose ===================
+The game itself should not be used to compile these shaders; its compiler is too outdated for this source style.
 
-=== all these previous features REMAIN working in the new version too =================
+## Main Shader System
 
-A special "compatible" version, for compatibility with textures from original game, is also added, a less accurate but more stylized PBR tweaking. The parameters mentioned above can be reconstructed via some hard coded functions and original game's textures.
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/20240517113152.png)
+The main project here is the PBR shader set, intended to replace the game’s Object and Building shaders after compilation.
 
-you may notice, as the reflectivity increase, diffuse lights decreases according to law of conservation of energy. 
-Fresnel effect (darker on verticle view angle) also becomes more obvious, and disappear again once the material is considered metallic. Metal is not supposed to cause diffuse reflection or fresnel effect either, all energy goes to specular.
-if you want to edit the preview, such as adding or neglecting an in-game feature in 3dsmax, caution:
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/conditional.png)
+The framework was rewritten in 2025 to use more efficient functions and more precise constant-register assignment. The reusable shader headers live in the `FXFXH` folder.
 
-Here's also a video demo of my latest attempt to make a more "3d printing" effect when building up an object in the game, that has starry light rays descend from sky  and morph into a new triangle, one by one they build up a new structure. DX9 doesn't have geometry shader so i used multiple passes to handle different parts. (purely shadercontrolled, no new models needed) https://www.bilibili.com/video/BV1LZ421x7rJ/?
+### Parameters
 
-the original game used a very lasy way to shade the lights received from nearby point light sources (usually flame or laser VFX) which is a waste for such a nice feature. 
-I implemented BRDF for all my point lights (the function was originally written for directional sunlight, but turns out even better for point light sources with correct decay multiplier)
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/single%20point%20light%2001.png )
-dark environment with single point light. You can see the "mirror image" is blurred according to different surface roughness.
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/single%20point%20lights%2002.png )
-specular reflection caused by a weapon vfx, it makes the metallic surface seem more metallic
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/multi%20point%20lights%2002.png )
-up to 8 nearby point lights can be received by a single drawcall / object per frame
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/multi%20point%20lights%2003.png )
-Buildings with windows is a nice sample to observe. Notice that Fresnel effect and normal map also play big roles here.
+The preview and runtime shaders expose or derive the following material controls:
 
-as for the specular in BRDF (bi-directional reflection distribution function) i used a tricky approach: instead of calculating Half-way vector for every light source, I calculate the single Reflection vector based on View vector (yes the same vector that you use to sample skybox cube texture for envirnmental reflection) And compare the angle (actually cosine from dot product) between it and other Light vectors. This can save a lot of computation power especially as point light count increases. 
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/helperfunctions.png )
-Fresnel effect is also more obvious, though less realistic compared to the popular schlick approximation, i like the artstyle more.
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/fresnel.png )
+- diffuse color
+- ambient occlusion
+- insulator reflectivity
+- Fresnel F0
+- roughness
+- metalness
+- metal reflection spectrum color
+- team color
+- emissive color
+- emissive blink frequency
+- shadow-map smoothing and anti-aliasing radius
+- transparency controls
 
-===(side project)===
+These values can be driven by textures, constants, or hardcoded logic depending on the shader variant.
 
-I accidentially read across this [input semantic for pixel shader](https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-semantics#direct3d-9-vpos-and-direct3d-10-sv_position)  and realized, by using screen-space position as texture sampling coordinate, i can show the "protal to cosmos" visual effects, inspired by the blade of no thought vfx from a certain anime game.
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/starry%2001.png ) 
-this shader have one for objects and one for laser mesh. Named "starry" in this repo
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/starry%20laser%2001.png) 
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/starry%20laser%2002.png)
-remember to register the starry sky texture in SCRAPEO so it can have standard annotation string address.
+## Feature Notes
 
-=== slightly outdated content ===
+### Terrain Update, March 2025
 
+The terrain pass now fixes blocky shadow edges and awkward ground displacement. Shadow filtering uses 2x2 PCF plus dithering to soften the edge.
 
-ObjectWorkflow_Compatile.fx is a variant specially fine-tuned to match the original Red Alert 3 textures and artstyle while still maintaining all BRDF. NO texture edit is needed to use them!
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/old%20verson%20demo.png)
-Left=original game shader, Right=new shader. As you may notice, the shadow's edge is also smoothed and anti-aliased.
-![alt text](https://github.com/NordlichtS/custom-shaders-RedAlert3/blob/main/preview_images/pcfshadow.png)
-skybox is not needed, the shader will simulate a skybox with reflect vector and current roughness.
+![Terrain demo](preview_images/terraindemo.webp)
+
+It also supports more realistic point-light reflection.
+
+### 3ds Max Preview, February 2025
+
+This version adds a more complete preview pipeline so you can inspect near in-game results directly in 3ds Max. It was originally built for the 日冕 dev team.
+
+![Point light preview](preview_images/pointlightpreview.gif)
+
+### January 2025 Rewrite
+
+The complete framework was rewritten with more efficient helper functions and more precise constant register assignment. No more decompiled snippets are used.
+
+The stealth support automatically switches rendering into a semi-transparent holographic look with edge-color enhancement when opacity is below 100%.
+
+That behavior is fully automatic, so you do not need to script a separate stealth toggle into your mod.
+
+The underground-structure shader makes missile silos and mine pits readable without visibly breaking the terrain surface. It uses optical illusion rather than modifying the depth buffer directly, while keeping lighting, shadowing, and reflections consistent with an underground object.
+
+![Underground demo](preview_images/underground1.gif)
+
+![Underground lighting](preview_images/undergroundlight.gif)
+
+The same source file can be compiled into multiple shader variants using conditional macros, similar to C++ preprocessing.
+
+![Macro-based variants](preview_images/macro.png)
+
+## Compatibility Variants
+
+A special compatibility variant exists for original Red Alert 3 textures and art style. It keeps the BRDF-based lighting model while reconstructing some values through hardcoded functions and the game’s original textures.
+
+This is the less accurate but more stylized PBR tuning, so it is the variant to use when you want the original art style to survive without texture edits.
+
+![Compatibility demo](preview_images/20240517113152.png)
+
+As reflectivity increases, diffuse lighting decreases according to energy conservation. Fresnel becomes more visible at grazing angles and fades when the material is treated as metallic.
+
+If you are editing the 3ds Max preview and want to add or remove an in-game feature, use the conditional shader logic carefully:
+
+![Conditional preview logic](preview_images/conditional.png)
+
+## Lighting Model
+
+The older game shading path handled nearby point lights in a very simplified way. This project implements a BRDF-style response for point lights, which was originally designed for directional sunlight but works well for localized lights with the correct decay multiplier.
+
+![Single point light](preview_images/single%20point%20light%2001.png)
+
+![Single point light 2](preview_images/single%20point%20lights%2002.png)
+
+![Multiple point lights 1](preview_images/multi%20point%20lights%2002.png)
+
+![Multiple point lights 2](preview_images/multi%20point%20lights%2003.png)
+
+Up to 8 nearby point lights can be received by a single draw call per object per frame.
+
+Specular handling uses a reflection-vector approach instead of computing a half-way vector for every light source. The shader compares the reflection vector, derived from the view vector, against the light directions. This reduces cost as light count increases and avoids some edge cases around vector normalization.
+
+In practice this also avoids the half-way-vector divide-by-zero and flip cases that can show up when light and view directions get awkward.
+
+![Helper functions](preview_images/helperfunctions.png)
+
+The Fresnel result is intentionally stylized and less physically strict than Schlick approximation, because the art direction was preferred over exact realism.
+
+The older screenshots and notes below are kept as archive because the same ideas are still used in the current version.
+
+![Fresnel](preview_images/fresnel.png)
+
+## Side Project: Starry Effect
+
+I also explored a screen-space effect based on the pixel-shader input semantic for position. By using screen-space coordinates as a texture lookup source, the shader creates a portal-to-cosmos look inspired by a blade-style visual effect.
+
+https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-semantics#direct3d-9-vpos-and-direct3d-10-sv_position
+
+This shader has one variant for objects and another for laser meshes, and both are named `starry` in this repository.
+
+![Starry effect](preview_images/starry%2001.png)
+
+![Starry laser 1](preview_images/starry%20laser%2001.png)
+
+![Starry laser 2](preview_images/starry%20laser%2002.png)
+
+Remember to register the starry-sky texture in SCRAPEO so it uses the standard annotation string address.
+
+## Archived Notes
+
+`ObjectWorkflow_Compatile.fx` is a compatibility-focused variant tuned to match the original Red Alert 3 textures and art style while still keeping the BRDF system. No texture edits are required to use it.
+
+![Original vs new shader](preview_images/old%20verson%20demo.png)
+
+Left: original game shader. Right: new shader. The shadow edge is also smoothed and anti-aliased.
+
+![PCF shadow comparison](preview_images/pcfshadow.png)
+
+The shader does not require a skybox texture; it can simulate skybox response using the reflection vector and current roughness.
+
+## Repository Layout
+
+- `FXFXH/` contains the main shader sources, shared headers, and batch compile helper.
+- `FXFXH/FXO/` contains compiled shader outputs.
+- `preview_images/` contains screenshots and animated previews referenced in this README.
+- `TOOLS/` contains helper tools, exporter resources, and shader-related utilities.
+- `VFX/` contains experimental VFX shaders and related assets.
+
+## Credits
+
+- Electronic Arts for the original Red Alert 3 shader source release.
+- The DXDecompiler project for early reference during prototyping.
+- The Red Alert 3 modding community for testing, feedback, and workflow ideas.

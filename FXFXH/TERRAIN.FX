@@ -10,8 +10,9 @@ fxc.exe /O2 /T fx_2_0 /Fo   terrain.fxo   TERRAIN.FX
 #define MAX_POINT_LIGHT 8 // 6?
 #define IS_TERRAIN
 #undef TERRAIN_USE_MULTIPLE_STREAM
-
 // #define SHADOW_DITHER
+
+
 
 //#include "head0-COMMON.FXH"  //hope it works
 //no, too much differences
@@ -471,12 +472,12 @@ float trilinearShadow(float3 SMUV)
     //shadowmapdepth - objdepth = sunlight likelyness
 
     //increase sunlight likelyness, avoid self shadow
-    fourSamples = saturate(fourSamples * 1024 + 1); //???
+    fourSamples = saturate(fourSamples * 512 + 1); //???
     //bilinear 2x2 interpolate
     float2 bLR = lerp(fourSamples.xy , fourSamples.zw , UVlerpw.x);
     float  bUD = lerp(bLR.x   , bLR.y   , UVlerpw.y);
-
-    return bUD ;
+    float lightmid = saturate(bUD * 2 - 0.5) ; //cubic hermit;
+    return lightmid ;
 }
 
 
@@ -734,7 +735,7 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
     //normalmap *= -3 * normalintensity; //bumpscale
 	float3 N = i.WorldN ; 
 
-    float tangentNrmZ = saturate(1 - normalmap.x - normalmap.y) ; //+0.5?
+    float tangentNrmZ = 0.75 ; // saturate(1 - normalmap.x - normalmap.y) ; //+0.5?
     N = normalmap.x * i.WorldB + normalmap.y * i.WorldT + tangentNrmZ * i.WorldN;
 
     #ifdef GEOFLATFACE //DIRIVATIVE REPLACE GEO SHADER
@@ -758,7 +759,7 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
     float diffAO = N.z *0.5 + 0.5 ; //1- normalintensity;
 
     //ambient BRDF
-    float3 skybox_color = i.Color_Accent_Blend.rgb ; //fakeskybox(R) /2; 
+    float3 skybox_color = AmbientLightColor ; //fakeskybox(R) /2; 
     float3 irradi_color = i.Color_Accent_Blend.rgb + AmbientLightColor;
 
     float env_f_term = pow(saturate(1- dot(V,N)) , 4) ;
@@ -845,7 +846,9 @@ float4 PS_Default(   //HIGH QUALITY PS ALL USE THIS
     
     if(renderingMode == RenderingMode_TerrainTile)
     {opacity = 1 ;};
-	
+
+    OUTCOLOR = clamp(OUTCOLOR, 0, 64);
+
 	return float4(OUTCOLOR, opacity);
 }
 
@@ -921,7 +924,7 @@ technique Road
         AlphaBlendEnable = 1;
         SrcBlend = 5;
         DestBlend = 6;
-        DepthBias =  -pow(0.5 , 11); // -0.0004 = -1 / 2500
+        DepthBias =  -32.0 / 65536.0f ; // -0.0004 = -1 / 2500
     }
 }
 
@@ -942,7 +945,7 @@ technique Scorch
         AlphaBlendEnable = 1;
         SrcBlend = 5;
         DestBlend = 6;
-        DepthBias =  -pow(0.5 , 12); //-0.0002
+        DepthBias =  -16.0 / 65536.0f ; //-0.0002
     }
 }
 
@@ -1024,10 +1027,15 @@ float4 PS_DefaultLOW(   //LOW QUALITY PS .
 
     float3 OUTCOLOR = ambientALL + sunALL  ;
     OUTCOLOR *= i.Color_Shroud_Suntilt.x ;
+    OUTCOLOR = clamp(OUTCOLOR, 0, 64);
 
 	return float4(OUTCOLOR, opacity);
 }
 //end low ps, begin low technique
+
+
+
+//  8 / 65536 = 0.0001
 
 
 technique TerrainTile_M
@@ -1085,7 +1093,7 @@ technique Road_M
         AlphaBlendEnable = 1;
         SrcBlend = 5;
         DestBlend = 6;
-        DepthBias = -pow(0.5 , 11); // -0.0004 = -1 / 2500
+        DepthBias = -32.0 / 65536.0f ; // -0.0004 = -1 / 2500
     }
 }
 
@@ -1106,7 +1114,7 @@ technique Scorch_M
         AlphaBlendEnable = 1;
         SrcBlend = 5;
         DestBlend = 6;
-        DepthBias = -pow(0.5 , 12); //-0.00024
+        DepthBias = -16.0 / 65536.0f ; //-0.00024
     }
 }
 

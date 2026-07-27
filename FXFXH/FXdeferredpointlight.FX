@@ -138,7 +138,7 @@ float4 PSpointlight2(VSout_local2 i, uniform bool LevelofDetail) : COLOR
 {   
     float2 screenUV = i.ClipSpacePos.xy / i.ClipSpacePos.w * float2(1, -1); 
     //ndc but flip, also add margin due to dx9
-    screenUV = screenUV * 0.5 + 0.5 + (0.5 / 8192.0) ;
+    screenUV = screenUV * 0.5 + 0.5 + (0.5 / 4096.0) ;
 
     float vpdepth = tex2D(DepthTextureSampler, screenUV).x; //DEPTH BUFFER?
     float3 vpPixel = i.ViewSpacePos.xyz / i.ViewSpacePos.z * vpdepth; 
