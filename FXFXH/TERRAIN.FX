@@ -924,7 +924,7 @@ technique Road
         AlphaBlendEnable = 1;
         SrcBlend = 5;
         DestBlend = 6;
-        DepthBias =  -32.0 / 65536.0f ; // -0.0004 = -1 / 2500
+        DepthBias =  (-32.0 / 65536.0f) ; // -0.0004 = -1 / 2500
     }
 }
 
@@ -945,7 +945,7 @@ technique Scorch
         AlphaBlendEnable = 1;
         SrcBlend = 5;
         DestBlend = 6;
-        DepthBias =  -16.0 / 65536.0f ; //-0.0002
+        DepthBias =  (-16.0 / 65536.0f) ; //-0.0002
     }
 }
 
@@ -1093,7 +1093,7 @@ technique Road_M
         AlphaBlendEnable = 1;
         SrcBlend = 5;
         DestBlend = 6;
-        DepthBias = -32.0 / 65536.0f ; // -0.0004 = -1 / 2500
+        DepthBias = (-32.0 / 65536.0f) ; // -0.0004 = -1 / 2500
     }
 }
 
@@ -1114,7 +1114,7 @@ technique Scorch_M
         AlphaBlendEnable = 1;
         SrcBlend = 5;
         DestBlend = 6;
-        DepthBias = -16.0 / 65536.0f ; //-0.00024
+        DepthBias = (-16.0 / 65536.0f) ; //-0.00024
     }
 }
 
@@ -1129,13 +1129,20 @@ struct VSOutput_CreateShadowMap
 	float4 Position : POSITION;
 	float4 ClipSpace : TEXCOORD0;
 };
-VSOutput_CreateShadowMap VS_CreateShadowMap(float4 Position : POSITION, uniform float Assumedown)
+VSOutput_CreateShadowMap VS_CreateShadowMap(float4 Position : POSITION, uniform float uselessfloat)
+{
+	VSOutput_CreateShadowMap Out;
+	Out.Position = mul(float4(Position.xyz , 1), ViewProjection);
+    Out.ClipSpace = Out.Position ;
+	//Out.Depth = Out.Position.z / Out.Position.w;
+	return Out;
+}
+VSOutput_CreateShadowMap VS_CreateShadowMapDrop(float4 Position : POSITION, uniform float Assumedown)
 {
 	VSOutput_CreateShadowMap Out;
     float4 assumedwordpos = float4(Position.x, Position.y, (Position.z - Assumedown) , 1);
 	Out.Position = mul(assumedwordpos, ViewProjection);
     Out.ClipSpace = Out.Position ;
-	//Out.Depth = Out.Position.z / Out.Position.w;
 	return Out;
 }
 float4 PS_CreateShadowMap(VSOutput_CreateShadowMap In) : COLOR
