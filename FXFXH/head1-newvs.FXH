@@ -29,6 +29,59 @@ float3x3 Quaternion2Matrix(float4 q)
     );
 }
 
+/*
+
+
+// 一些通用函数 =========================
+
+// 通过四元数来计算旋转的函数，来自 CNC3 的 Skinning.fxh
+float3 QuaternionRotate(float4 rotation, float3 position) 
+{
+	float4 a
+	= rotation.wwwx * position.xyzx 
+    + rotation.yzxy * position.zxyy;
+	a.w = -a.w;
+	a -= rotation.zxyz * position.yzxz;
+    float3 finalvector 
+    = rotation.www * a.xyz 
+    - rotation.xyz * a.www 
+    + rotation.yzx * a.zxy 
+    - rotation.zxy * a.yzx;
+	return finalvector;
+}; 
+
+
+//  2x2x2 Percentage-Closer Filtering on a shadow map
+float TrilinearShadowPCF(sampler2D shadowSampler, float3 SMUV, float oneOverMapSize)
+{
+    //  Calculate bilinear interpolation weights based on fractional texel coordinates
+    float2 fractionalUV = frac(SMUV.xy / oneOverMapSize);
+    float2 offset = float2(0, oneOverMapSize);
+    
+    // Sample the 4 nearest texels. In DX9 tex2Dlod requires float4 : (u, v, 0, miplevel).
+    float4 samples;
+    samples.x = tex2Dlod(shadowSampler, float4(SMUV.xy + offset.xx, 0, 0)).x; // LU (0,0)
+    samples.y = tex2Dlod(shadowSampler, float4(SMUV.xy + offset.xy, 0, 0)).x; // LD (0,1)
+    samples.z = tex2Dlod(shadowSampler, float4(SMUV.xy + offset.yx, 0, 0)).x; // RU (1,0)
+    samples.w = tex2Dlod(shadowSampler, float4(SMUV.xy + offset.yy, 0, 0)).x; // RD (1,1)
+
+    // Perform depth comparison and apply bias mathematically across all 4 samples at once
+    float4 sunlightquad = saturate((samples - SMUV.z) * 255.0 + 0.25);
+    // transition range : 1/255 , begin offset 0.25/255
+    // 1/255 = 0.04 , 1/1024= 0.001  . original: 0.0015
+
+    // Bilinear interpolation
+    float2 bLR = lerp(sunlightquad.xy, sunlightquad.zw, fractionalUV.x);
+    float  bUD = lerp(bLR.x, bLR.y, fractionalUV.y);
+    return bUD ;  //  1 for full sun, 0 for full dark shadow
+}
+
+
+
+
+
+*/
+
 // High Quality Input (P, N, T, B)
 struct VS_H_unified_input
 {

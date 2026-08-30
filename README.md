@@ -83,6 +83,14 @@ These values can be driven by textures, constants, or hardcoded logic depending 
 
 ## Feature Notes
 
+### Unlimited Deferred Light Volume, 2026
+
+This is a temporary solution for implementing unlimited amount of point lights, and avoid tearing caused by the original 8-per-object limits. It will be repleced by real deferred rendering pipeline in the future.
+
+### Depth Buffer Carving, 2026
+
+Now the FXcutDepthBuffer.fx shader actually make a hole on the depth buffer ground layer with double pass stencil checking. All VFX and other models will show correctly under it. 
+
 ### Terrain Update, March 2025
 
 The terrain pass now fixes blocky shadow edges and awkward ground displacement. Shadow filtering uses 2x2 PCF plus dithering to soften the edge.
@@ -91,7 +99,7 @@ The terrain pass now fixes blocky shadow edges and awkward ground displacement. 
 
 It also supports more realistic point-light reflection.
 
-### 3ds Max Preview, February 2025
+### 3ds Max Preview, October 2024
 
 This version adds a more complete preview pipeline so you can inspect near in-game results directly in 3ds Max. It was originally built for the 日冕 dev team.
 
@@ -105,7 +113,7 @@ The stealth support automatically switches rendering into a semi-transparent hol
 
 That behavior is fully automatic, so you do not need to script a separate stealth toggle into your mod.
 
-The underground-structure shader makes missile silos and mine pits readable without visibly breaking the terrain surface. It uses optical illusion rather than modifying the depth buffer directly, while keeping lighting, shadowing, and reflections consistent with an underground object.
+(Abandoned!) The underground-structure shader makes missile silos and mine pits readable without visibly breaking the terrain surface. It uses optical illusion rather than modifying the depth buffer directly, while keeping lighting, shadowing, and reflections consistent with an underground object.
 
 ![Underground demo](preview_images/underground1.gif)
 
