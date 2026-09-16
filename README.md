@@ -2,7 +2,9 @@
 
 Custom shader source for Command & Conquer: Red Alert 3. This repository focuses on graphic improvements for the game’s DX9 renderer, using HLSL-based shaders and a cleaner source structure that is easier to read and edit than the decompiled prototypes this project originally started from.
 
-> Note: this is not a fork of the official EA source drop. The project began before the Red Alert 3 shader source code was published, so the layout and implementation style are intentionally different.
+> Note: this is not a fork of the official EA source drop. The project began before the Red Alert 3 shader source code was published, about 2023-2024, so the layout and implementation style are intentionally different.
+
+Also, because most LLM coding tools is so bad at shader programming, especially the outdated DX9 convention, this whole codebase is almost completely hand-written by our contributors, and some key parts are copied from official source after they were released in 2025. 
 
 ## Highlights
 

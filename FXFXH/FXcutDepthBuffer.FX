@@ -24,7 +24,7 @@ int _SasGlobal : SasGlobal
 
 
 
-#include "head0-common.FXH"
+#include "COMMON.FXH"
 
 // FOR PREVIEW ===========
 #ifdef _3DSMAX_

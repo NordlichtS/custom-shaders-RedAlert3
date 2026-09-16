@@ -295,7 +295,7 @@ float hp_vertex_shadow(float3 ShadowProjection)
 float3 hp_dynamic_cloud_reflection(float2 pixelcloudUV, float3 R, float3 Lsun, float cloudLOD)
 {
   #ifdef _3DSMAX_
-    return NoCloudMultiplier; //float3(1,1,1);
+    return 1;// NoCloudMultiplier; //float3(1,1,1);
   #endif
     float2 UVbias = R.xy / R.z -  Lsun.xy / Lsun.z ;
     //cloud color dont change on sunlight direction, consider the same UV

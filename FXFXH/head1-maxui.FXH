@@ -1,6 +1,6 @@
 //for shader specific controls
 
-#include "head0-COMMON.FXH"  //shader通用的
+#include "COMMON.FXH"  //shader通用的
 
 /*
 // This is used by 3dsmax to load the correct parser

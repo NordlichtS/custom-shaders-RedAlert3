@@ -1,16 +1,34 @@
 //common shader global variables
 //must be the very first
+// #define _3DSMAX_
 
 //#pragma warning(disable: 4008)
-string DefaultParameterScopeBlock = "material"; 
 
+string DefaultParameterScopeBlock = "material"; 
 
 // This is used by 3dsmax to load the correct parser
 #if defined(_3DSMAX_)
+
     string ParamID = "0x1";
+
     #define readonly
     #define SEMANTIC_3DSMAX(semantic) : semantic
     static const bool INMAX = 1 ;
+
+    int _3DSTexcoordMapping0 : Texcoord
+    <
+    int Texcoord = 0;
+    int MapChannel = 1;
+    string UIWidget = "None";
+    > = 0;
+
+    int _3DSTexcoordMapping1 : Texcoord
+    <
+    int Texcoord = 1;
+    int MapChannel = 2;
+    string UIWidget = "None";
+    > = 0;
+
 #else
     #define readonly const
     #define texture2D texture
@@ -20,7 +38,9 @@ string DefaultParameterScopeBlock = "material";
 #endif
 
 
-//这有什么用？看起来很重要
+
+// 如果FX文件没有专门修改这个，那就引用common 里的SAS GLOBAL
+
 #ifndef SPECIAL_SAS_HEADER
 
 int _SasGlobal : SasGlobal  
@@ -31,8 +51,9 @@ int _SasGlobal : SasGlobal
     int MaxLocalLights = 0;
 > = 0;
 
-#endif
-//先留着吧
+#endif //SPECIAL_SAS_HEADER
+
+
 /*
 #if defined(SUPPORT_FORMATIONPREVIEW)	
 	string RenderBin = "StaticSort1";
@@ -47,29 +68,31 @@ int _SasGlobal : SasGlobal
 
 
 //阵营色，最前面的寄存器
-#ifndef FORBID_FACTION_COLOR //默认有阵营色 除非专门禁用
+#ifdef FORBID_FACTION_COLOR //默认有阵营色 除非专门禁用
 
-shared float3 RecolorColor 
-: register(vs, c0) : register(ps, c0)
-<   bool unmanaged = true;
+shared float3 RecolorColorDummy : register(c0) 
+<bool unmanaged = 1;> = {1,1,1};
+
+#else //专门禁用需要挤掉寄存器
+
+shared float3 RecolorColor : register(c0) 
+<   
+    bool unmanaged = true;
 	string UIName = "PV_RecolorColor";
 	string UIWidget = "Color";
 	bool ExportValue = false;
-> = { 
+> = 
     #ifdef _3DSMAX_
-    0 , 0.5 , 1 
-    #else //MAX预览默认蓝色，游戏里默认白色
-    1 , 1 , 1 
+    { 0 , 0.5 , 1 };
+    #else
+    { 1 , 1 , 1 };
     #endif
-    };
-#else //如果专门禁用的话，还需要挤掉寄存器
-    shared float3 RecolorColorDummy : register(vs, c0) : register(ps, c0) 
-    <bool unmanaged = 1;> = {1,1,1};
+
 #endif
 
 //透明度整体修改
 shared float OpacityOverride 
-: register(vs, c1) : register(ps, c1)
+: register(c1) 
 <   bool unmanaged = true;
     string UIName = "PV_OpacityOverride"; 
     float UIMax = 1; float UIMin = 0; float UIStep = 0.1; 
@@ -79,29 +102,35 @@ shared float OpacityOverride
 
 //谭雅炸弹的染色，还有鼠标点击变亮
 shared float3 TintColor 
-: register(vs, c2) : register(ps, c2)
+: register(c2) 
 <   bool unmanaged = true;> 
 = float3(1, 1, 1);
 
-//低画质没有云的时候模拟阴天用
+//只能给粒子用，不能给任何其它物体shader用，否则会出问题
 shared float3 NoCloudMultiplier  
-: register(vs, c3) : register(ps, c3)
+: register(c3) 
 <   bool unmanaged = true;> 
 = 1 ;
 
 //地编环境光
 shared float3 AmbientLightColor 
-: register(vs, c4) : register(ps, c4)
+: register(c4) 
 <   bool unmanaged = true;
-	string UIName = "PV_AmbientLightColor";
-	string UIWidget = "Color";
-	bool ExportValue = false;
+    bool ExportValue = false;
+
+    #ifdef IGNORE_FOG_CLOUD_SHADOW
+    string UIWidget = "None";
+    #else
+    string UIName = "PV_AmbientLightColor";
+    string UIWidget = "Color";
+    #endif
+
 > = float3(0.25, 0.25, 0.25);
 
 //阳光和两个accent light ,C5-C10
 shared struct{ float3 Color; float3 Direction;} 
 DirectionalLight[3] 
-: register(vs, c5) : register(ps, c5) 
+: register(c5)
 <   bool unmanaged = 1;> = { 
 1.0, 1.0, 1.0,   0, 0, 1, 
 0.4, 0.5, 0.6,   0, 1, 0, 
@@ -335,77 +364,14 @@ float4x4 MAXprojection : Projection;
 
 // preview variables ==================
 
-    // sun light direction (world space)
-    float3 PV_SunlightDirection : Direction 
-    <  
-        #ifndef IGNORE_FOG_CLOUD_SHADOW
-        string UIName = "PV_SunlightDirection"; 
-        #else 
-        string UIWidget = "None";
-        #endif 
-        string Object = "TargetLight";
-        string Space  = "World";   
-        int refID = 0; //这是用来联系光颜色的？
-        bool ExportValue = false;
-    > = {0, 0, 1};
-
-    float3 PV_SunlightColor : LIGHTCOLOR 
+    /*
+    float PV_boneALPHA
     <
-        int LightRef = 0; //这是用来联系光颜色的？
-        string UIWidget = "None";
-        bool ExportValue = false;
-    > = {1, 1, 1};
-
-    /// Point Light vfx
-    float3 PV_pointlightPOS : POSITION 
-    <
-        #ifndef IGNORE_FOG_CLOUD_SHADOW
-        string UIName = "PV_pointlightPOS";
-        #else 
-        string UIWidget = "None";
-        #endif 
-        string Object = "PointLight0";
-        string Space  = "World";
-        int refID = 1;
-        bool ExportValue = false;
-    > = {0,0,40};
-
-    float3 PV_pointlightCOLOR : LIGHTCOLOR 
-    <
-        int LightRef = 1;
-        string UIWidget = "None";
-        bool ExportValue = false;
-    > = {0, 0, 0};
-
-    float PV_pointlightRANGE
-    <
-        #ifndef IGNORE_FOG_CLOUD_SHADOW
-        string UIName = "PV_pointlightRANGE"; 
-        #else 
-        string UIWidget = "None";
-        #endif 
-        float UIMax = 800; float UIMin = 0; float UIStep = 10; 
-        bool ExportValue = false;
-    > = 100 ;
-
-    // two secondary light
-    float3 PV_accentlight 
-    < 
-        #ifndef IGNORE_FOG_CLOUD_SHADOW
-        string UIName = "PV_accentlight";
-        #else 
-        string UIWidget = "None";
-        #endif 
-        string UIWidget = "Color";
-        bool ExportValue = false;
-    > = { 0.2, 0.3, 0.4 };
-
-    float PV_vertexALPHA
-    <
-        string UIName = "PV_vertexALPHA"; 
+        string UIName = "PV_boneALPHA"; 
         float UIMax = 1; float UIMin = 0; float UIStep = 0.1; 
         bool ExportValue = false;
     > = 1 ;
+    */
 
     bool PV_SRGB
     <
@@ -413,9 +379,75 @@ float4x4 MAXprojection : Projection;
         bool ExportValue = false;
     > = 0 ;
 
+
+
+    #ifdef IGNORE_FOG_CLOUD_SHADOW
+    
+        float3 PV_SunlightDirection = {0, 0, 1};
+        float3 PV_SunlightColor = 0;
+        float3 PV_pointlightPOS = 0; 
+        float3 PV_pointlightCOLOR = 0; 
+        float PV_pointlightRANGE = 0 ;
+        float3 PV_accentlight = 0 ;
+
+    #else
+
+        // sun light direction (world space)
+        float3 PV_SunlightDirection : Direction 
+        <  
+            string UIName = "PV_SunlightDirection"; 
+            string Object = "TargetLight";
+            string Space  = "World";   
+            int refID = 0; //这是用来联系光颜色的？
+            bool ExportValue = false;
+        > = {0, 0, 1};
+
+        float3 PV_SunlightColor : LIGHTCOLOR 
+        <
+            int LightRef = 0; //这是用来联系光颜色的？
+            string UIWidget = "None";
+            bool ExportValue = false;
+        > = {1, 1, 1};
+
+        /// Point Light vfx
+        float3 PV_pointlightPOS : POSITION 
+        <
+            string UIName = "PV_pointlightPOS";
+            string Object = "PointLight0";
+            string Space  = "World";
+            int refID = 1;
+            bool ExportValue = false;
+        > = {0,0,40};
+
+        float3 PV_pointlightCOLOR : LIGHTCOLOR 
+        <
+            int LightRef = 1;
+            string UIWidget = "None";
+            bool ExportValue = false;
+        > = {0, 0, 0};
+
+        float PV_pointlightRANGE
+        <
+            string UIName = "PV_pointlightRANGE"; 
+            float UIMax = 800; float UIMin = 0; float UIStep = 10; 
+            bool ExportValue = false;
+        > = 100 ;
+
+        // two secondary light
+        float3 PV_accentlight 
+        < 
+            string UIName = "PV_accentlight";
+            bool ExportValue = false;
+        > = { 0.2, 0.3, 0.4 };
+
+    #endif // IGNORE_FOG_CLOUD_SHADOW
+
 // end preview variables  =============
 
-#endif  // ==============  _3DSMAX_  =============
+#endif  //   _3DSMAX_  
+
+
+
 
 
 

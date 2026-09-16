@@ -55,7 +55,7 @@ VS_H_output VSforMAX(VS_3dsmax_input i)
     float4 WorldPosition = float4(0,0,0,1);
     o.ShadowCS = o.FogCloudUV = 0 ;
     o.VertexColor.rgb = PV_accentlight ;  //
-    o.VertexColor.w = PV_vertexALPHA ; //!!!
+    o.VertexColor.w = PV_boneALPHA ; //!!!
     o.CoordOBJ.xyz = i.position.xyz; //o.CoordOBJ.w = -1;
 
     float3 MAXtangent = i.tangent.xyz ;

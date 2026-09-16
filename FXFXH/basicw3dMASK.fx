@@ -5,11 +5,16 @@ fxc.exe /O2 /T fx_2_0 /Fo   (FOR_3DSMAX_ONLY)basicw3dMASK.fxo   basicw3dMASK.FX
 
 
 */
-#define IGNORE_SHROUD_CLOUD_SHADOW
-#define _3DSMAX_
-
+#define IGNORE_FOG_CLOUD_SHADOW
+// #define _3DSMAX_
+#define FORBID_CLIPPING_CONSTANT
 
 #define SPECIAL_SAS_HEADER
+
+//////////////////////
+
+ #include "COMMON.FXH"  // this must be as early as possible
+
 
 int _SasGlobal : SasGlobal  
 <
@@ -26,10 +31,10 @@ int _SasGlobal : SasGlobal
 
 int BlendMode <string UIName = "BlendMode(012:opaque/alpha/add)"; int UIMin = 0; int UIMax = 2;> = 2 ;
 
-int BaseUV <string UIName = "BaseUV(0123:uv0/uv1/world/clip)"; int UIMin = -1; int UIMax = 3;> = 0;
-int MaskUV <string UIName = "MaskUV(-1=screen64,0123=same)"; int UIMin = -1; int UIMax = 3;> = -1;
+int BaseUV <string UIName = "BaseUV(0123:uv0/uv1/world/clip)"; int UIMin = -512; int UIMax = 3;> = 0;
+int MaskUV <string UIName = "MaskUV(<0:screen,0123:same)"; int UIMin = -512; int UIMax = 3;> = -64;
 
-int MaskChannel <string UIName = "MaskChannel(1234RGBA,-1234invert)"; int UIMin = -4; int UIMax = 4;> = 2;
+int MaskChannel <string UIName = "MaskChannel(1234RGBA,-1234invert)"; int UIMin = -4; int UIMax = 4;> = 0;
 bool UseRecolorColors <string UIName = "UseRecolorColors";> = 0;
 bool HouseColorPulse  <string UIName = "HouseColorPulse";> = 1; //scanline
 
@@ -45,6 +50,12 @@ float EdgeFadeOut <string UIName = "EdgeFadeOut"; string UIWidget = "Spinner"; f
 //EFO <0 means edge alpha = 1 , usually 0
 //float RimFadeOut <string UIName = "RimFadeOut"; string UIWidget = "Spinner"; float UIMin = -1; float UIMax = 1;> = 0 ;
 // ECO <0 means fade to transparent, else brighter
+
+bool AlphaTestEnable    < string UIName = "Alpha Test Enable";> = 0;
+bool CullingEnable      < string UIName = "Culling Enable";> = 1;
+bool DepthWriteEnable   < string UIName = "Depth Write Enable";> = 1;
+bool DepthTestEnable    < string UIName = "Depth Test Enable";> = 1; //false for always show
+
 
 
 texture Texture_0 <string UIName = "Texture_0(base)";>; 
@@ -70,7 +81,7 @@ sampler_state{
 };
 
 
-#include "head2-functions.FXH"  // hahahahahahahaha
+// #include "head2-functions.FXH"  // hahahahahahahaha
 
 
 //vs=========================
@@ -185,7 +196,7 @@ VStmp_out VS_L_Unified(VS_unified_notgt_input i, uniform int BonePerVertex)
     float2 uvtypes[4] ;
     uvtypes[0] = i.texcoord.xy ;
     uvtypes[1] = i.texcoord1.xy ;
-    uvtypes[2] = worldP.xy /64 ; 
+    uvtypes[2] = worldP.xy / 32.0 ; 
     uvtypes[3] = ClipSpacePos.xy / ClipSpacePos.w * 0.5 + 0.5 ;
     float2 baseuv = uvtypes[ clamp( BaseUV, 0,3) ] ;
     float2 maskuv = uvtypes[ clamp( MaskUV, 0,3) ] ;
@@ -213,11 +224,11 @@ struct PSmask_in
 
 float4 PS_gradient_mask (PSmask_in i) : COLOR 
 {
-    float2 ssTexUV = (i.vpos + 0.5) /64 ;
+    float4 ssTexUV = (i.vpos.xyxy + 0.5) / float4( BaseUV, BaseUV, MaskUV, MaskUV )  ; 
     float3 colorMultiplier = 1 ;
     float  alphaMultiplier = 1 ;
-    float2 baseuv = (BaseUV == -1) ? ssTexUV : i.MainTexUV.xy ;
-    float2 maskuv = (MaskUV == -1) ? ssTexUV : i.MainTexUV.zw ;    
+    float2 baseuv = (BaseUV <= -1) ? ssTexUV.xy : i.MainTexUV.xy ;
+    float2 maskuv = (MaskUV <= -1) ? ssTexUV.zw : i.MainTexUV.zw ;    
 
     float maskvalue = -1 ; //default: mask always below scan, always show
     float scanvalue = i.dotsun_fresnel_Valpha_Balpha.a ;
@@ -246,21 +257,18 @@ float4 PS_gradient_mask (PSmask_in i) : COLOR
 
     //opacity handle
     alphaMultiplier *= i.dotsun_fresnel_Valpha_Balpha.z ;
-    float edgeAlpha = (EdgeFadeOut <0 )? 1 : 0 ;
+    float edgeAlpha = (EdgeFadeOut < 0 )? 1 : 0 ;
     float fresnel = smoothstep(0, 1, abs(i.dotsun_fresnel_Valpha_Balpha.y));
     alphaMultiplier *= lerp(edgeAlpha, Opacity, fresnel) ;
     alphaMultiplier *= i.dotsun_fresnel_Valpha_Balpha.z ;
 
     // rim handle
-    float rim = (scanvalue - maskvalue) *64 ;
+    float rim = (scanvalue - maskvalue) * 64 ;
     rim = saturate(1 - rim);
 
-    float4 finalcolor = float4(colorMultiplier.rgb, 1);
-    if(BlendMode == 1){
-        finalcolor.a = alphaMultiplier * baseTEXcolor.a;
-    }else{
-        finalcolor.rgb *= alphaMultiplier;
-    };
+    float4 finalcolor = float4(colorMultiplier.rgb, alphaMultiplier);
+    if(BlendMode == 1) { alphaMultiplier *= baseTEXcolor.a;}
+
     finalcolor.rgb += realHC * rim ;
 
     #ifdef _3DSMAX_
@@ -273,8 +281,6 @@ float4 PS_gradient_mask (PSmask_in i) : COLOR
 
 // finish ===============================
 
-int VSchooserExpr() 
-{   return clamp(NumJointsPerVertex, 0, 2) ; }
 
 #ifndef _3DSMAX_
 VertexShader VS_Array[3] = {
@@ -291,14 +297,25 @@ technique Default
         #ifdef _3DSMAX_
         VertexShader = compile vs_3_0 VS_L_Unified(-1) ;
         #else
-        VertexShader = VS_Array[VSchooserExpr()]; 
+        VertexShader = VS_Array[ clamp(NumJointsPerVertex, 0, 2)]; 
         #endif
         PixelShader = compile ps_3_0 PS_gradient_mask(); 
-        ZEnable = 1; //true
+
         ZFunc = 4; //ZFUNC_INFRONT
         AlphaFunc = 7; //GreaterEqual
         AlphaRef = 2; // 2/255
 
+		CullMode = ( CullingEnable ? D3DCULL_CW : D3DCULL_NONE );
+
+        ZEnable = ( DepthTestEnable ); // false for always show
+		ZWriteEnable = ( DepthWriteEnable );
+		AlphaTestEnable = ( AlphaTestEnable );
+		AlphaBlendEnable = ( BlendMode != 0  );
+		// SrcBlend =  ( (BlendMode != 0) ? D3DBLEND_ONE : D3DBLEND_SRCALPHA );
+        SrcBlend = D3DBLEND_SRCALPHA ;
+		DestBlend = ( (BlendMode == 2) ? D3DBLEND_ONE : D3DBLEND_INVSRCALPHA );
+
+        /*
         #ifdef _3DSMAX_
 		ZWriteEnable = ( DepthWriteEnable );
 		CullMode = ( CullingEnable ? D3DCULL_CW : D3DCULL_NONE );
@@ -307,5 +324,6 @@ technique Default
 		SrcBlend = ( (BlendMode == 2) ? D3DBLEND_ONE : D3DBLEND_SRCALPHA );
 		DestBlend = ( (BlendMode == 2) ? D3DBLEND_ONE : D3DBLEND_INVSRCALPHA );
         #endif
+        */
     }
 }

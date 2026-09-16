@@ -22,7 +22,7 @@ int _SasGlobal : SasGlobal
     string RenderBin = "StaticSort5";
 > = 0;
 
-#include "head0-COMMON.FXH"
+#include "COMMON.FXH"
 
 float ShadowDepthBiasTexels
 <

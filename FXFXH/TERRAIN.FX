@@ -14,7 +14,7 @@ fxc.exe /O2 /T fx_2_0 /Fo   terrain.fxo   TERRAIN.FX
 
 
 
-//#include "head0-COMMON.FXH"  //hope it works
+//#include "COMMON.FXH"  //hope it works
 //no, too much differences
 //lets declare everything all over again
 
@@ -1018,8 +1018,8 @@ float4 PS_DefaultLOW(   //LOW QUALITY PS .
     }
 	sunColor *= shadowterm ;
 
-    float3 cloudColor = NoCloudMultiplier ;//also no cloud
-    sunColor *= cloudColor;//no gamma
+    //float3 cloudColor = NoCloudMultiplier ;//also no cloud
+    //sunColor *= cloudColor;//no gamma
 
     float3 sunALL = float3(0,0,0) ;  
     sunALL += diffcolor * diffterm ; 

@@ -3,12 +3,12 @@
 // this can be called anywhere and requires no global variable
 
 
-float3 QuaternionRotation(float4 q, float3 p) 
+float3 QuaternionRotation(float4 q, float3 block) 
 {
 	float4 a
-	= q.wwwx * p.xyzx + q.yzxy * p.zxyy;
+	= q.wwwx * block.xyzx + q.yzxy * block.zxyy;
 	a.w = -a.w;
-	a -= q.zxyz * p.yzxz;
+	a -= q.zxyz * block.yzxz;
     float3 finalvector 
     = q.www * a.xyz - q.xyz * a.www + q.yzx * a.zxy - q.zxy * a.yzx;
 	return finalvector;
@@ -65,3 +65,27 @@ This loses UV scale info (like the reference) but avoids a division
 and is stable without a det==0 guard (normalize handles near-zero).
 flip = sign(det) preserves UV mirror handedness at near-zero cost.
 */
+
+
+// 8 pixel alpha dither
+void dither4x2clip(float2 vpos, float alpha)
+{
+    float2 block = frac(vpos * float2(0.25, 0.5)) * float2(4, 2);
+    int rowindex = floor(block.x) ;
+    const float4 row0 = {1, 5, 3, 7};
+    const float4 row1 = {6, 2, 8, 4};
+    // the number in array is retained pixel count in the block 
+    float rank = (block.y < 0.5) ? row0[rowindex] : row1[rowindex];
+    float scaledalpha = alpha * 8 + 0.5 ; // 0 - 1 to  0.5 - 8.5
+    clip( scaledalpha - rank);
+}
+
+void dither8clip(float2 vpos, float alpha)
+{
+    float2 block = frac(vpos / float2(4, 2)) * float2(4, 8);
+    // start all (0,0) end: from (3, 1) to ( 0.75, 0.5) to (3, 4)
+    int rowindex = round(block.x + block.y) ; // 0 - 7
+    const float row[8] = {6, 2, 8, 4,   1, 5, 3, 7};
+    float scaledalpha = alpha * 8 + 0.5 ; // 0 - 1 to  0.5 - 8.5
+    clip( scaledalpha - row[rowindex]);
+}

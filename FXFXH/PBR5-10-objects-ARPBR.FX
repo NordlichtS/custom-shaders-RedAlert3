@@ -293,7 +293,7 @@ float4 PS_H_ARPBR (PS_H_input i) : COLOR
     skybox_color *= cloudReflectionMultipler ;
   #else
     //float3 noCloudSkyMultipler =
-    skybox_color *= lerp(1, NoCloudMultiplier , saturate(R.z)); 
+    // skybox_color *= lerp(1, NoCloudMultiplier , saturate(R.z)); 
   #endif
  
     float3 ambientALL = float3(0,0,0) ; //环境光BRDF
@@ -451,7 +451,7 @@ float4 PS_LOW_ARPBR (PS_H_input i) : COLOR
 {
     float3 N = i.WorldN;
     float3 Lsun     = DirectionalLight[0].Direction.xyz ;
-    float3 SUNcolor = DirectionalLight[0].Color.xyz * NoCloudMultiplier;
+    float3 SUNcolor = DirectionalLight[0].Color.xyz ;//* NoCloudMultiplier;
     float sun_tilt = dot(N, Lsun);
     float3 sundiffuselight = (sun_tilt > 0)? SUNcolor : 0 ;
 
