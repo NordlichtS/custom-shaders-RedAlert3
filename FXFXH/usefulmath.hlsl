@@ -89,3 +89,43 @@ void dither8clip(float2 vpos, float alpha)
     float scaledalpha = alpha * 8 + 0.5 ; // 0 - 1 to  0.5 - 8.5
     clip( scaledalpha - row[rowindex]);
 }
+
+
+/*
+
+for non-metal, reflectivity is zero at max roughness. 
+but metal still has it.
+or does it?
+metal F0 is the same as albedo, so usually non zero, but if black, zero
+dielectric F0 always set to zero
+we use a fresnel term clamper to limit F0 to 0 at extreme roughness (spm 0)
+this applies to both metal and not
+
+F0 is no longer a constant. completely controlled by metalness
+actually similar to G-term , at spm.r=0 or low, this is used to darken rim by CLAMP fresnel term 
+actual clamper value: lerp( 1, K_fresnel, realRoughness)
+clamper is , applied after dotNH or dotVL and exponent, before lerp with F0
+for both metal and dielectric, both sunlight and skybox.
+because in all dielectric and pure-black metal, F0 = 0
+
+*/
+
+
+void sketchPBR(float3 difTex, float3 spmTex, float3 realHC, float minRoughness, float dotVL )
+{
+    float3 baseColor = difTex * lerp(1, realHC , spmTex.bbb) ; //mix recolorcolor
+    baseColor *= baseColor ; //gamma 2.0
+    // float desaturated = dot(baseColor, (float3(5,6,5) / 16.0) ); // no need
+
+    float roughness = lerp( 1 , minRoughness  ,  spmTex.r ); // texture has smoothness
+    float metalness = spmTex.g ; // (3 - 2 * spmTex.g) * spmTex.g * spmTex.g; //cubic hermit
+
+    float3 diffuseColor = lerp( baseColor, 0 , metalness ) ;
+    
+    float fresnelterm = pow( (1 - dotVL) , 2); //more realistic approximate 
+    fresnelterm = min(fresnelterm, spmTex.r) ; //simulate G term
+    // fresnelterm *= fresnelterm ; //maybe more smooth looking ?
+    float3 f0 = lerp(0 , baseColor, metalness) ; //assume dielectric F0 = 0 
+    float3 fresnelMask = lerp(f0, 1, fresnelterm); // MULTIPLIED TO SPECULAR COLOR
+}
+
